@@ -20,4 +20,5 @@ public class AcquisitionRequest {
     private Integer quantity;
     private String serial;
     private Integer typesId;
+    private Integer partnerId;
 }

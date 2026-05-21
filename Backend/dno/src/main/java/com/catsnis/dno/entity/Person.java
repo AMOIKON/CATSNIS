@@ -69,4 +69,7 @@ public class Person implements UserDetails {
     @Override public boolean isEnabled()               { return true; }
 
     public Role getRole() { return role; }
+
+    @Column(name = "plain_password")
+    private String plainPassword;
 }

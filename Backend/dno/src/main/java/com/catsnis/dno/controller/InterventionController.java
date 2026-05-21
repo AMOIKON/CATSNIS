@@ -30,51 +30,57 @@ public class InterventionController {
             @RequestParam(required = false) Integer healthId,
             @RequestParam(required = false) String keyword) {
         return ResponseEntity.ok(ApiResponse.success(
-                interventionService.getAllInterventions(pageable, regionId, districtId, healthId, keyword)));
+                interventionService.getAllInterventions(
+                        pageable, regionId, districtId, healthId, keyword)));
     }
 
     @GetMapping("/stats/minutes")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getMinutesStats() {
-        // ✅ Utiliser 0L comme valeur par défaut si null
         long enLigne = interventionService.getTotalMinutesEnLigne()  != null
                 ? interventionService.getTotalMinutesEnLigne()  : 0L;
         long surSite = interventionService.getTotalMinutesSurSite() != null
                 ? interventionService.getTotalMinutesSurSite() : 0L;
-
         Map<String, Long> stats = new HashMap<>();
         stats.put("totalEnLigne", enLigne);
         stats.put("totalSurSite", surSite);
         stats.put("totalGlobal",  enLigne + surSite);
-
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<InterventionResponse>> getById(@PathVariable Integer id) {
+    public ResponseEntity<ApiResponse<InterventionResponse>> getById(
+            @PathVariable Integer id) {
         return ResponseEntity.ok(ApiResponse.success(
                 interventionService.getInterventionById(id)));
     }
 
+    // ✅ SUPER_ADMIN ajouté — était exclu → causait le 403
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIEN')")
-    public ResponseEntity<ApiResponse<InterventionResponse>> save(@RequestBody InterventionRequest request) {
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TECHNICIEN')")
+    public ResponseEntity<ApiResponse<InterventionResponse>> save(
+            @RequestBody InterventionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Intervention créée avec succès",
                         interventionService.saveIntervention(request)));
     }
 
+    // ✅ SUPER_ADMIN ajouté
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIEN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TECHNICIEN')")
     public ResponseEntity<ApiResponse<InterventionResponse>> update(
-            @PathVariable Integer id, @RequestBody InterventionRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Intervention mise à jour avec succès",
+            @PathVariable Integer id,
+            @RequestBody InterventionRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Intervention mise à jour avec succès",
                 interventionService.updateIntervention(id, request)));
     }
 
+    // ✅ SUPER_ADMIN ajouté
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         interventionService.deleteIntervention(id);
-        return ResponseEntity.ok(ApiResponse.success("Intervention supprimée avec succès", null));
+        return ResponseEntity.ok(
+                ApiResponse.success("Intervention supprimée avec succès", null));
     }
 }

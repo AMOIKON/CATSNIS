@@ -1,6 +1,8 @@
 package com.catsnis.dno.dto;
+
 import com.catsnis.dno.entity.Role;
 import lombok.*;
+
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class PersonResponse {
     private Integer id;
@@ -12,4 +14,6 @@ public class PersonResponse {
     private String  postName;
     private String  unitsName;
     private String  partnerName;
+
+    private String  password;
 }

@@ -8,50 +8,132 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface DeploymentRepository extends JpaRepository<Deployment, Integer> {
 
-    @Query("SELECT d FROM Deployment d WHERE " +
-            "(:regionId IS NULL OR d.region.id = :regionId) AND " +
-            "(:districtId IS NULL OR d.district.id = :districtId) AND " +
-            "(:healthId IS NULL OR d.health.id = :healthId) AND " +
-            "(:keyword IS NULL OR LOWER(d.codeDep) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "ORDER BY d.dateRecep DESC")
-    Page<Deployment> findAllWithFilters(
-            Pageable pageable,
-            @Param("regionId")   Integer regionId,
-            @Param("districtId") Integer districtId,
-            @Param("healthId")   Integer healthId,
-            @Param("keyword")    String keyword);
+    // ── Simple ────────────────────────────────────────────────────────────────
+    List<Deployment> findByHealthId(Integer healthId);
 
-    @Query("SELECT d FROM Deployment d WHERE " +
-            "(:healthIds IS NULL OR d.health.id IN :healthIds) AND " +
-            "(:regionId IS NULL OR d.region.id = :regionId) AND " +
-            "(:districtId IS NULL OR d.district.id = :districtId) AND " +
-            "(:healthId IS NULL OR d.health.id = :healthId) AND " +
-            "(:keyword IS NULL OR LOWER(d.codeDep) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "ORDER BY d.dateRecep DESC")
-    Page<Deployment> findAllWithHealthFilter(
-            Pageable pageable,
-            @Param("healthIds")  List<Integer> healthIds,
-            @Param("regionId")   Integer regionId,
-            @Param("districtId") Integer districtId,
-            @Param("healthId")   Integer healthId,
-            @Param("keyword")    String keyword);
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+    List<Deployment> findTop5ByOrderByDateRecepDesc();
 
-    @Query("SELECT d FROM Deployment d WHERE d.health.id = :healthId ORDER BY d.dateRecep DESC")
-    List<Deployment> findByHealthId(@Param("healthId") Integer healthId);
-
-    // ── Dashboard — déploiements par région avec filtres ✅ ───────────────────
-    @Query("SELECT r.regionName, COUNT(d) FROM Deployment d JOIN d.region r " +
-            "WHERE (:regionId IS NULL OR d.region.id = :regionId) " +
-            "AND (:districtId IS NULL OR d.district.id = :districtId) " +
-            "AND (:healthId IS NULL OR d.health.id = :healthId) " +
-            "GROUP BY r.regionName ORDER BY COUNT(d) DESC")
+    @Query("""
+        SELECT d.region.regionName, COUNT(d)
+        FROM Deployment d
+        WHERE (:regionId   IS NULL OR d.region.id   = :regionId)
+          AND (:districtId IS NULL OR d.district.id = :districtId)
+          AND (:healthId   IS NULL OR d.health.id   = :healthId)
+        GROUP BY d.region.regionName
+        ORDER BY COUNT(d) DESC
+        """)
     List<Object[]> countGroupByRegion(
             @Param("regionId")   Integer regionId,
             @Param("districtId") Integer districtId,
             @Param("healthId")   Integer healthId);
 
-    List<Deployment> findTop5ByOrderByDateRecepDesc();
+    // ── FIX removeItem — charge items en JOIN FETCH (évite LAZY vide) ─────────
+    @Query("""
+        SELECT d FROM Deployment d
+        LEFT JOIN FETCH d.items i
+        LEFT JOIN FETCH i.acquisition a
+        LEFT JOIN FETCH a.types
+        WHERE d.id = :id
+        """)
+    Optional<Deployment> findByIdWithItems(@Param("id") Integer id);
+
+    // ── Sans filtre partenaire (SUPER_ADMIN / ITECH) ──────────────────────────
+    @Query("""
+        SELECT d FROM Deployment d
+        WHERE (:regionId   IS NULL OR d.region.id   = :regionId)
+          AND (:districtId IS NULL OR d.district.id = :districtId)
+          AND (:healthId   IS NULL OR d.health.id   = :healthId)
+          AND (:keyword    IS NULL
+               OR LOWER(d.codeDep) LIKE LOWER(CONCAT('%',:keyword,'%')))
+        ORDER BY d.id DESC
+        """)
+    Page<Deployment> findAllWithFilters(
+            Pageable pageable,
+            @Param("regionId")   Integer regionId,
+            @Param("districtId") Integer districtId,
+            @Param("healthId")   Integer healthId,
+            @Param("keyword")    String  keyword);
+
+    // ── Partenaire IS NULL (utilisateur sans partenaire) ─────────────────────
+    @Query("""
+        SELECT d FROM Deployment d
+        WHERE (:regionId   IS NULL OR d.region.id   = :regionId)
+          AND (:districtId IS NULL OR d.district.id = :districtId)
+          AND (:healthId   IS NULL OR d.health.id   = :healthId)
+          AND (:keyword    IS NULL
+               OR LOWER(d.codeDep) LIKE LOWER(CONCAT('%',:keyword,'%')))
+          AND d.partner IS NULL
+        ORDER BY d.id DESC
+        """)
+    Page<Deployment> findAllWithFiltersAndPartnerNull(
+            Pageable pageable,
+            @Param("regionId")   Integer regionId,
+            @Param("districtId") Integer districtId,
+            @Param("healthId")   Integer healthId,
+            @Param("keyword")    String  keyword);
+
+    // ── Partenaire spécifique ─────────────────────────────────────────────────
+    @Query("""
+        SELECT d FROM Deployment d
+        WHERE (:regionId   IS NULL OR d.region.id   = :regionId)
+          AND (:districtId IS NULL OR d.district.id = :districtId)
+          AND (:healthId   IS NULL OR d.health.id   = :healthId)
+          AND (:keyword    IS NULL
+               OR LOWER(d.codeDep) LIKE LOWER(CONCAT('%',:keyword,'%')))
+          AND d.partner.id = :partnerId
+        ORDER BY d.id DESC
+        """)
+    Page<Deployment> findAllWithFiltersAndPartner(
+            Pageable pageable,
+            @Param("regionId")   Integer regionId,
+            @Param("districtId") Integer districtId,
+            @Param("healthId")   Integer healthId,
+            @Param("keyword")    String  keyword,
+            @Param("partnerId")  Long    partnerId);
+
+    // ── Sites technicien + partenaire IS NULL ─────────────────────────────────
+    @Query("""
+        SELECT d FROM Deployment d
+        WHERE d.health.id IN :healthIds
+          AND (:regionId   IS NULL OR d.region.id   = :regionId)
+          AND (:districtId IS NULL OR d.district.id = :districtId)
+          AND (:healthId   IS NULL OR d.health.id   = :healthId)
+          AND (:keyword    IS NULL
+               OR LOWER(d.codeDep) LIKE LOWER(CONCAT('%',:keyword,'%')))
+          AND d.partner IS NULL
+        ORDER BY d.id DESC
+        """)
+    Page<Deployment> findAllWithHealthFilterAndPartnerNull(
+            Pageable      pageable,
+            @Param("healthIds")   List<Integer> healthIds,
+            @Param("regionId")    Integer       regionId,
+            @Param("districtId")  Integer       districtId,
+            @Param("healthId")    Integer       healthId,
+            @Param("keyword")     String        keyword);
+
+    // ── Sites technicien + partenaire spécifique ──────────────────────────────
+    @Query("""
+        SELECT d FROM Deployment d
+        WHERE d.health.id IN :healthIds
+          AND (:regionId   IS NULL OR d.region.id   = :regionId)
+          AND (:districtId IS NULL OR d.district.id = :districtId)
+          AND (:healthId   IS NULL OR d.health.id   = :healthId)
+          AND (:keyword    IS NULL
+               OR LOWER(d.codeDep) LIKE LOWER(CONCAT('%',:keyword,'%')))
+          AND d.partner.id = :partnerId
+        ORDER BY d.id DESC
+        """)
+    Page<Deployment> findAllWithHealthFilterAndPartner(
+            Pageable      pageable,
+            @Param("healthIds")   List<Integer> healthIds,
+            @Param("regionId")    Integer       regionId,
+            @Param("districtId")  Integer       districtId,
+            @Param("healthId")    Integer       healthId,
+            @Param("keyword")     String        keyword,
+            @Param("partnerId")   Long          partnerId);
 }

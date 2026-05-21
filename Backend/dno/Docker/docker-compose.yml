@@ -12,7 +12,9 @@ services:
       - "3307:3306"
     volumes:
       - catusnis-mysql-data:/var/lib/mysql
-      - ./uploads/archives:/app/uploads/archives  # ✅ corrigé — données MySQL
+      - ./uploads/archives:/app/uploads/archives
+      # ✅ Script init exécuté au premier démarrage
+      - ./sql/init_users.sql:/docker-entrypoint-initdb.d/init_users.sql
     networks:
       - catusnis-network
     healthcheck:
@@ -20,7 +22,7 @@ services:
       interval: "20s"
       timeout: "10s"
       retries: 10
-      start_period: "40s"
+      start_period: "120s"
 
   catusnis-app:
     build:
@@ -31,7 +33,7 @@ services:
     ports:
       - "8083:8081"
     volumes:
-      - catusnis-uploads:/app/uploads/images  # ✅ corrigé — images uploadées
+      - catusnis-uploads:/app/uploads/images
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8081
@@ -42,7 +44,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
       SPRING_JPA_OPEN_IN_VIEW: "false"
-      APP_UPLOAD_DIR: /app/uploads/images  # ✅
+      APP_UPLOAD_DIR: /app/uploads/images
     depends_on:
       catusnis-mysql:
         condition: service_healthy
@@ -63,8 +65,8 @@ services:
       - catusnis-network
 
 volumes:
-  catusnis-mysql-data:  # ✅ données MySQL
-  catusnis-uploads:     # ✅ images uploadées
+  catusnis-mysql-data:
+  catusnis-uploads:
 
 networks:
   catusnis-network:

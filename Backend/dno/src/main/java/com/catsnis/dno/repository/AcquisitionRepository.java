@@ -6,33 +6,88 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
+
 import java.util.List;
 
-@Repository
 public interface AcquisitionRepository extends JpaRepository<Acquisition, Long> {
+
     boolean existsByTag(String tag);
     boolean existsBySerial(String serial);
     boolean existsByTagAndIdNot(String tag, Long id);
     boolean existsBySerialAndIdNot(String serial, Long id);
 
-    @Query("SELECT a FROM Acquisition a WHERE " +
-            "(:typesId IS NULL OR a.types.id = :typesId) AND " +
-            "(:keyword IS NULL OR LOWER(a.tag) LIKE LOWER(CONCAT('%',:keyword,'%')) " +
-            "OR LOWER(a.serial) LIKE LOWER(CONCAT('%',:keyword,'%')))")
-    Page<Acquisition> findAllWithFilters(Pageable pageable,
-                                         @Param("typesId") Integer typesId,
-                                         @Param("keyword") String keyword);
-
-    @Query("SELECT a FROM Acquisition a WHERE a.deployed = false AND a.types.id = :typesId")
-    List<Acquisition> findAvailable(@Param("typesId") Integer typesId);
-
-    @Query("SELECT COUNT(a) FROM Acquisition a WHERE a.deployed = false")
-    long countAvailable();
-
-    @Query("SELECT COUNT(a) FROM Acquisition a WHERE a.deployed = false")
+    // ✅ Méthode conservée — utilisée par DashboardServiceImpl
+    @Query("SELECT COUNT(a) FROM Acquisition a WHERE a.deployed = false AND a.status = 'DISPONIBLE'")
     long countStock();
 
-    @Query("SELECT COUNT(a) FROM Acquisition a WHERE a.deployed = true")
-    long countDeployed();
+    // ── Sans filtre partenaire (SUPER_ADMIN / ITECH) ──────────────────────────
+    @Query("""
+        SELECT a FROM Acquisition a
+        WHERE (:typesId IS NULL OR a.types.id = :typesId)
+          AND (:keyword  IS NULL
+               OR LOWER(a.tag)    LIKE LOWER(CONCAT('%',:keyword,'%'))
+               OR LOWER(a.serial) LIKE LOWER(CONCAT('%',:keyword,'%')))
+        ORDER BY a.id DESC
+        """)
+    Page<Acquisition> findAllWithFilters(
+            Pageable pageable,
+            @Param("typesId") Integer typesId,
+            @Param("keyword") String keyword);
+
+    // ── Filtré par partenaire spécifique ─────────────────────────────────────
+    @Query("""
+        SELECT a FROM Acquisition a
+        WHERE (:typesId IS NULL OR a.types.id = :typesId)
+          AND a.partner.id = :partnerId
+          AND (:keyword  IS NULL
+               OR LOWER(a.tag)    LIKE LOWER(CONCAT('%',:keyword,'%'))
+               OR LOWER(a.serial) LIKE LOWER(CONCAT('%',:keyword,'%')))
+        ORDER BY a.id DESC
+        """)
+    Page<Acquisition> findAllWithFiltersAndPartner(
+            Pageable pageable,
+            @Param("typesId")   Integer typesId,
+            @Param("keyword")   String  keyword,
+            @Param("partnerId") Long    partnerId);
+
+    // ── Filtré sur IS NULL ────────────────────────────────────────────────────
+    @Query("""
+        SELECT a FROM Acquisition a
+        WHERE (:typesId IS NULL OR a.types.id = :typesId)
+          AND a.partner IS NULL
+          AND (:keyword  IS NULL
+               OR LOWER(a.tag)    LIKE LOWER(CONCAT('%',:keyword,'%'))
+               OR LOWER(a.serial) LIKE LOWER(CONCAT('%',:keyword,'%')))
+        ORDER BY a.id DESC
+        """)
+    Page<Acquisition> findAllWithFiltersAndPartnerNull(
+            Pageable pageable,
+            @Param("typesId") Integer typesId,
+            @Param("keyword") String  keyword);
+
+    // ── Disponibles ───────────────────────────────────────────────────────────
+    @Query("""
+        SELECT a FROM Acquisition a
+        WHERE a.deployed = false AND a.status = 'DISPONIBLE'
+          AND (:typesId IS NULL OR a.types.id = :typesId)
+        """)
+    List<Acquisition> findAvailable(@Param("typesId") Integer typesId);
+
+    @Query("""
+        SELECT a FROM Acquisition a
+        WHERE a.deployed = false AND a.status = 'DISPONIBLE'
+          AND (:typesId IS NULL OR a.types.id = :typesId)
+          AND a.partner.id = :partnerId
+        """)
+    List<Acquisition> findAvailableByPartner(
+            @Param("typesId")   Integer typesId,
+            @Param("partnerId") Long    partnerId);
+
+    @Query("""
+        SELECT a FROM Acquisition a
+        WHERE a.deployed = false AND a.status = 'DISPONIBLE'
+          AND (:typesId IS NULL OR a.types.id = :typesId)
+          AND a.partner IS NULL
+        """)
+    List<Acquisition> findAvailableAndPartnerNull(@Param("typesId") Integer typesId);
 }
