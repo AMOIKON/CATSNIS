@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "deployment")
@@ -20,7 +20,7 @@ public class Deployment {
     @Column(name = "code_dep", nullable = false, unique = true)
     private String codeDep;
 
-    @Column(name = "date_recep")
+    @Column(name = "date_recept", nullable = true)
     private LocalDateTime dateRecep;
 
     private String comment;
@@ -50,7 +50,20 @@ public class Deployment {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
     private Person createdBy;
 
-    @OneToMany(mappedBy = "deployment", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    // ✅ FIX PRINCIPAL — orphanRemoval = true
+    // Sans ceci, deployment.getItems().clear() ne supprime PAS les items en BDD
+    // → les anciens items restent et s'accumulent à chaque update
+    @OneToMany(
+            mappedBy      = "deployment",
+            cascade       = CascadeType.ALL,
+            orphanRemoval = true,              // ← CLÉ : supprime en BDD quand retiré de la liste
+            fetch         = FetchType.EAGER
+    )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "deployment"})
-    private List<DeploymentItem> items;
+    @Builder.Default
+    private List<DeploymentItem> items = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "partner_id")
+    private Partner partner;
 }

@@ -19,4 +19,5 @@ public class DeploymentRequest {
     private Integer                   healthId;
     private Integer                   appsId;
     private List<DeploymentItemRequest> items;
+    private Integer partnerId;
 }

@@ -11,4 +11,5 @@ public class PersonRequest {
     private Integer postId;
     private Integer unitsId;
     private Integer partnerId;
+    private String  plainPassword;
 }

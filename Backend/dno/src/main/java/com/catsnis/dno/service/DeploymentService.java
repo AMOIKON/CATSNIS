@@ -20,4 +20,6 @@ public interface DeploymentService {
     DeploymentResponse           updateDeployment(Integer id, DeploymentRequest request);
 
     void                         deleteDeployment(Integer id);
+    DeploymentResponse           removeItemFromDeployment(Integer deploymentId, Integer itemId);
+
 }

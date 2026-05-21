@@ -12,7 +12,6 @@ public class Acquisition {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String tag;
     private String serial;
     private Integer quantity;
@@ -30,4 +29,10 @@ public class Acquisition {
     @JoinColumn(name = "types_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Types types;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "partner_id")
+    private Partner partner;
+
+
 }

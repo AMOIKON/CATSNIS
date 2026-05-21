@@ -1,7 +1,7 @@
 package com.catsnis.dno.controller;
 
-
 import com.catsnis.dno.dto.ArchiveRequest;
+import com.catsnis.dno.dto.ArchiveUpdateRequest;
 import com.catsnis.dno.dto.ArchiveResponse;
 import com.catsnis.dno.entity.Archive;
 import com.catsnis.dno.service.ArchiveService;
@@ -41,15 +41,36 @@ public class ArchiveController {
         return ResponseEntity.ok(archiveService.archiverImprime(dto));
     }
 
+    // ── Mettre à jour les métadonnées (DTO dédié sans contraintes @NotNull) ───
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+    public ResponseEntity<ArchiveResponse> update(
+            @PathVariable Long id,
+            @RequestBody ArchiveUpdateRequest dto   // ✅ DTO sans @NotNull/@NotBlank
+    ) {
+        return ResponseEntity.ok(archiveService.update(id, dto));
+    }
+
+    // ── Mettre à jour avec remplacement du fichier (SCANNE uniquement) ────────
+    @PutMapping(value = "/{id}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+    public ResponseEntity<ArchiveResponse> updateWithFile(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file,
+            @RequestPart("data") ArchiveUpdateRequest dto  // ✅ DTO sans @NotNull/@NotBlank
+    ) throws IOException {
+        return ResponseEntity.ok(archiveService.updateWithFile(id, file, dto));
+    }
+
     // ── Liste paginée avec filtres ────────────────────────────────────────────
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<ArchiveResponse>> list(
-            @RequestParam(required = false) Archive.TypeArchive type,
+            @RequestParam(required = false) Archive.TypeArchive      type,
             @RequestParam(required = false) Archive.CategorieArchive categorie,
-            @RequestParam(required = false) String           keyword,
-            @RequestParam(defaultValue = "0")  int           page,
-            @RequestParam(defaultValue = "10") int           size
+            @RequestParam(required = false) String                   keyword,
+            @RequestParam(defaultValue = "0")  int                   page,
+            @RequestParam(defaultValue = "10") int                   size
     ) {
         return ResponseEntity.ok(archiveService.list(type, categorie, keyword, page, size));
     }
@@ -59,7 +80,7 @@ public class ArchiveController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Resource> download(@PathVariable Long id) throws MalformedURLException {
         Resource resource = archiveService.download(id);
-        String fileName   = archiveService.getFileName(id);
+        String   fileName = archiveService.getFileName(id);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + fileName + "\"")

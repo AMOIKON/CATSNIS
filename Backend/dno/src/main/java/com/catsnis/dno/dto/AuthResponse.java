@@ -19,4 +19,5 @@ public class AuthResponse {
     private String  partnerName;
     private String  postName;
     private String  unitsName;
+    private Integer partnerId;
 }

@@ -12,4 +12,6 @@ public class AcquisitionResponse {
     private boolean deployed;
     private Date    dateAcq;
     private String  Type;
+    private String  partnerName;
+    private Integer partnerId;
 }

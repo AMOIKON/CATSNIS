@@ -30,20 +30,24 @@ public class DeploymentController {
             @RequestParam(required = false) Integer districtId,
             @RequestParam(required = false) Integer healthId,
             @RequestParam(required = false) String keyword) {
-        return ResponseEntity.ok(ApiResponse.success(deploymentService.getAllDeployments(pageable, regionId, districtId, healthId, keyword)));
+        return ResponseEntity.ok(ApiResponse.success(
+                deploymentService.getAllDeployments(pageable, regionId, districtId, healthId, keyword)));
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<DeploymentResponse>> saveDeployment(@RequestBody DeploymentRequest request) {
+    public ResponseEntity<ApiResponse<DeploymentResponse>> saveDeployment(
+            @RequestBody DeploymentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Déploiement créé avec succès", deploymentService.saveDeployment(request)));
+                .body(ApiResponse.success("Déploiement créé avec succès",
+                        deploymentService.saveDeployment(request)));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<DeploymentResponse>> updateDeployment(
             @PathVariable Integer id,
             @RequestBody DeploymentRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Déploiement mis à jour avec succès", deploymentService.updateDeployment(id, request)));
+        return ResponseEntity.ok(ApiResponse.success("Déploiement mis à jour avec succès",
+                deploymentService.updateDeployment(id, request)));
     }
 
     @DeleteMapping("/{id}")
@@ -52,5 +56,13 @@ public class DeploymentController {
         return ResponseEntity.ok(ApiResponse.success("Déploiement supprimé avec succès", null));
     }
 
-
+    // ✅ Retirer un équipement du déploiement → remet en stock DISPONIBLE
+    @DeleteMapping("/{deploymentId}/items/{itemId}")
+    public ResponseEntity<ApiResponse<DeploymentResponse>> removeItem(
+            @PathVariable Integer deploymentId,
+            @PathVariable Integer itemId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Équipement retiré et remis en stock",
+                deploymentService.removeItemFromDeployment(deploymentId, itemId)));
+    }
 }

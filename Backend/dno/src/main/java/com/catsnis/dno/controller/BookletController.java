@@ -1,5 +1,6 @@
 package com.catsnis.dno.controller;
 
+import com.catsnis.dno.common.response.ApiResponse;
 import com.catsnis.dno.entity.Booklet;
 import com.catsnis.dno.repository.BookletRepository;
 import com.catsnis.dno.service.BookletPdfService;
@@ -136,4 +137,36 @@ public class BookletController {
         );
         return ResponseEntity.ok().headers(headers).body(pdfBytes);
     }
+
+    @PostMapping("/quick-create")
+    public ResponseEntity<?> quickCreate(@RequestBody Map<String, Object> body) {
+        try {
+            String  lastName   = (String)  body.get("lastName");
+            String  firstName  = (String)  body.getOrDefault("firstName", "");
+            String  contact    = (String)  body.getOrDefault("contact", "");
+            Long    regionId   = body.get("regionId")   != null
+                    ? Long.valueOf(body.get("regionId").toString())   : null;
+            Long    districtId = body.get("districtId") != null
+                    ? Long.valueOf(body.get("districtId").toString()) : null;
+
+            if (lastName == null || lastName.isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Le nom est obligatoire"));
+            }
+
+            String  postName   = (String)  body.getOrDefault("postName", "");
+
+            Booklet booklet = bookletService.quickCreate(
+                    lastName, firstName, contact, postName, regionId, districtId);
+            return ResponseEntity.ok(ApiResponse.success(booklet));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Erreur création : " + e.getMessage()));
+        }
+    }
+
+
+
+
 }

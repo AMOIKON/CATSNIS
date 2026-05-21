@@ -31,4 +31,5 @@ public class DeploymentResponse {
     private String                     partnerColor;
     private String                     partnerImage;
     private List<DeploymentItemResponse> items;
+    private Integer                    partnerId;
 }

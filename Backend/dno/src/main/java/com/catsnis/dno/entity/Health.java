@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "health_sites")
+// ✅ Correction — pointer sur "health" (table référencée par les FK deployment, intervention, etc.)
+// "health_sites" était incorrect et causait les erreurs de contrainte FK
+@Table(name = "health")
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class Health {
 

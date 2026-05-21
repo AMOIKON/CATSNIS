@@ -1,10 +1,13 @@
 package com.catsnis.dno.service;
 
+import com.catsnis.dno.common.utils.SecurityUtils;
 import com.catsnis.dno.dto.ArchiveRequest;
+import com.catsnis.dno.dto.ArchiveUpdateRequest;
 import com.catsnis.dno.dto.ArchiveResponse;
 import com.catsnis.dno.entity.Archive;
 import com.catsnis.dno.entity.Archive.TypeArchive;
 import com.catsnis.dno.entity.Archive.CategorieArchive;
+import com.catsnis.dno.entity.Person;
 import com.catsnis.dno.repository.ArchiveRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,9 +31,17 @@ import java.util.UUID;
 public class ArchiveService {
 
     private final ArchiveRepository archiveRepository;
+    private final SecurityUtils     securityUtils;   // ✅ injection pour archivedBy auto
 
     @Value("${app.upload.archives-dir:uploads/archives}")
     private String uploadDir;
+
+    // ── Résoudre le nom complet de l'utilisateur courant ─────────────────────
+    private String currentUserFullName() {
+        return securityUtils.getCurrentUser()
+                .map(p -> (p.getFirstName() + " " + p.getLastName()).trim())
+                .orElse("Système");
+    }
 
     // ── Upload fichier scanné ─────────────────────────────────────────────────
     @Transactional
@@ -49,7 +60,7 @@ public class ArchiveService {
                 .fileSize(file.getSize())
                 .mimeType(file.getContentType())
                 .description(dto.getDescription())
-                .archivedBy(dto.getArchivedBy())
+                .archivedBy(currentUserFullName())   // ✅ auto depuis le token JWT
                 .relatedId(dto.getRelatedId())
                 .relatedCode(dto.getRelatedCode())
                 .build();
@@ -65,10 +76,81 @@ public class ArchiveService {
                 .type(TypeArchive.IMPRIME)
                 .categorie(dto.getCategorie() != null ? dto.getCategorie() : CategorieArchive.AUTRE)
                 .description(dto.getDescription())
-                .archivedBy(dto.getArchivedBy())
+                .archivedBy(currentUserFullName())   // ✅ auto depuis le token JWT
                 .relatedId(dto.getRelatedId())
                 .relatedCode(dto.getRelatedCode())
                 .build();
+
+        return toResponse(archiveRepository.save(archive));
+    }
+
+    // ── Mettre à jour les métadonnées uniquement ──────────────────────────────
+    @Transactional
+    public ArchiveResponse update(Long id, ArchiveUpdateRequest dto) {
+        Archive archive = archiveRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Archive introuvable : " + id));
+
+        if (dto.getTitre() != null && !dto.getTitre().isBlank())
+            archive.setTitre(dto.getTitre().trim());
+        if (dto.getDescription() != null)
+            archive.setDescription(dto.getDescription().trim().isEmpty()
+                    ? null : dto.getDescription().trim());
+        if (dto.getCategorie() != null)
+            archive.setCategorie(dto.getCategorie());
+        if (dto.getRelatedCode() != null)
+            archive.setRelatedCode(dto.getRelatedCode().trim().isEmpty()
+                    ? null : dto.getRelatedCode().trim());
+        if (dto.getRelatedId() != null)
+            archive.setRelatedId(dto.getRelatedId());
+
+        // ✅ Mettre à jour archivedBy avec l'utilisateur qui fait la modification
+        archive.setArchivedBy(currentUserFullName());
+
+        return toResponse(archiveRepository.save(archive));
+    }
+
+    // ── Mettre à jour avec remplacement du fichier (SCANNE uniquement) ────────
+    @Transactional
+    public ArchiveResponse updateWithFile(Long id, MultipartFile file, ArchiveUpdateRequest dto)
+            throws IOException {
+        Archive archive = archiveRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Archive introuvable : " + id));
+
+        if (archive.getType() != TypeArchive.SCANNE)
+            throw new RuntimeException("Seuls les documents scannés peuvent avoir un fichier.");
+
+        // Supprimer l'ancien fichier
+        if (archive.getFilePath() != null) {
+            try { Files.deleteIfExists(Paths.get(archive.getFilePath())); }
+            catch (IOException ignored) {}
+        }
+
+        // Sauvegarder le nouveau fichier
+        String newFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        Path   dir         = Paths.get(uploadDir);
+        Files.createDirectories(dir);
+        Files.copy(file.getInputStream(), dir.resolve(newFileName), StandardCopyOption.REPLACE_EXISTING);
+
+        archive.setFileName(newFileName);
+        archive.setFilePath(dir.resolve(newFileName).toString());
+        archive.setFileSize(file.getSize());
+        archive.setMimeType(file.getContentType());
+
+        if (dto.getTitre() != null && !dto.getTitre().isBlank())
+            archive.setTitre(dto.getTitre().trim());
+        if (dto.getDescription() != null)
+            archive.setDescription(dto.getDescription().trim().isEmpty()
+                    ? null : dto.getDescription().trim());
+        if (dto.getCategorie() != null)
+            archive.setCategorie(dto.getCategorie());
+        if (dto.getRelatedCode() != null)
+            archive.setRelatedCode(dto.getRelatedCode().trim().isEmpty()
+                    ? null : dto.getRelatedCode().trim());
+        if (dto.getRelatedId() != null)
+            archive.setRelatedId(dto.getRelatedId());
+
+        // ✅ Mettre à jour archivedBy avec l'utilisateur qui fait la modification
+        archive.setArchivedBy(currentUserFullName());
 
         return toResponse(archiveRepository.save(archive));
     }
