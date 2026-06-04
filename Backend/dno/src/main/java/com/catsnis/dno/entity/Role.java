@@ -1,9 +1,5 @@
 package com.catsnis.dno.entity;
 
 public enum Role {
-    SUPER_ADMIN,
-    ADMIN,
-    TECHNICIEN,
-    LOGISTICIEN,
-    USER
+    SUPER_ADMIN, ADMIN, TECHNICIEN, LOGISTICIEN, USER  // ← LOGISTICIEN ajouté
 }

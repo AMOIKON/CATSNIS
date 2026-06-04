@@ -18,74 +18,93 @@ public class TechnicianSiteController {
 
     private final TechnicianSiteService technicianSiteService;
 
-    // ── Assigner un site à un technicien ──────────────────────────────────────
+    // ── Assigner ──────────────────────────────────────────────────────────────
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ResponseEntity<ApiResponse<TechnicianSiteResponse>> assign(
-            @RequestBody TechnicianSiteRequest request
-    ) {
+            @RequestBody TechnicianSiteRequest request) {
         return ResponseEntity.ok(
-                ApiResponse.success(technicianSiteService.assign(request))
-        );
+                ApiResponse.success(technicianSiteService.assign(request)));
     }
 
-    // ── ✅ Mettre à jour une assignation ──────────────────────────────────────
+    // ── Modifier ──────────────────────────────────────────────────────────────
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ResponseEntity<ApiResponse<TechnicianSiteResponse>> update(
             @PathVariable Integer id,
-            @RequestBody TechnicianSiteRequest request
-    ) {
+            @RequestBody TechnicianSiteRequest request) {
         return ResponseEntity.ok(
-                ApiResponse.success(technicianSiteService.update(id, request))
-        );
+                ApiResponse.success(technicianSiteService.update(id, request)));
     }
 
-    // ── Sites d'un technicien ─────────────────────────────────────────────────
+    // ── Sites d'une personne — deux alias pour compatibilité ─────────────────
     @GetMapping("/technician/{personId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<TechnicianSiteResponse>>> getByTechnician(
-            @PathVariable Integer personId
-    ) {
+            @PathVariable Integer personId) {
         return ResponseEntity.ok(
-                ApiResponse.success(technicianSiteService.getByTechnician(personId))
-        );
+                ApiResponse.success(technicianSiteService.getByTechnician(personId)));
     }
 
-    // ── IDs des sites d'un technicien ─────────────────────────────────────────
+    // ✅ Alias /person/{personId} — même méthode
+    @GetMapping("/person/{personId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<TechnicianSiteResponse>>> getByPerson(
+            @PathVariable Integer personId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(technicianSiteService.getByTechnician(personId)));
+    }
+
+    // ── IDs utilitaires — deux alias ─────────────────────────────────────────
     @GetMapping("/technician/{personId}/health-ids")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<Integer>>> getHealthIds(
-            @PathVariable Integer personId
-    ) {
+            @PathVariable Integer personId) {
         return ResponseEntity.ok(
-                ApiResponse.success(technicianSiteService.getHealthIdsByTechnician(personId))
-        );
+                ApiResponse.success(technicianSiteService.getHealthIdsByTechnician(personId)));
     }
 
-    // ── IDs des régions d'un technicien ───────────────────────────────────────
+    @GetMapping("/person/{personId}/health-ids")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<Integer>>> getHealthIdsByPerson(
+            @PathVariable Integer personId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(technicianSiteService.getHealthIdsByTechnician(personId)));
+    }
+
     @GetMapping("/technician/{personId}/region-ids")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<Integer>>> getRegionIds(
-            @PathVariable Integer personId
-    ) {
+            @PathVariable Integer personId) {
         return ResponseEntity.ok(
-                ApiResponse.success(technicianSiteService.getRegionIdsByTechnician(personId))
-        );
+                ApiResponse.success(technicianSiteService.getRegionIdsByTechnician(personId)));
     }
 
-    // ── IDs des districts d'un technicien ─────────────────────────────────────
+    @GetMapping("/person/{personId}/region-ids")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<Integer>>> getRegionIdsByPerson(
+            @PathVariable Integer personId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(technicianSiteService.getRegionIdsByTechnician(personId)));
+    }
+
     @GetMapping("/technician/{personId}/district-ids")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<Integer>>> getDistrictIds(
-            @PathVariable Integer personId
-    ) {
+            @PathVariable Integer personId) {
         return ResponseEntity.ok(
-                ApiResponse.success(technicianSiteService.getDistrictIdsByTechnician(personId))
-        );
+                ApiResponse.success(technicianSiteService.getDistrictIdsByTechnician(personId)));
     }
 
-    // ── Supprimer une assignation ─────────────────────────────────────────────
+    @GetMapping("/person/{personId}/district-ids")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<Integer>>> getDistrictIdsByPerson(
+            @PathVariable Integer personId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(technicianSiteService.getDistrictIdsByTechnician(personId)));
+    }
+
+    // ── Supprimer ─────────────────────────────────────────────────────────────
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ResponseEntity<ApiResponse<Void>> unassign(@PathVariable Integer id) {

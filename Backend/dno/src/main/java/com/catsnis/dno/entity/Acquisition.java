@@ -10,14 +10,20 @@ import java.util.Date;
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class Acquisition {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String tag;
     private String serial;
     private Integer quantity;
     private String status;
     private String image;
 
+    // ✅ CORRECTION : force le nom de colonne "deployed"
+    // Sans @Column, Lombok génère isDeployed() → Hibernate dérive "is_deployed"
+    // → Unknown column 'is_deployed' → 400
+    @Column(name = "deployed")
     @Builder.Default
     private Boolean deployed = false;
 
@@ -33,6 +39,4 @@ public class Acquisition {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "partner_id")
     private Partner partner;
-
-
 }

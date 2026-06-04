@@ -46,9 +46,12 @@ public interface PersonRepository extends JpaRepository<Person, Integer> {
                                     @Param("unitsId") Integer unitsId,
                                     @Param("keyword") String  keyword);
 
-    // ── Dashboard ✅ ajouté ───────────────────────────────────────────────────
+    // ── Dashboard ─────────────────────────────────────────────────────────────
     long countByRole(Role role);
 
     @Query("SELECT p.role, COUNT(p) FROM Person p GROUP BY p.role")
     List<Object[]> countGroupByRole();
+
+    // ✅ Personnes dont le rôle est dans la liste — pour les onglets assignation
+    List<Person> findByRoleIn(List<Role> roles);
 }

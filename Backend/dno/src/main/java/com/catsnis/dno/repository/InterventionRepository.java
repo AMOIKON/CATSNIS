@@ -56,27 +56,36 @@ public interface InterventionRepository extends JpaRepository<Intervention, Inte
             @Param("endYear")    int endYear,
             @Param("endMonth")   int endMonth);
 
-    // ── FIX suppression déploiement — délier avant DELETE ────────────────────
-    // ✅ nativeQuery=true — contourne les contraintes Hibernate,
-    // fonctionne même si deployment_id est NOT NULL en BDD
-    // (après ALTER TABLE intervention MODIFY COLUMN deployment_id INT NULL)
+    // ── FIX suppression déploiement — délier avant DELETE ─────────────────────
     @Modifying
     @Transactional
     @Query(value = "UPDATE intervention SET deployment_id = NULL WHERE deployment_id = :deploymentId",
             nativeQuery = true)
     void unlinkFromDeployment(@Param("deploymentId") Integer deploymentId);
 
-    // ── Liste paginée — SUPER_ADMIN / ITECH (tout voir) ───────────────────────
-    @Query("""
-        SELECT i FROM Intervention i
-        WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
-          AND (:districtId IS NULL OR i.district.id = :districtId)
-          AND (:healthId   IS NULL OR i.health.id   = :healthId)
-          AND (:keyword    IS NULL
-               OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
-          AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
-        ORDER BY i.id DESC
-        """)
+    // ── Liste paginée — SUPER_ADMIN / ITECH (tout voir) ──────────────────────
+    // ✅ countQuery explicite — évite le bug Spring Data JPA avec ORDER BY
+    @Query(
+            value = """
+            SELECT i FROM Intervention i
+            WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
+              AND (:districtId IS NULL OR i.district.id = :districtId)
+              AND (:healthId   IS NULL OR i.health.id   = :healthId)
+              AND (:keyword    IS NULL
+                   OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
+              AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
+            ORDER BY i.id DESC
+            """,
+            countQuery = """
+            SELECT COUNT(i) FROM Intervention i
+            WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
+              AND (:districtId IS NULL OR i.district.id = :districtId)
+              AND (:healthId   IS NULL OR i.health.id   = :healthId)
+              AND (:keyword    IS NULL
+                   OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
+              AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
+            """
+    )
     Page<Intervention> findAllWithFilters(
             Pageable       pageable,
             @Param("regionId")   Integer       regionId,
@@ -86,17 +95,29 @@ public interface InterventionRepository extends JpaRepository<Intervention, Inte
             @Param("healthIds")  List<Integer> healthIds);
 
     // ── Liste paginée — partner IS NULL ───────────────────────────────────────
-    @Query("""
-        SELECT i FROM Intervention i
-        WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
-          AND (:districtId IS NULL OR i.district.id = :districtId)
-          AND (:healthId   IS NULL OR i.health.id   = :healthId)
-          AND (:keyword    IS NULL
-               OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
-          AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
-          AND i.partner IS NULL
-        ORDER BY i.id DESC
-        """)
+    @Query(
+            value = """
+            SELECT i FROM Intervention i
+            WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
+              AND (:districtId IS NULL OR i.district.id = :districtId)
+              AND (:healthId   IS NULL OR i.health.id   = :healthId)
+              AND (:keyword    IS NULL
+                   OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
+              AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
+              AND i.partner IS NULL
+            ORDER BY i.id DESC
+            """,
+            countQuery = """
+            SELECT COUNT(i) FROM Intervention i
+            WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
+              AND (:districtId IS NULL OR i.district.id = :districtId)
+              AND (:healthId   IS NULL OR i.health.id   = :healthId)
+              AND (:keyword    IS NULL
+                   OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
+              AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
+              AND i.partner IS NULL
+            """
+    )
     Page<Intervention> findAllWithFiltersAndPartnerNull(
             Pageable       pageable,
             @Param("regionId")   Integer       regionId,
@@ -106,17 +127,29 @@ public interface InterventionRepository extends JpaRepository<Intervention, Inte
             @Param("healthIds")  List<Integer> healthIds);
 
     // ── Liste paginée — partner.id = :partnerId ───────────────────────────────
-    @Query("""
-        SELECT i FROM Intervention i
-        WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
-          AND (:districtId IS NULL OR i.district.id = :districtId)
-          AND (:healthId   IS NULL OR i.health.id   = :healthId)
-          AND (:keyword    IS NULL
-               OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
-          AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
-          AND i.partner.id = :partnerId
-        ORDER BY i.id DESC
-        """)
+    @Query(
+            value = """
+            SELECT i FROM Intervention i
+            WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
+              AND (:districtId IS NULL OR i.district.id = :districtId)
+              AND (:healthId   IS NULL OR i.health.id   = :healthId)
+              AND (:keyword    IS NULL
+                   OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
+              AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
+              AND i.partner.id = :partnerId
+            ORDER BY i.id DESC
+            """,
+            countQuery = """
+            SELECT COUNT(i) FROM Intervention i
+            WHERE (:regionId   IS NULL OR i.region.id   = :regionId)
+              AND (:districtId IS NULL OR i.district.id = :districtId)
+              AND (:healthId   IS NULL OR i.health.id   = :healthId)
+              AND (:keyword    IS NULL
+                   OR LOWER(i.codeInter) LIKE LOWER(CONCAT('%',:keyword,'%')))
+              AND (:healthIds  IS NULL OR i.health.id IN :healthIds)
+              AND i.partner.id = :partnerId
+            """
+    )
     Page<Intervention> findAllWithFiltersAndPartner(
             Pageable       pageable,
             @Param("regionId")   Integer       regionId,
@@ -126,7 +159,7 @@ public interface InterventionRepository extends JpaRepository<Intervention, Inte
             @Param("healthIds")  List<Integer> healthIds,
             @Param("partnerId")  Long          partnerId);
 
-    // ── Stats durée — sans filtre ──────────────────────────────────────────────
+    // ── Stats durée — sans filtre ─────────────────────────────────────────────
     @Query("SELECT COALESCE(SUM(i.durationMinutes), 0) FROM Intervention i WHERE i.typeInter = :type")
     Long sumDurationByType(@Param("type") String type);
 

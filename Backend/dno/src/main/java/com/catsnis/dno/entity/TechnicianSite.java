@@ -1,34 +1,47 @@
 package com.catsnis.dno.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "technician_sites")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Table(name = "technician_site")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@ToString(exclude = {"person", "region", "district", "health"})
 public class TechnicianSite {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "person_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities", "post", "units", "partner"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "person_id", nullable = false)
     private Person person;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "region_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Region region;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "district_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "region"})
     private District district;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "health_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "district", "region"})
     private Health health;
+
+    // ✅ Horodatage automatique
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

@@ -15,7 +15,8 @@ spring:
 
   # ── Datasource MySQL ───────────────────────────────────────────────────────
   datasource:
-    url: jdbc:mysql://localhost:3307/catusnis_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    # ✅ useUnicode + characterEncoding ajoutés pour UTF-8 correct
+    url: jdbc:mysql://localhost:3307/catusnis_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
     username: catusnis_user
     password: catusnis_password
     driver-class-name: com.mysql.cj.jdbc.Driver
