@@ -1,9 +1,8 @@
-// src/main/java/com/catsnis/dno/service/impl/NotificationServiceImpl.java
-package com.catsnis.dno.service.impl;
+// src/main/java/com/catsnis/dno/service/NotificationServiceImpl.java
+package com.catsnis.dno.service;   // ✅ package corrigé — dossier service/ direct
 
 import com.catsnis.dno.entity.UserNotification;
 import com.catsnis.dno.repository.NotificationRepository;
-import com.catsnis.dno.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -40,7 +39,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void markRead(Long notifId) {
         repo.findById(notifId).ifPresent(n -> {
-            n.setRead(true); // ✅ setRead() généré par Lombok pour champ 'read'
+            n.setRead(true);
             repo.save(n);
         });
     }
@@ -53,7 +52,6 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public UserNotification create(UserNotification notif) {
-        // ✅ read = false par défaut dans l'entité
         UserNotification saved = repo.save(notif);
         log.info("🔔 Notification : [{}] {} → userId={}",
                 saved.getType(), saved.getTitle(), saved.getUserId());
