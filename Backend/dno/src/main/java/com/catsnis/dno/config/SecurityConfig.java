@@ -59,7 +59,7 @@ public class SecurityConfig {
                         // ── URLs publiques ────────────────────────────────
                         .requestMatchers(PUBLIC_URLS).permitAll()
 
-                        // ── Création de compte : SUPER_ADMIN uniquement ───
+                        // ── Création de compte ────────────────────────────
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("SUPER_ADMIN")
 
                         // ── Acquisitions ──────────────────────────────────
@@ -75,7 +75,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/deployments/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
 
                         // ── Interventions ─────────────────────────────────
-                        // USER peut seulement consulter (lecture seule)
                         .requestMatchers(HttpMethod.GET,    "/api/interventions/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
@@ -89,31 +88,26 @@ public class SecurityConfig {
 
                         // ── Organisation ──────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/regions/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
                         .requestMatchers(HttpMethod.GET,    "/api/districts/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/districts/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/districts/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
+                        .requestMatchers(HttpMethod.GET,    "/api/health-sites/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,    "/api/healths/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,   "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN")
+                        .requestMatchers(HttpMethod.POST,   "/api/districts/**").hasAnyRole("SUPER_ADMIN","ADMIN")
+                        .requestMatchers(HttpMethod.POST,   "/api/health-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/districts/**").hasAnyRole("SUPER_ADMIN","ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/districts/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        .requestMatchers(HttpMethod.GET,    "/api/health-sites/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/health-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/health-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/health-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-                        // ── Partenaires ───────────────────────────────────
+                        // ── Partenaires / Types / Posts / Units / Apps ────
                         .requestMatchers(HttpMethod.GET,    "/api/partners/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/partners/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/partners/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/partners/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-                        // ── Types ─────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/types/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/types/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/types/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/types/**").hasAnyRole("SUPER_ADMIN","ADMIN")
+                        .requestMatchers(HttpMethod.GET,    "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,    "/api/units/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,    "/api/apps/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,    "/api/evaluations/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,    "/api/states/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,    "/api/images/**").authenticated()
 
                         // ── Assignation sites ─────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/technician-sites/**").authenticated()
@@ -121,40 +115,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT,    "/api/technician-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/technician-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // ── Paramètres ────────────────────────────────────
-                        .requestMatchers(HttpMethod.GET,    "/api/posts/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/posts/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-                        .requestMatchers(HttpMethod.GET,    "/api/units/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/units/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/units/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/units/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-                        .requestMatchers(HttpMethod.GET,    "/api/apps/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/apps/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/apps/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/apps/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-                        .requestMatchers(HttpMethod.GET,    "/api/evaluations/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/evaluations/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/evaluations/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/evaluations/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-                        .requestMatchers(HttpMethod.GET,    "/api/states/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/states/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/states/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/states/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-                        .requestMatchers(HttpMethod.GET,    "/api/images/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/images/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/images/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/images/**").hasAnyRole("SUPER_ADMIN","ADMIN")
-
-
                         // ── Booklets ──────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/booklets/**").authenticated()
+                        .requestMatchers(HttpMethod.GET,    "/api/booklet-status/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN")
@@ -164,8 +127,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,   "/api/archives/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/archives/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // ── Dashboard ─────────────────────────────────────────
+                        // ── Dashboard ─────────────────────────────────────
                         .requestMatchers("/api/dashboard/**").authenticated()
+
+                        // ── Véhicules & Fournitures ───────────────────────
+                        .requestMatchers(HttpMethod.GET, "/api/vehicules/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/fournitures/**").authenticated()
+
+                        // ✅ Notifications — ajout explicite
+                        .requestMatchers(HttpMethod.GET,    "/api/notifications/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,   "/api/notifications/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT,    "/api/notifications/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/notifications/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
                         .anyRequest().authenticated()
                 )
@@ -177,10 +150,18 @@ public class SecurityConfig {
                 .build();
     }
 
+    // ✅ CORS centralisé ici — supprimer CorsConfig.java pour éviter le conflit
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://*.onrender.com",
+                "https://*.netlify.app",
+                "capacitor://localhost",
+                "ionic://localhost"
+        ));
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
