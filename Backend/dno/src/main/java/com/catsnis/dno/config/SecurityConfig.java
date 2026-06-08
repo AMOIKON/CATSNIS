@@ -51,41 +51,40 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
 
-                        // â”€â”€ Preflight CORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Preflight CORS ────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // â”€â”€ URLs publiques â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── URLs publiques ────────────────────────────────────────────────
                         .requestMatchers(PUBLIC_URLS).permitAll()
 
-                        // â”€â”€ CrÃ©ation de compte : SUPER_ADMIN uniquement â”€â”€â”€
+                        // ── Création de compte : SUPER_ADMIN uniquement ───────────────────
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("SUPER_ADMIN")
 
-                        // â”€â”€ Acquisitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Acquisitions ──────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/acquisitions/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/acquisitions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/acquisitions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/acquisitions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
 
-                        // â”€â”€ DÃ©ploiements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Déploiements ──────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/deployments/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/deployments/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/deployments/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/deployments/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
 
-                        // â”€â”€ Interventions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                        // USER peut seulement consulter (lecture seule)
+                        // ── Interventions ─────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/interventions/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
 
-                        // â”€â”€ Personnes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Personnes ─────────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/persons/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/persons/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/persons/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/persons/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // â”€â”€ Organisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Organisation ──────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/regions/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/regions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
@@ -101,25 +100,25 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT,    "/api/health-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/health-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // â”€â”€ Partenaires â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Partenaires ───────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/partners/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/partners/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/partners/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/partners/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Types ─────────────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/types/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/types/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/types/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/types/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // â”€â”€ Assignation sites â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Assignation sites ─────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/technician-sites/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/technician-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
                         .requestMatchers(HttpMethod.PUT,    "/api/technician-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/technician-sites/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // â”€â”€ ParamÃ¨tres â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Paramètres ────────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/posts/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/posts/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
@@ -150,19 +149,21 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT,    "/api/images/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/images/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-
-                        // â”€â”€ Booklets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Booklets ──────────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/booklets/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // â”€â”€ Archives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Archives ──────────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/archives/**").authenticated()
                         .requestMatchers(HttpMethod.POST,   "/api/archives/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/archives/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
-                        // â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                        // ── Notifications ─────────────────────────────────────────────────
+                        .requestMatchers("/api/notifications/**").authenticated()
+
+                        // ── Dashboard ─────────────────────────────────────────────────────
                         .requestMatchers("/api/dashboard/**").authenticated()
 
                         .anyRequest().authenticated()
@@ -178,12 +179,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        // ✅ Origines explicites — compatible avec allowCredentials=true
+        config.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "https://catsnis-h1cq.vercel.app",
+                "https://catsnis.vercel.app"
+        ));
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
+        config.setAllowCredentials(true);  // ✅ une seule fois
         config.setExposedHeaders(List.of("Authorization"));
-        config.setAllowCredentials(false);
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
