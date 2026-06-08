@@ -184,7 +184,8 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "http://localhost:3001",
                 "https://catsnis-h1cq.vercel.app",
-                "https://catsnis.vercel.app"
+                "https://catsnis.vercel.app",
+"https://neon-cassata-5a6d1e.netlify.app"
         ));
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
