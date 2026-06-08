@@ -1,13 +1,13 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '',
+    baseURL: process.env.REACT_APP_API_URL || 'https://catsnis.onrender.com',
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// ── Intercepteur requête ───────────────────────────────────────────────────
+// â”€â”€ Intercepteur requÃªte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
@@ -19,14 +19,14 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// ── Intercepteur réponse ───────────────────────────────────────────────────
+// â”€â”€ Intercepteur rÃ©ponse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
         const status = error.response?.status;
 
-        // ── 401 — Token expiré → tenter un refresh ────────────────────────
+        // â”€â”€ 401 â€” Token expirÃ© â†’ tenter un refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
@@ -47,7 +47,7 @@ api.interceptors.response.use(
                     originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                     return api(originalRequest);
                 } catch {
-                    // Refresh échoué → déconnexion
+                    // Refresh Ã©chouÃ© â†’ dÃ©connexion
                     localStorage.clear();
                     window.location.href = '/login';
                 }
