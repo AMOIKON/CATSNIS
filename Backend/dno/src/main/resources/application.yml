@@ -22,7 +22,7 @@ spring:
     hikari:
       connection-timeout:        30000
       initialization-fail-timeout: 60000
-      maximum-pool-size:         5   # ← Clever Cloud free : max 5 connexions
+      maximum-pool-size:         2   # ← Clever Cloud free : max 5 connexions
 
   # ── JPA / Hibernate ────────────────────────────────────────────────────────
   jpa:
