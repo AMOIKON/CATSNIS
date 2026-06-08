@@ -15,20 +15,20 @@ spring:
 
   # ── Datasource MySQL ───────────────────────────────────────────────────────
   datasource:
-    # ✅ useUnicode + characterEncoding ajoutés pour UTF-8 correct
-    url: jdbc:mysql://localhost:3307/catusnis_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
-    username: catusnis_user
-    password: catusnis_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/catusnis_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8}
+    username: ${SPRING_DATASOURCE_USERNAME:catusnis_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:catusnis_password}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      connection-timeout: 30000
+      connection-timeout:        30000
       initialization-fail-timeout: 60000
+      maximum-pool-size:         5   # ← Clever Cloud free : max 5 connexions
 
   # ── JPA / Hibernate ────────────────────────────────────────────────────────
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: true
     defer-datasource-initialization: true
     naming:
@@ -52,10 +52,28 @@ spring:
       max-file-size: 30MB
       max-request-size: 32MB
 
+# ── Actuator / Health ──────────────────────────────────────────────────────────
+# ✅ /actuator/health utilisé par le wake-up mobile — doit retourner 200
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health   # exposer uniquement /health (pas les autres)
+  endpoint:
+    health:
+      show-details: never # pas de détails sensibles en prod
+  health:
+    db:
+      enabled: false      # ✅ évite le 500 quand MySQL/Clever Cloud est lent
+    diskspace:
+      enabled: false
+    ping:
+      enabled: true       # /actuator/health répond toujours 200 {"status":"UP"}
+
 # ── JWT ────────────────────────────────────────────────────────────────────────
 jwt:
-  secret: K7gNU3sdo+OL0wNhqoVWhr3g6s1xYv72ol/pe/Unols=
-  expiration: 604800000
+  secret:             ${JWT_SECRET:K7gNU3sdo+OL0wNhqoVWhr3g6s1xYv72ol/pe/Unols=}
+  expiration:         604800000
   refresh-expiration: 2592000000
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -66,10 +84,10 @@ logging:
 # ── Application ────────────────────────────────────────────────────────────────
 app:
   upload:
-    dir: ${APP_UPLOAD_DIR:/app/uploads/images}
+    dir:          ${APP_UPLOAD_DIR:/app/uploads/images}
     archives-dir: ${APP_ARCHIVES_DIR:/app/uploads/archives}
   server:
-    url: http://localhost:8081
+    url: ${APP_SERVER_URL:http://localhost:8081}
   admin:
-    email: ${APP_ADMIN_EMAIL:superadmin@catusnis.ci}
+    email:    ${APP_ADMIN_EMAIL:superadmin@catusnis.ci}
     password: ${APP_ADMIN_PASSWORD:SuperAdmin@2024}
