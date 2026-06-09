@@ -15,13 +15,33 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService        jwtService;
+    private final JwtService         jwtService;
     private final UserDetailsService userDetailsService;
+
+    // ✅ URLs exclues du filtre JWT
+    private static final List<String> EXCLUDED_PATHS = List.of(
+            "/api/auth/login",
+            "/api/images/file/",
+            "/actuator",
+            "/actuator/",
+            "/actuator/health",
+            "/swagger-ui",
+            "/v3/api-docs",
+            "/api-docs",
+            "/error"
+    );
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return EXCLUDED_PATHS.stream().anyMatch(path::startsWith);
+    }
 
     @Override
     protected void doFilterInternal(
