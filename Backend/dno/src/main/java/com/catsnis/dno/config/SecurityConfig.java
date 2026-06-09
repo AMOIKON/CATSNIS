@@ -1,4 +1,4 @@
-﻿package com.catsnis.dno.config;
+package com.catsnis.dno.config;
 
 import com.catsnis.dno.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;

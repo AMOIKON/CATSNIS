@@ -3,19 +3,16 @@ package com.catsnis.dno.controller;
 import com.catsnis.dno.common.response.ApiResponse;
 import com.catsnis.dno.dto.ImageRequest;
 import com.catsnis.dno.dto.ImageResponse;
+import com.catsnis.dno.entity.Image;
 import com.catsnis.dno.service.ImageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.*;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,35 +23,26 @@ public class ImageController {
 
     private final ImageService imageService;
 
-    @Value("${app.upload.dir:/app/uploads/images}")
-    private String uploadDir;
-
-    // ── Upload image ──────────────────────────────────────────────────
+    // ── Upload image — stockage en base ──────────────────────────────
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<ImageResponse>> upload(
             @RequestParam("file")  MultipartFile file,
             @RequestParam("label") String label) throws IOException {
 
-        // Créer le dossier si inexistant
-        Path uploadPath = Paths.get(uploadDir);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
-        }
-
         // Générer un nom unique
-        String extension = file.getOriginalFilename()
-                .substring(file.getOriginalFilename().lastIndexOf('.'));
+        String originalName = file.getOriginalFilename();
+        String extension = originalName != null && originalName.contains(".")
+                ? originalName.substring(originalName.lastIndexOf('.'))
+                : ".png";
         String fileName = UUID.randomUUID().toString() + extension;
 
-        // Sauvegarder le fichier
-        Path filePath = uploadPath.resolve(fileName);
-        Files.copy(file.getInputStream(), filePath,
-                StandardCopyOption.REPLACE_EXISTING);
-
-        // Créer l'entrée en base
+        // ✅ Stocker les bytes en base — plus de disque
         ImageRequest request = ImageRequest.builder()
                 .fileName(fileName)
                 .label(label)
+                .mimeType(file.getContentType())
+                .fileSize(file.getSize())
+                .data(file.getBytes())
                 .build();
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -62,23 +50,22 @@ public class ImageController {
                         imageService.create(request)));
     }
 
-    // ── Servir une image ──────────────────────────────────────────────
+    // ── Servir une image depuis la base ──────────────────────────────
     @GetMapping("/file/{fileName:.+}")
-    public ResponseEntity<Resource> serveFile(
+    public ResponseEntity<byte[]> serveFile(
             @PathVariable String fileName) {
         try {
-            Path filePath = Paths.get(uploadDir).resolve(fileName);
-            Resource resource = new UrlResource(filePath.toUri());
-
-            if (resource.exists() && resource.isReadable()) {
-                String contentType = Files.probeContentType(filePath);
-                return ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(
-                                contentType != null ? contentType : "application/octet-stream"))
-                        .body(resource);
+            Image image = imageService.getByFileName(fileName);
+            if (image == null || image.getData() == null) {
+                return ResponseEntity.notFound().build();
             }
-            return ResponseEntity.notFound().build();
-        } catch (IOException e) {
+            String contentType = image.getMimeType() != null
+                    ? image.getMimeType() : "application/octet-stream";
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CACHE_CONTROL, "max-age=86400")
+                    .body(image.getData());
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
     }

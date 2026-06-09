@@ -51,6 +51,12 @@ spring:
       enabled: true
       max-file-size: 30MB
       max-request-size: 32MB
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-request: true
+      force-response: true
 
 # ── Actuator / Health ──────────────────────────────────────────────────────────
 # ✅ /actuator/health utilisé par le wake-up mobile — doit retourner 200

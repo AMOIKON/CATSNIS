@@ -6,19 +6,20 @@ import com.catsnis.dno.dto.ImageResponse;
 import com.catsnis.dno.entity.Image;
 import com.catsnis.dno.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ImageServiceImpl implements ImageService{
+public class ImageServiceImpl implements ImageService {
+
     private final ImageRepository imageRepository;
 
     @Override
@@ -47,12 +48,22 @@ public class ImageServiceImpl implements ImageService{
                         "Image non trouvée avec l'id : " + id)));
     }
 
+    // ✅ AJOUT — recherche par nom de fichier
+    @Override
+    @Transactional
+    public Image getByFileName(String fileName) {
+        return imageRepository.findByFileName(fileName).orElse(null);
+    }
+
     @Override
     @Transactional
     public ImageResponse create(ImageRequest request) {
         Image image = Image.builder()
                 .fileName(request.getFileName())
                 .label(request.getLabel())
+                .mimeType(request.getMimeType())   // ✅ AJOUT
+                .fileSize(request.getFileSize())   // ✅ AJOUT
+                .data(request.getData())           // ✅ AJOUT
                 .build();
         return mapToResponse(imageRepository.save(image));
     }
@@ -65,6 +76,11 @@ public class ImageServiceImpl implements ImageService{
                         "Image non trouvée avec l'id : " + id));
         image.setFileName(request.getFileName());
         image.setLabel(request.getLabel());
+        if (request.getData() != null) {
+            image.setData(request.getData());         // ✅ AJOUT
+            image.setMimeType(request.getMimeType()); // ✅ AJOUT
+            image.setFileSize(request.getFileSize()); // ✅ AJOUT
+        }
         return mapToResponse(imageRepository.save(image));
     }
 
@@ -77,19 +93,20 @@ public class ImageServiceImpl implements ImageService{
         imageRepository.delete(image);
     }
 
-
-
-
-
+    // ✅ mapToResponse avec Base64
     private ImageResponse mapToResponse(Image image) {
+        String base64 = null;
+        if (image.getData() != null && image.getData().length > 0) {
+            String mime = image.getMimeType() != null ? image.getMimeType() : "image/png";
+            base64 = "data:" + mime + ";base64," +
+                    Base64.getEncoder().encodeToString(image.getData());
+        }
         return ImageResponse.builder()
                 .id(image.getId())
                 .fileName(image.getFileName())
                 .label(image.getLabel())
-                .url("/api/images/file/" + image.getFileName()) // ← URL
+                .url("/api/images/file/" + image.getFileName())
+                .base64(base64)  // ✅ AJOUT
                 .build();
     }
-
-
-
 }

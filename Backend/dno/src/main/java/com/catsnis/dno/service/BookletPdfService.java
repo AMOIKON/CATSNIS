@@ -17,13 +17,9 @@ import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +30,7 @@ public class BookletPdfService {
 
     private final ImageRepository imageRepository;
 
-    @Value("${app.upload.dir:/app/uploads/images}")
-    private String uploadDir;
-
-    // ── Charger les bytes du logo ─────────────────────────────────────────
+    // ✅ Charger les bytes depuis la base (plus de disque)
     private byte[] loadLogoBytes() {
         try {
             String[] keywords = { "minist", "sant", "logo", "Logo" };
@@ -56,13 +49,14 @@ public class BookletPdfService {
                 if (!all.isEmpty()) imageOpt = Optional.of(all.get(0));
             }
 
+            // ✅ Lire depuis la colonne data (Base64 stocké en base)
             if (imageOpt.isPresent()) {
-                Path filePath = Paths.get(uploadDir, imageOpt.get().getFileName());
-                System.out.println("🔍 Chemin logo : " + filePath.toAbsolutePath());
-                if (Files.exists(filePath)) {
-                    return Files.readAllBytes(filePath);
+                Image image = imageOpt.get();
+                if (image.getData() != null && image.getData().length > 0) {
+                    System.out.println("✅ Logo chargé depuis la base : " + image.getLabel());
+                    return image.getData();
                 } else {
-                    System.out.println("❌ Fichier non trouvé : " + filePath);
+                    System.out.println("⚠️ Colonne data vide pour : " + image.getLabel());
                 }
             }
         } catch (Exception e) {
@@ -94,12 +88,10 @@ public class BookletPdfService {
     // ── En-tête avec logo à gauche + titre au centre ──────────────────────
     private void addHeader(Document document, String title, byte[] logoBytes) {
         try {
-            // Tableau 3 colonnes : logo | titre | vide
             Table header = new Table(UnitValue.createPercentArray(new float[]{20, 60, 20}))
                     .useAllAvailableWidth()
                     .setMarginBottom(10f);
 
-            // ── Colonne gauche : logo ──────────────────────────────────────
             Cell logoCell = new Cell().setBorder(com.itextpdf.layout.borders.Border.NO_BORDER)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE);
 
@@ -113,7 +105,6 @@ public class BookletPdfService {
             }
             header.addCell(logoCell);
 
-            // ── Colonne centre : titres ────────────────────────────────────
             Cell titleCell = new Cell().setBorder(com.itextpdf.layout.borders.Border.NO_BORDER)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE);
             titleCell.add(new Paragraph("MINISTÈRE DE LA SANTÉ")
@@ -126,14 +117,12 @@ public class BookletPdfService {
                     .setFontSize(9).setTextAlignment(TextAlignment.CENTER));
             header.addCell(titleCell);
 
-            // ── Colonne droite : vide ──────────────────────────────────────
             header.addCell(new Cell()
                     .setBorder(com.itextpdf.layout.borders.Border.NO_BORDER));
 
             document.add(header);
 
         } catch (Exception e) {
-            // Fallback sans logo
             document.add(new Paragraph("MINISTÈRE DE LA SANTÉ")
                     .setFontSize(11).setBold()
                     .setTextAlignment(TextAlignment.CENTER));
@@ -151,18 +140,12 @@ public class BookletPdfService {
         PdfDocument pdfDoc         = new PdfDocument(writer);
         Document document          = new Document(pdfDoc, PageSize.A4);
 
-        // ✅ Charger les bytes une seule fois
         byte[] logoBytes = loadLogoBytes();
-
-        // ✅ Filigrane en background
         addWatermark(document, PageSize.A4, logoBytes);
-
-        // ✅ En-tête avec logo en haut à gauche
         addHeader(document, "CATUSNIS — BOOKLET", logoBytes);
 
         document.add(new Paragraph("\n"));
 
-        // ── Tableau infos ─────────────────────────────────────────────────
         Table table = new Table(UnitValue.createPercentArray(new float[]{40, 60}))
                 .useAllAvailableWidth();
 
@@ -185,7 +168,7 @@ public class BookletPdfService {
         return baos.toByteArray();
     }
 
-    // ── PDF liste générale (Affectés + Réaffectés) ────────────────────────
+    // ── PDF liste générale ────────────────────────────────────────────────
     public byte[] generateListPdf(List<Booklet> booklets) throws Exception {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -193,21 +176,14 @@ public class BookletPdfService {
         PdfDocument pdfDoc         = new PdfDocument(writer);
         Document document          = new Document(pdfDoc, PageSize.A4.rotate());
 
-        // ✅ Charger les bytes une seule fois
         byte[] logoBytes = loadLogoBytes();
-
-        // ✅ Filigrane en background
         addWatermark(document, PageSize.A4.rotate(), logoBytes);
-
-        // ✅ En-tête avec logo en haut à gauche
         addHeader(document, "CATUSNIS — LISTE DES AGENTS AFFECTÉS", logoBytes);
 
         document.add(new Paragraph("Date d'édition : " + LocalDate.now())
                 .setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
-
         document.add(new Paragraph("\n"));
 
-        // ── Tableau ───────────────────────────────────────────────────────
         Table table = new Table(UnitValue.createPercentArray(
                 new float[]{4, 10, 10, 10, 20, 12, 12, 12}))
                 .useAllAvailableWidth();
@@ -236,7 +212,6 @@ public class BookletPdfService {
         }
 
         document.add(table);
-
         document.add(new Paragraph("\n"));
         document.add(new Paragraph("Total : " + booklets.size() + " agent(s)")
                 .setFontSize(9).setBold()
