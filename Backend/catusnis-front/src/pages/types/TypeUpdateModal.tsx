@@ -23,7 +23,6 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
         typeName: '', image: '', marque: '', modele: '',
     });
 
-    // â”€â”€ PrÃ©-remplir + charger les images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (show && type) {
             setForm({
@@ -40,7 +39,6 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
         }
     }, [show, type]);
 
-    // â”€â”€ RÃ©initialiser Ã  la fermeture â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (!show) {
             setShowPicker(false);
@@ -72,21 +70,7 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
         }
     };
 
-    // â”€â”€ Image sÃ©lectionnÃ©e â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const selectedImage = images.find(img => img.fileName === form.image);
-
-
-const getImageSrc = (fileName: string): string => {
-    if (!fileName) return '/images/equipements/equipement.png';
-    
-    // Si c'est un UUID (image uploadÃ©e) â†’ backend
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-        .test(fileName);
-    
-    return isUUID
-        ? `/api/images/file/${fileName}`      // â† image uploadÃ©e
-        : `/images/equipements/${fileName}`;   // â† image statique
-};
 
     return (
         <Modal show={show} onHide={onHide} centered size="lg">
@@ -101,7 +85,6 @@ const getImageSrc = (fileName: string): string => {
                     <Alert variant="danger" className="rounded-3">{error}</Alert>
                 )}
                 <Form>
-                    {/* Nom */}
                     <Form.Group className="mb-3">
                         <Form.Label className="fw-semibold">
                             Nom du type <span className="text-danger">*</span>
@@ -114,7 +97,6 @@ const getImageSrc = (fileName: string): string => {
                         />
                     </Form.Group>
 
-                    {/* Marque + ModÃ¨le */}
                     <div className="row">
                         <div className="col-md-6">
                             <Form.Group className="mb-3">
@@ -129,7 +111,7 @@ const getImageSrc = (fileName: string): string => {
                         </div>
                         <div className="col-md-6">
                             <Form.Group className="mb-3">
-                                <Form.Label className="fw-semibold">ModÃ¨le</Form.Label>
+                                <Form.Label className="fw-semibold">Modèle</Form.Label>
                                 <Form.Control
                                     name="modele"
                                     value={form.modele}
@@ -140,14 +122,10 @@ const getImageSrc = (fileName: string): string => {
                         </div>
                     </div>
 
-                    {/* Image Picker dynamique */}
                     <Form.Group className="mb-3">
                         <Form.Label className="fw-semibold">Image</Form.Label>
-
-                        {/* AperÃ§u + bouton ouvrir */}
                         <div
-                            className="border rounded-3 p-3 d-flex
-                                       align-items-center gap-3 bg-light"
+                            className="border rounded-3 p-3 d-flex align-items-center gap-3 bg-light"
                             onClick={() => setShowPicker(!showPicker)}
                             style={{ cursor: 'pointer' }}
                         >
@@ -156,8 +134,7 @@ const getImageSrc = (fileName: string): string => {
                                     <img
                                         src={getImageSrc(form.image)}
                                         alt={form.image}
-                                        style={{ width: '45px', height: '45px',
-                                                 objectFit: 'contain' }}
+                                        style={{ width: '45px', height: '45px', objectFit: 'contain' }}
                                         onError={e => {
                                             const t = e.target as HTMLImageElement;
                                             if (!t.src.includes('/images/equipements/')) {
@@ -171,108 +148,75 @@ const getImageSrc = (fileName: string): string => {
                                         <p className="mb-0 fw-semibold small">
                                             {selectedImage?.label || form.image}
                                         </p>
-                                        <small className="text-muted">
-                                            Cliquez pour changer
-                                        </small>
+                                        <small className="text-muted">Cliquez pour changer</small>
                                     </div>
                                 </>
                             ) : (
                                 <>
                                     <div
-                                        className="rounded-circle bg-secondary
-                                                   bg-opacity-10 d-flex
-                                                   align-items-center
-                                                   justify-content-center"
-                                        style={{ width: '45px', height: '45px',
-                                                 minWidth: '45px' }}
+                                        className="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center"
+                                        style={{ width: '45px', height: '45px', minWidth: '45px' }}
                                     >
                                         <i className="bi bi-image text-muted fs-4" />
                                     </div>
                                     <div>
-                                        <p className="mb-0 fw-semibold small text-muted">
-                                            Aucune image sÃ©lectionnÃ©e
-                                        </p>
-                                        <small className="text-muted">
-                                            Cliquez pour choisir
-                                        </small>
+                                        <p className="mb-0 fw-semibold small text-muted">Aucune image sélectionnée</p>
+                                        <small className="text-muted">Cliquez pour choisir</small>
                                     </div>
                                 </>
                             )}
-                            <i className={`bi ${showPicker
-                                ? 'bi-chevron-up' : 'bi-chevron-down'}
-                                ms-auto text-muted`}
-                            />
+                            <i className={`bi ${showPicker ? 'bi-chevron-up' : 'bi-chevron-down'} ms-auto text-muted`} />
                         </div>
 
-                        {/* Grille de sÃ©lection */}
                         {showPicker && (
-                            <div
-                                className="border rounded-3 p-3 mt-2"
-                                style={{ maxHeight: '260px', overflowY: 'auto' }}
-                            >
+                            <div className="border rounded-3 p-3 mt-2" style={{ maxHeight: '260px', overflowY: 'auto' }}>
                                 {imgLoading ? (
                                     <div className="text-center py-3">
-                                        <div className="spinner-border
-                                                        spinner-border-sm
-                                                        text-warning" />
-                                        <p className="text-muted small mt-2 mb-0">
-                                            Chargement des images...
-                                        </p>
+                                        <div className="spinner-border spinner-border-sm text-warning" />
+                                        <p className="text-muted small mt-2 mb-0">Chargement des images...</p>
                                     </div>
                                 ) : images.length === 0 ? (
                                     <div className="text-center py-3 text-muted small">
-                                        <i className="bi bi-exclamation-circle me-1" />
-                                        Aucune image disponible
+                                        <i className="bi bi-exclamation-circle me-1" />Aucune image disponible
                                     </div>
                                 ) : (
                                     <div className="row g-2">
-                                    {images.map(img => (
-    <div key={img.id} className="col-3">
-        <div
-            className="border rounded-3 p-2 text-center
-                       d-flex flex-column align-items-center gap-1"
-            style={{
-                cursor: 'pointer',
-                background: form.image === img.fileName
-                    ? 'rgba(255,193,7,0.15)' : 'white',
-                transition: 'all 0.2s'
-            }}
-            onClick={() => {
-                setForm(prev => ({ ...prev, image: img.fileName }));
-                setShowPicker(false);
-            }}
-        >
-            <img
-                src={getImageSrc(img.fileName)} // â† corrigÃ©
-                alt={img.label}
-                style={{ width: '40px', height: '40px',
-                         objectFit: 'contain' }}
-                onError={e => {
-                    const t = e.target as HTMLImageElement;
-                    if (!t.src.includes('/images/equipements/')) {
-                        t.src = `/images/equipements/${img.fileName}`;
-                    } else {
-                        t.src = '/images/equipements/equipement.png';
-                    }
-                }}
-            />
-            <small className="text-muted"
-                   style={{ fontSize: '0.65rem', lineHeight: '1.2' }}>
-                {img.label}
-            </small>
-            {form.image === img.fileName && (
-                <i className="bi bi-check-circle-fill text-warning small" />
-            )}
-        </div>
-    </div>
-))}
-
-
-                              
-
-
-
-
+                                        {images.map(img => (
+                                            <div key={img.id} className="col-3">
+                                                <div
+                                                    className="border rounded-3 p-2 text-center d-flex flex-column align-items-center gap-1"
+                                                    style={{
+                                                        cursor: 'pointer',
+                                                        background: form.image === img.fileName ? 'rgba(255,193,7,0.15)' : 'white',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onClick={() => {
+                                                        setForm(prev => ({ ...prev, image: img.fileName }));
+                                                        setShowPicker(false);
+                                                    }}
+                                                >
+                                                    <img
+                                                        src={getImageSrc(img.fileName)}
+                                                        alt={img.label}
+                                                        style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+                                                        onError={e => {
+                                                            const t = e.target as HTMLImageElement;
+                                                            if (!t.src.includes('/images/equipements/')) {
+                                                                t.src = `/images/equipements/${img.fileName}`;
+                                                            } else {
+                                                                t.src = '/images/equipements/equipement.png';
+                                                            }
+                                                        }}
+                                                    />
+                                                    <small className="text-muted" style={{ fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                                        {img.label}
+                                                    </small>
+                                                    {form.image === img.fileName && (
+                                                        <i className="bi bi-check-circle-fill text-warning small" />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -281,15 +225,8 @@ const getImageSrc = (fileName: string): string => {
                 </Form>
             </Modal.Body>
             <Modal.Footer className="border-0">
-                <Button variant="light" onClick={onHide} className="rounded-3">
-                    Annuler
-                </Button>
-                <Button
-                    variant="warning"
-                    onClick={handleSubmit}
-                    disabled={isLoading}
-                    className="rounded-3 text-white"
-                >
+                <Button variant="light" onClick={onHide} className="rounded-3">Annuler</Button>
+                <Button variant="warning" onClick={handleSubmit} disabled={isLoading} className="rounded-3 text-white">
                     {isLoading ? (
                         <><Spinner size="sm" className="me-2" />Modification...</>
                     ) : (

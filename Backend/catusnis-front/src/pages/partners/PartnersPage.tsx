@@ -10,10 +10,6 @@ import useAuth            from '../../hooks/useAuth';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
 import { getImageSrc } from '../../utils/imageUtils';
 
-const getImageSrc = (fileName: string): string => {
-    if (!fileName) return '';
-    return /^[0-9a-f]{8}-/i.test(fileName) ? `/api/images/file/${fileName}` : `/images/equipements/${fileName}`;
-};
 
 const PartnersPage: React.FC = () => {
     const { person } = useAuth();

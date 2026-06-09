@@ -10,11 +10,6 @@ import useAuth        from '../../hooks/useAuth';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
 import { getImageSrc } from '../../utils/imageUtils';
 
-const getImageSrc = (fileName: string): string => {
-    if (!fileName) return '';
-    return /^[0-9a-f]{8}-/i.test(fileName) ? `/api/images/file/${fileName}` : `/images/equipements/${fileName}`;
-};
-
 const AppsPage: React.FC = () => {
     const { person } = useAuth();
     const role = person?.role;
@@ -72,14 +67,14 @@ const AppsPage: React.FC = () => {
                     </td>
                 </tr>`).join('');
             const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/>
-                <title>Applications â€” CATUSNIS</title>
+                <title>Applications - CATUSNIS</title>
                 <style>@page{margin:1.5cm;size:A4 portrait}body{font-family:Arial,sans-serif;color:#333;margin:0}
                 .total{font-size:12px;color:#6c757d;margin:8px 0 16px}table{width:100%;border-collapse:collapse}
                 th{background:#f8f9fa;border:1px solid #dee2e6;padding:8px 12px;font-size:12px;text-align:left}
                 td{border:1px solid #dee2e6;padding:8px 12px;font-size:12px}tr:nth-child(even){background:#f9f9f9}
                 </style></head>
                 <body>${header}<p class="total">${all.length} application(s) au total</p>
-                <table><thead><tr><th>#</th><th>Application</th><th>IcÃ´ne</th><th>Couleur</th></tr></thead>
+                <table><thead><tr><th>#</th><th>Application</th><th>Icone</th><th>Couleur</th></tr></thead>
                 <tbody>${rows}</tbody></table></body></html>`;
             const win=window.open('','_blank','width=800,height=600');
             if(!win){alert('Veuillez autoriser les popups.');return;}
@@ -130,10 +125,10 @@ const AppsPage: React.FC = () => {
             <div id="apps-table" className="card border-0 shadow-sm rounded-4">
                 <div className="card-body p-0">
                     {isLoading?<div className="text-center py-5"><div className="spinner-border text-primary"/></div>
-                    :apps.length===0?<div className="text-center py-5 text-muted"><i className="bi bi-grid fs-1 d-block mb-2"/>Aucune application trouvÃ©e</div>
+                    :apps.length===0?<div className="text-center py-5 text-muted"><i className="bi bi-grid fs-1 d-block mb-2"/>Aucune application trouvée</div>
                     :<div className="table-responsive"><table className="table table-hover align-middle mb-0">
                         <thead className="table-light">
-                            <tr><th>#</th><th style={{width:'60px'}}>Logo</th><th>Application</th><th>IcÃ´ne</th><th>Couleur</th>
+                            <tr><th>#</th><th style={{width:'60px'}}>Logo</th><th>Application</th><th>Icône</th><th>Couleur</th>
                                 {(canEdit||canDelete)&&<th className="text-end no-print">Actions</th>}
                             </tr>
                         </thead>
@@ -159,7 +154,7 @@ const AppsPage: React.FC = () => {
             </div>
             <AppFormModal show={showForm} onHide={()=>setShowForm(false)} onSuccess={loadApps}/>
             <AppUpdateModal show={showUpdate} onHide={()=>{setShowUpdate(false);setSelected(null);}} onSuccess={loadApps} app={selected}/>
-            <ConfirmModal show={showConfirm} title="Supprimer l'application" message="ÃŠtes-vous sÃ»r ?" onConfirm={handleDeleteConfirm} onCancel={()=>setShowConfirm(false)} isLoading={deleteLoading}/>
+            <ConfirmModal show={showConfirm} title="Supprimer l'application" message="Êtes-vous sûr ?" onConfirm={handleDeleteConfirm} onCancel={()=>setShowConfirm(false)} isLoading={deleteLoading}/>
         </MainLayout>
     );
 };
