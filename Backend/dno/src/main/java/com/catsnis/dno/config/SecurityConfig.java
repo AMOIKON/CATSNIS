@@ -41,7 +41,9 @@ public class SecurityConfig {
             "/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/v3/api-docs/**"
+            "/v3/api-docs/**",
+            "/actuator/**",          // ✅ AJOUT — health check mobile
+            "/actuator/health"       // ✅ AJOUT — explicite
     };
 
     @Bean
@@ -179,17 +181,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // ✅ Origines explicites — compatible avec allowCredentials=true
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:3001",
                 "https://catsnis-h1cq.vercel.app",
                 "https://catsnis.vercel.app",
-"https://neon-cassata-5a6d1e.netlify.app"
+                "https://neon-cassata-5a6d1e.netlify.app",
+                "https://catusnis.netlify.app"    // ✅ AJOUT
         ));
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);  // ✅ une seule fois
+        config.setAllowCredentials(true);
         config.setExposedHeaders(List.of("Authorization"));
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
