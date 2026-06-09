@@ -22,7 +22,7 @@ spring:
     hikari:
       connection-timeout:        30000
       initialization-fail-timeout: 60000
-      maximum-pool-size:         5   # ← Clever Cloud free : max 5 connexions
+      maximum-pool-size:         5
 
   # ── JPA / Hibernate ────────────────────────────────────────────────────────
   jpa:
@@ -59,22 +59,24 @@ spring:
       force-response: true
 
 # ── Actuator / Health ──────────────────────────────────────────────────────────
-# ✅ /actuator/health utilisé par le wake-up mobile — doit retourner 200
 management:
   endpoints:
     web:
       exposure:
-        include: health   # exposer uniquement /health (pas les autres)
+        include: health
   endpoint:
     health:
-      show-details: never # pas de détails sensibles en prod
+      show-details: never
   health:
     db:
-      enabled: false      # ✅ évite le 500 quand MySQL/Clever Cloud est lent
+      enabled: false
     diskspace:
       enabled: false
     ping:
-      enabled: true       # /actuator/health répond toujours 200 {"status":"UP"}
+      enabled: true
+  # ✅ AJOUT — désactive la sécurité Spring Security sur Actuator
+  security:
+    enabled: false
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
 jwt:
