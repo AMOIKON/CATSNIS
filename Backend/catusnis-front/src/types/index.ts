@@ -16,7 +16,7 @@ export interface RegisterRequest {
   unitsId:    number;
   partnerId?: number;
   role?:          AppRole;
-  plainPassword?: string;  // ✅ Nouveau mot de passe en clair (SUPER_ADMIN)
+  plainPassword?: string;
 }
 
 export interface PersonInfo {
@@ -29,7 +29,6 @@ export interface PersonInfo {
   postName:     string;
   unitsName:    string;
   partnerName?: string;
-  // ✅ Phase 2 — ID du partenaire pour le filtrage des données
   partnerId?:   number;
 }
 
@@ -50,7 +49,7 @@ export interface UpdatePersonRequest {
   unitsId:    number;
   partnerId?: number;
   role?:          AppRole;
-  plainPassword?: string;  // ✅ Nouveau mot de passe en clair (SUPER_ADMIN)
+  plainPassword?: string;
 }
 
 // ── ApiResponse ───────────────────────────────────────────────────────────────
@@ -74,7 +73,7 @@ export interface Page<T> {
 // ── Acquisitions ──────────────────────────────────────────────────────────────
 export interface AcquisitionResponse {
   id:          number;
-  image:       string;
+  fileName:    string;  // ⚠ était "image" — à confirmer selon réponse API
   tag:         string;
   dateAcq:     string;
   quantity:    number;
@@ -83,7 +82,6 @@ export interface AcquisitionResponse {
   typesId:     number;
   status:      string;
   deployed:    boolean;
-  // ✅ Phase 2 — partenaire associé à l'équipement
   partnerName?: string;
   partnerId?:   number;
 }
@@ -95,7 +93,6 @@ export interface AcquisitionRequest {
   quantity:   number;
   serial:     string;
   typesId:    number;
-  // ✅ Phase 2 — partenaire choisi par SUPER_ADMIN (optionnel pour les autres)
   partnerId?: number;
 }
 
@@ -103,7 +100,7 @@ export interface AcquisitionRequest {
 export interface TypeResponse {
   id:       number;
   typeName: string;
-  image:    string;
+  fileName: string;  // ⚠ était "image" — à confirmer selon réponse API
   marque:   string;
   modele:   string;
 }
@@ -158,7 +155,7 @@ export interface PartnerResponse {
   partnerName: string;
   logo:        string;
   color:       string;
-  image:       string;
+  fileName:    string;  // ⚠ était "image" — à confirmer selon réponse API
 }
 
 export interface PartnerRequest {
@@ -184,7 +181,7 @@ export interface AppsResponse {
   appsName: string;
   icon:     string;
   color:    string;
-  image:    string;
+  fileName: string;  // ✅ corrigé — était "image"
 }
 
 export interface AppsRequest {
@@ -220,7 +217,7 @@ export interface ImageResponse {
   fileName: string;
   label:    string;
   url:      string;
-  base64?:  string | null;  // ✅ données LONGBLOB encodées par le backend
+  base64?:  string | null;
 }
 
 export interface ImageRequest {
@@ -261,7 +258,6 @@ export interface DeploymentRequest {
   healthId:   number;
   appsId:     number;
   items:      DeploymentItemRequest[];
-  // ✅ Phase 2 — partenaire (SUPER_ADMIN peut choisir)
   partnerId?: number;
 }
 
@@ -352,7 +348,6 @@ export interface InterventionRequest {
   enAttenteMaintenance?:    boolean;
   selectedItemIds?:         number[];
   maintenanceReussie?:      Record<number, boolean>;
-  // ✅ Saisie manuelle personne assistée
   manualPersonName?:        string;
   manualPersonContact?:     string;
   manualPersonPost?:        string;
