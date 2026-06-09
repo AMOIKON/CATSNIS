@@ -8,6 +8,7 @@ import PartnerService     from '../../services/partnerService';
 import { PartnerResponse } from '../../types';
 import useAuth            from '../../hooks/useAuth';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
+import { getImageSrc } from '../../utils/imageUtils';
 
 const getImageSrc = (fileName: string): string => {
     if (!fileName) return '';
@@ -53,7 +54,7 @@ const PartnersPage: React.FC = () => {
         finally{setDeleteLoading(false);setShowConfirm(false);setSelectedId(null);}
     };
 
-    // ✅ Impression globale
+    // âœ… Impression globale
     const handlePrintAll = async () => {
         setIsPrinting(true);
         try {
@@ -72,14 +73,14 @@ const PartnersPage: React.FC = () => {
                     </td>
                 </tr>`).join('');
             const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/>
-                <title>Partenaires — CATUSNIS</title>
+                <title>Partenaires â€” CATUSNIS</title>
                 <style>@page{margin:1.5cm;size:A4 portrait}body{font-family:Arial,sans-serif;color:#333;margin:0}
                 .total{font-size:12px;color:#6c757d;margin:8px 0 16px}table{width:100%;border-collapse:collapse}
                 th{background:#f8f9fa;border:1px solid #dee2e6;padding:8px 12px;font-size:12px;text-align:left}
                 td{border:1px solid #dee2e6;padding:8px 12px;font-size:12px}tr:nth-child(even){background:#f9f9f9}
                 </style></head>
                 <body>${header}<p class="total">${all.length} partenaire(s) au total</p>
-                <table><thead><tr><th>#</th><th>Partenaire</th><th>Icône</th><th>Couleur</th></tr></thead>
+                <table><thead><tr><th>#</th><th>Partenaire</th><th>IcÃ´ne</th><th>Couleur</th></tr></thead>
                 <tbody>${rows}</tbody></table></body></html>`;
             const win=window.open('','_blank','width=800,height=600');
             if(!win){alert('Veuillez autoriser les popups.');return;}
@@ -130,10 +131,10 @@ const PartnersPage: React.FC = () => {
             <div id="partners-table" className="card border-0 shadow-sm rounded-4">
                 <div className="card-body p-0">
                     {isLoading?<div className="text-center py-5"><div className="spinner-border text-primary"/></div>
-                    :partners.length===0?<div className="text-center py-5 text-muted"><i className="bi bi-building fs-1 d-block mb-2"/>Aucun partenaire trouvé</div>
+                    :partners.length===0?<div className="text-center py-5 text-muted"><i className="bi bi-building fs-1 d-block mb-2"/>Aucun partenaire trouvÃ©</div>
                     :<div className="table-responsive"><table className="table table-hover align-middle mb-0">
                         <thead className="table-light">
-                            <tr><th>#</th><th style={{width:'60px'}}>Logo</th><th>Partenaire</th><th>Icône</th><th>Couleur</th>
+                            <tr><th>#</th><th style={{width:'60px'}}>Logo</th><th>Partenaire</th><th>IcÃ´ne</th><th>Couleur</th>
                                 {(canEdit||canDelete)&&<th className="text-end no-print">Actions</th>}
                             </tr>
                         </thead>
@@ -159,7 +160,7 @@ const PartnersPage: React.FC = () => {
             </div>
             <PartnerFormModal show={showForm} onHide={()=>setShowForm(false)} onSuccess={loadPartners}/>
             <PartnerUpdateModal show={showUpdate} onHide={()=>{setShowUpdate(false);setSelected(null);}} onSuccess={loadPartners} partner={selected}/>
-            <ConfirmModal show={showConfirm} title="Supprimer le partenaire" message="Êtes-vous sûr ?" onConfirm={handleDeleteConfirm} onCancel={()=>setShowConfirm(false)} isLoading={deleteLoading}/>
+            <ConfirmModal show={showConfirm} title="Supprimer le partenaire" message="ÃŠtes-vous sÃ»r ?" onConfirm={handleDeleteConfirm} onCancel={()=>setShowConfirm(false)} isLoading={deleteLoading}/>
         </MainLayout>
     );
 };

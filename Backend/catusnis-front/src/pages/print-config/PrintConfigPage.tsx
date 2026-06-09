@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import MainLayout from '../../components/common/MainLayout';
 import { usePrintConfig, PrintConfig } from '../../context/PrintConfigContext';
 import api from '../../services/api';
+import { getImageSrc } from '../../utils/imageUtils';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ApiImage {
     id:       number;
     fileName: string;
@@ -24,7 +25,7 @@ const SLOT_ICONS: Record<ImageSlot, string> = {
     bg:    'bi-layers',
 };
 
-// ── Composant ─────────────────────────────────────────────────────────────────
+// â”€â”€ Composant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PrintConfigPage: React.FC = () => {
     const { config, setConfig, resetConfig } = usePrintConfig();
 
@@ -43,7 +44,7 @@ const PrintConfigPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Charger les images CATUSNIS
-    // ✅ Resync états locaux si config change depuis le contexte
+    // âœ… Resync Ã©tats locaux si config change depuis le contexte
     useEffect(() => {
         setLeftUrl(config.leftImageUrl);
         setRightUrl(config.rightImageUrl);
@@ -80,7 +81,7 @@ const PrintConfigPage: React.FC = () => {
         if (slot === 'bg')    setBgUrl(url);
     };
 
-    // Sélection depuis CATUSNIS
+    // SÃ©lection depuis CATUSNIS
     const handleSelectApiImage = (img: ApiImage) => {
         if (!activeSlot) return;
         const url = getImageSrc(img.fileName);
@@ -117,11 +118,11 @@ const PrintConfigPage: React.FC = () => {
         };
         setConfig(newConfig);
         setSaved(true);
-        // ✅ Remettre à false après 3s mais ne pas perdre les valeurs
+        // âœ… Remettre Ã  false aprÃ¨s 3s mais ne pas perdre les valeurs
         setTimeout(() => setSaved(false), 3000);
     };
 
-    // Réinitialiser
+    // RÃ©initialiser
     const handleReset = () => {
         setLeftUrl(null); setRightUrl(null); setBgUrl(null);
         setLeftLbl('');   setRightLbl('');
@@ -135,25 +136,25 @@ const PrintConfigPage: React.FC = () => {
     return (
         <MainLayout title="Configuration impression">
 
-            {/* ── Header ──────────────────────────────────────────────── */}
+            {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h5 className="fw-bold mb-0">Configuration des impressions</h5>
                     <small className="text-muted">
-                        Choisissez les images qui apparaîtront sur toutes vos impressions
+                        Choisissez les images qui apparaÃ®tront sur toutes vos impressions
                     </small>
                 </div>
                 <div className="d-flex gap-2">
                     <button className="btn btn-outline-danger btn-sm" onClick={handleReset}>
                         <i className="bi bi-arrow-counterclockwise me-1" />
-                        Réinitialiser
+                        RÃ©initialiser
                     </button>
                     <button
                         className={`btn btn-primary btn-sm d-flex align-items-center gap-2 ${saved ? 'btn-success' : ''}`}
                         onClick={handleSave}
                     >
                         {saved
-                            ? <><i className="bi bi-check-circle-fill" />Sauvegardé !</>
+                            ? <><i className="bi bi-check-circle-fill" />SauvegardÃ© !</>
                             : <><i className="bi bi-save-fill" />Sauvegarder</>
                         }
                     </button>
@@ -162,7 +163,7 @@ const PrintConfigPage: React.FC = () => {
 
             <div className="row g-4">
 
-                {/* ── Colonne gauche : sélecteurs ─────────────────────── */}
+                {/* â”€â”€ Colonne gauche : sÃ©lecteurs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="col-lg-5">
                     {(['left', 'right', 'bg'] as ImageSlot[]).map(slot => (
                         <div key={slot} className="card border-0 shadow-sm rounded-4 mb-3">
@@ -172,7 +173,7 @@ const PrintConfigPage: React.FC = () => {
                                     <h6 className="fw-bold mb-0">{SLOT_LABELS[slot]}</h6>
                                 </div>
 
-                                {/* Aperçu image sélectionnée */}
+                                {/* AperÃ§u image sÃ©lectionnÃ©e */}
                                 <div className="d-flex align-items-center gap-3 mb-3">
                                     <div
                                         className="rounded-3 border d-flex align-items-center justify-content-center bg-light"
@@ -192,7 +193,7 @@ const PrintConfigPage: React.FC = () => {
                                     <div className="flex-grow-1">
                                         {getUrlForSlot(slot) ? (
                                             <span className="badge bg-success bg-opacity-10 text-success mb-1 d-block">
-                                                <i className="bi bi-check-circle me-1" />Image configurée
+                                                <i className="bi bi-check-circle me-1" />Image configurÃ©e
                                             </span>
                                         ) : (
                                             <span className="badge bg-secondary bg-opacity-10 text-secondary mb-1 d-block">
@@ -210,7 +211,7 @@ const PrintConfigPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Boutons de sélection */}
+                                {/* Boutons de sÃ©lection */}
                                 <div className="d-flex gap-2">
                                     <button
                                         className={`btn btn-sm flex-grow-1 ${
@@ -235,7 +236,7 @@ const PrintConfigPage: React.FC = () => {
                                     <div className="mt-3">
                                         <p className="text-muted small mb-2">
                                             <i className="bi bi-info-circle me-1" />
-                                            Cliquez sur une image pour la sélectionner
+                                            Cliquez sur une image pour la sÃ©lectionner
                                         </p>
                                         {loadingImgs ? (
                                             <div className="text-center py-3">
@@ -279,7 +280,7 @@ const PrintConfigPage: React.FC = () => {
                         </div>
                     ))}
 
-                    {/* Input file caché */}
+                    {/* Input file cachÃ© */}
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -289,16 +290,16 @@ const PrintConfigPage: React.FC = () => {
                     />
                 </div>
 
-                {/* ── Colonne droite : aperçu en temps réel ───────────── */}
+                {/* â”€â”€ Colonne droite : aperÃ§u en temps rÃ©el â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="col-lg-7">
                     <div className="card border-0 shadow-sm rounded-4 sticky-top" style={{ top:'20px' }}>
                         <div className="card-body p-4">
                             <h6 className="fw-bold mb-3">
                                 <i className="bi bi-eye-fill text-primary me-2" />
-                                Aperçu en temps réel
+                                AperÃ§u en temps rÃ©el
                             </h6>
 
-                            {/* Zone aperçu */}
+                            {/* Zone aperÃ§u */}
                             <div
                                 className="rounded-3 border p-3"
                                 style={{ background:'#f8f9fa', position:'relative',
@@ -321,7 +322,7 @@ const PrintConfigPage: React.FC = () => {
                                 )}
 
                                 <div style={{ position:'relative', zIndex:1 }}>
-                                    {/* En-tête */}
+                                    {/* En-tÃªte */}
                                     <div className="d-flex justify-content-between align-items-center"
                                          style={{ borderBottom:'2px solid #0d6efd',
                                                   paddingBottom:'12px', marginBottom:'12px' }}>
@@ -352,7 +353,7 @@ const PrintConfigPage: React.FC = () => {
                                         {/* Centre */}
                                         <div className="text-center flex-grow-1 px-2">
                                             <div className="fw-bold" style={{ color:'#0d6efd', fontSize:'13px' }}>
-                                                CATUSNIS — Titre du document
+                                                CATUSNIS â€” Titre du document
                                             </div>
                                             <small className="text-muted" style={{ fontSize:'10px' }}>
                                                 {today}
@@ -383,7 +384,7 @@ const PrintConfigPage: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Contenu simulé */}
+                                    {/* Contenu simulÃ© */}
                                     <div className="d-flex flex-column gap-2">
                                         <div className="rounded" style={{ height:'8px', background:'#dee2e6', width:'100%' }} />
                                         <div className="rounded" style={{ height:'8px', background:'#dee2e6', width:'90%' }} />
@@ -392,18 +393,18 @@ const PrintConfigPage: React.FC = () => {
                                         <div className="rounded" style={{ height:'8px', background:'#dee2e6', width:'75%' }} />
                                     </div>
 
-                                    {/* Pied simulé */}
+                                    {/* Pied simulÃ© */}
                                     <div className="d-flex justify-content-between mt-3 pt-2"
                                          style={{ borderTop:'1px solid #dee2e6' }}>
                                         <small style={{ fontSize:'9px', color:'#aaa' }}>
-                                            CATUSNIS — Confidentiel
+                                            CATUSNIS â€” Confidentiel
                                         </small>
                                         <small style={{ fontSize:'9px', color:'#aaa' }}>Page 1</small>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Légende */}
+                            {/* LÃ©gende */}
                             <div className="row g-2 mt-2">
                                 {[
                                     { label:'Image gauche',  ok: !!leftUrl,  color:'primary' },
@@ -428,7 +429,7 @@ const PrintConfigPage: React.FC = () => {
                                 onClick={handleSave}
                             >
                                 {saved
-                                    ? <><i className="bi bi-check-circle-fill me-2" />Configuration sauvegardée !</>
+                                    ? <><i className="bi bi-check-circle-fill me-2" />Configuration sauvegardÃ©e !</>
                                     : <><i className="bi bi-save-fill me-2" />Sauvegarder la configuration</>
                                 }
                             </button>

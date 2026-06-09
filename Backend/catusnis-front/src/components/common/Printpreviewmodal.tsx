@@ -3,8 +3,9 @@ import { Modal, Button } from 'react-bootstrap';
 import { usePrintConfig, PrintConfig } from '../../context/PrintConfigContext';
 import { printListWithConfig } from '../../services/globalprintservice';
 import api from '../../services/api';
+import { getImageSrc } from '../../utils/imageUtils';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ApiImage { id: number; fileName: string; label: string; }
 type ImageSlot = 'left' | 'right' | 'bg';
 
@@ -18,7 +19,7 @@ interface PrintPreviewModalProps {
 const SLOT_LABELS: Record<ImageSlot, string> = {
     left:  'Image gauche',
     right: 'Image droite',
-    bg:    'Arrière-plan',
+    bg:    'ArriÃ¨re-plan',
 };
 
 const SLOT_ICONS: Record<ImageSlot, string> = {
@@ -27,13 +28,13 @@ const SLOT_ICONS: Record<ImageSlot, string> = {
     bg:    'bi-layers',
 };
 
-// ── Helper image src ──────────────────────────────────────────────────────────
+// â”€â”€ Helper image src â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const getImageSrc = (fileName: string) =>
     /^[0-9a-f]{8}-/i.test(fileName)
         ? `/api/images/file/${fileName}`
         : `/images/equipements/${fileName}`;
 
-// ── Composant ─────────────────────────────────────────────────────────────────
+// â”€â”€ Composant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     show, title, tableId, onHide,
 }) => {
@@ -47,7 +48,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     } = config;
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // ── États locaux des images ───────────────────────────────────────────────
+    // â”€â”€ Ã‰tats locaux des images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [leftUrl,  setLeftUrl]  = useState<string | null>(null);
     const [rightUrl, setRightUrl] = useState<string | null>(null);
     const [bgUrl,    setBgUrl]    = useState<string | null>(null);
@@ -60,7 +61,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     const [printing,     setPrinting]     = useState(false);
     const [savedDefault, setSavedDefault] = useState(false);
 
-    // Sync depuis la config globale à l'ouverture
+    // Sync depuis la config globale Ã  l'ouverture
     useEffect(() => {
         if (!show) return;
         setLeftUrl(cfgLeft);
@@ -81,7 +82,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             .finally(() => setLoadingImgs(false));
     }, [show, cfgLeft, cfgRight, cfgBg, cfgLeftLbl, cfgRightLbl]);
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const getUrl  = (s: ImageSlot) => s === 'left' ? leftUrl  : s === 'right' ? rightUrl  : bgUrl;
     const setUrl  = (s: ImageSlot, v: string | null) => {
         if (s === 'left')  setLeftUrl(v);
@@ -111,7 +112,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         e.target.value = '';
     };
 
-    // ── Sauvegarder comme config par défaut ───────────────────────────────────
+    // â”€â”€ Sauvegarder comme config par dÃ©faut â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const handleSaveDefault = () => {
         const newCfg: PrintConfig = {
             leftImageUrl:    leftUrl,
@@ -125,7 +126,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         setTimeout(() => setSavedDefault(false), 2500);
     };
 
-    // ── Imprimer ──────────────────────────────────────────────────────────────
+    // â”€â”€ Imprimer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const handlePrint = async () => {
         setPrinting(true);
         // Config temporaire pour cette impression (sans sauvegarder)
@@ -143,7 +144,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         onHide();
         setTimeout(async () => {
             await printListWithConfig(tableId, title);
-            // Restaurer la config précédente si on n'a pas sauvegardé comme défaut
+            // Restaurer la config prÃ©cÃ©dente si on n'a pas sauvegardÃ© comme dÃ©faut
             if (!savedDefault && prev !== null) {
                 localStorage.setItem('catusnis_print_config', prev);
             } else if (!savedDefault && prev === null) {
@@ -162,14 +163,14 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <Modal.Header closeButton className="border-0 pb-0">
                 <Modal.Title className="fw-bold">
                     <i className="bi bi-printer-fill text-primary me-2" />
-                    Configuration et aperçu — {title}
+                    Configuration et aperÃ§u â€” {title}
                 </Modal.Title>
             </Modal.Header>
 
             <Modal.Body className="px-4">
                 <div className="row g-4">
 
-                    {/* ── Colonne gauche : sélecteurs images ─────────────── */}
+                    {/* â”€â”€ Colonne gauche : sÃ©lecteurs images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="col-lg-5">
                         <p className="text-muted small mb-3">
                             Choisissez les images pour cette impression.
@@ -193,7 +194,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                                     </div>
 
                                     <div className="d-flex align-items-center gap-3">
-                                        {/* Aperçu miniature */}
+                                        {/* AperÃ§u miniature */}
                                         <div
                                             className="rounded-2 border d-flex align-items-center justify-content-center bg-light flex-shrink-0"
                                             style={{ width: '56px', height: '56px', overflow: 'hidden' }}
@@ -206,7 +207,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                                             )}
                                         </div>
 
-                                        {/* Boutons sélection */}
+                                        {/* Boutons sÃ©lection */}
                                         <div className="d-flex flex-column gap-1 flex-grow-1">
                                             <button
                                                 className={`btn btn-sm ${activeSlot === slot ? 'btn-primary' : 'btn-outline-primary'}`}
@@ -273,21 +274,21 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                             onChange={handleFileUpload}
                         />
 
-                        {/* Sauvegarder comme défaut */}
+                        {/* Sauvegarder comme dÃ©faut */}
                         <button
                             className={`btn btn-sm w-100 ${savedDefault ? 'btn-success' : 'btn-outline-secondary'}`}
                             onClick={handleSaveDefault}
                         >
                             {savedDefault
-                                ? <><i className="bi bi-check-circle-fill me-1" />Sauvegardé comme défaut</>
-                                : <><i className="bi bi-bookmark-fill me-1" />Sauvegarder comme configuration par défaut</>
+                                ? <><i className="bi bi-check-circle-fill me-1" />SauvegardÃ© comme dÃ©faut</>
+                                : <><i className="bi bi-bookmark-fill me-1" />Sauvegarder comme configuration par dÃ©faut</>
                             }
                         </button>
                     </div>
 
-                    {/* ── Colonne droite : aperçu en temps réel ──────────── */}
+                    {/* â”€â”€ Colonne droite : aperÃ§u en temps rÃ©el â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="col-lg-7">
-                        <p className="text-muted small mb-2">Aperçu en temps réel :</p>
+                        <p className="text-muted small mb-2">AperÃ§u en temps rÃ©el :</p>
                         <div
                             className="rounded-3 border p-3"
                             style={{ background: '#f8f9fa', position: 'relative',
@@ -304,7 +305,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                             )}
 
                             <div style={{ position: 'relative', zIndex: 1 }}>
-                                {/* En-tête */}
+                                {/* En-tÃªte */}
                                 <div className="d-flex justify-content-between align-items-center"
                                      style={{ borderBottom: '2px solid #0d6efd',
                                               paddingBottom: '10px', marginBottom: '10px' }}>
@@ -327,7 +328,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                                     {/* Centre */}
                                     <div className="text-center flex-grow-1 px-2">
                                         <div className="fw-bold" style={{ color: '#0d6efd', fontSize: '13px' }}>
-                                            CATUSNIS — {title}
+                                            CATUSNIS â€” {title}
                                         </div>
                                         <small className="text-muted" style={{ fontSize: '10px' }}>
                                             {today}
@@ -351,7 +352,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Lignes simulées */}
+                                {/* Lignes simulÃ©es */}
                                 <div className="d-flex flex-column gap-1">
                                     {[100, 90, 80, 95, 70].map((w, i) => (
                                         <div key={i} className="rounded"
@@ -359,10 +360,10 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                                     ))}
                                 </div>
 
-                                {/* Pied simulé */}
+                                {/* Pied simulÃ© */}
                                 <div className="d-flex justify-content-between mt-2 pt-1"
                                      style={{ borderTop: '1px solid #dee2e6' }}>
-                                    <small style={{ fontSize: '8px', color: '#aaa' }}>CATUSNIS — Confidentiel</small>
+                                    <small style={{ fontSize: '8px', color: '#aaa' }}>CATUSNIS â€” Confidentiel</small>
                                     <small style={{ fontSize: '8px', color: '#aaa' }}>Page 1</small>
                                 </div>
                             </div>
@@ -398,7 +399,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     className="d-flex align-items-center gap-2"
                 >
                     {printing
-                        ? <><span className="spinner-border spinner-border-sm" />Préparation...</>
+                        ? <><span className="spinner-border spinner-border-sm" />PrÃ©paration...</>
                         : <><i className="bi bi-printer-fill" />Imprimer</>
                     }
                 </Button>

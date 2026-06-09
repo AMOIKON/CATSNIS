@@ -3,6 +3,7 @@ import { Modal, Button, Form, Spinner, Alert } from "react-bootstrap";
 import TypesService   from "../../services/typesService";
 import ImageService   from "../../services/imageService";
 import { TypesRequest, TypeResponse, ImageResponse } from "../../types";
+import { getImageSrc } from '../../utils/imageUtils';
 
 interface Props {
     show:      boolean;
@@ -22,7 +23,7 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
         typeName: '', image: '', marque: '', modele: '',
     });
 
-    // ── Pré-remplir + charger les images ──────────────────────────────
+    // â”€â”€ PrÃ©-remplir + charger les images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (show && type) {
             setForm({
@@ -39,7 +40,7 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
         }
     }, [show, type]);
 
-    // ── Réinitialiser à la fermeture ──────────────────────────────────
+    // â”€â”€ RÃ©initialiser Ã  la fermeture â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (!show) {
             setShowPicker(false);
@@ -71,20 +72,20 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
         }
     };
 
-    // ── Image sélectionnée ────────────────────────────────────────────
+    // â”€â”€ Image sÃ©lectionnÃ©e â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const selectedImage = images.find(img => img.fileName === form.image);
 
 
 const getImageSrc = (fileName: string): string => {
     if (!fileName) return '/images/equipements/equipement.png';
     
-    // Si c'est un UUID (image uploadée) → backend
+    // Si c'est un UUID (image uploadÃ©e) â†’ backend
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
         .test(fileName);
     
     return isUUID
-        ? `/api/images/file/${fileName}`      // ← image uploadée
-        : `/images/equipements/${fileName}`;   // ← image statique
+        ? `/api/images/file/${fileName}`      // â† image uploadÃ©e
+        : `/images/equipements/${fileName}`;   // â† image statique
 };
 
     return (
@@ -113,7 +114,7 @@ const getImageSrc = (fileName: string): string => {
                         />
                     </Form.Group>
 
-                    {/* Marque + Modèle */}
+                    {/* Marque + ModÃ¨le */}
                     <div className="row">
                         <div className="col-md-6">
                             <Form.Group className="mb-3">
@@ -128,7 +129,7 @@ const getImageSrc = (fileName: string): string => {
                         </div>
                         <div className="col-md-6">
                             <Form.Group className="mb-3">
-                                <Form.Label className="fw-semibold">Modèle</Form.Label>
+                                <Form.Label className="fw-semibold">ModÃ¨le</Form.Label>
                                 <Form.Control
                                     name="modele"
                                     value={form.modele}
@@ -143,7 +144,7 @@ const getImageSrc = (fileName: string): string => {
                     <Form.Group className="mb-3">
                         <Form.Label className="fw-semibold">Image</Form.Label>
 
-                        {/* Aperçu + bouton ouvrir */}
+                        {/* AperÃ§u + bouton ouvrir */}
                         <div
                             className="border rounded-3 p-3 d-flex
                                        align-items-center gap-3 bg-light"
@@ -189,7 +190,7 @@ const getImageSrc = (fileName: string): string => {
                                     </div>
                                     <div>
                                         <p className="mb-0 fw-semibold small text-muted">
-                                            Aucune image sélectionnée
+                                            Aucune image sÃ©lectionnÃ©e
                                         </p>
                                         <small className="text-muted">
                                             Cliquez pour choisir
@@ -203,7 +204,7 @@ const getImageSrc = (fileName: string): string => {
                             />
                         </div>
 
-                        {/* Grille de sélection */}
+                        {/* Grille de sÃ©lection */}
                         {showPicker && (
                             <div
                                 className="border rounded-3 p-3 mt-2"
@@ -242,7 +243,7 @@ const getImageSrc = (fileName: string): string => {
             }}
         >
             <img
-                src={getImageSrc(img.fileName)} // ← corrigé
+                src={getImageSrc(img.fileName)} // â† corrigÃ©
                 alt={img.label}
                 style={{ width: '40px', height: '40px',
                          objectFit: 'contain' }}

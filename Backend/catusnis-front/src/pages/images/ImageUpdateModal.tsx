@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import ImageService from '../../services/imageService';
 import { ImageRequest, ImageResponse } from '../../types';
+import { getImageSrc } from '../../utils/imageUtils';
 
 const PLACEHOLDER = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 24 24" fill="%23dee2e6"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>';
 
@@ -19,17 +20,17 @@ const ImageUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, image }) =
     const [file,      setFile]      = useState<File | null>(null);
     const [preview,   setPreview]   = useState<string | null>(null);
 
-    // ── Pré-remplir ───────────────────────────────────────────────────
+    // â”€â”€ PrÃ©-remplir â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (show && image) {
             setLabel(image.label);
-            // ✅ Aperçu depuis l'API (pas depuis image.url qui peut être obsolète)
-            setPreview(`/api/images/file/${image.fileName}`);
+            // âœ… AperÃ§u depuis l'API (pas depuis image.url qui peut Ãªtre obsolÃ¨te)
+            setPreview(getImageSrc(image.fileName));
             setFile(null);
         }
     }, [show, image]);
 
-    // ── Sélection nouveau fichier ─────────────────────────────────────
+    // â”€â”€ SÃ©lection nouveau fichier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selected = e.target.files?.[0];
         if (selected) {
@@ -42,17 +43,17 @@ const ImageUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, image }) =
         if (!image) return;
         setError(null);
         if (!label.trim()) {
-            setError('Le libellé est obligatoire.');
+            setError('Le libellÃ© est obligatoire.');
             return;
         }
         setIsLoading(true);
         try {
             if (file) {
-                // ✅ Nouveau fichier : upload puis suppression de l'ancienne
+                // âœ… Nouveau fichier : upload puis suppression de l'ancienne
                 await ImageService.upload(file, label);
                 await ImageService.delete(image.id);
             } else {
-                // ✅ Juste le libellé modifié
+                // âœ… Juste le libellÃ© modifiÃ©
                 const request: ImageRequest = {
                     fileName: image.fileName,
                     label:    label,
@@ -81,10 +82,10 @@ const ImageUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, image }) =
                     <Alert variant="danger" className="rounded-3">{error}</Alert>
                 )}
                 <Form>
-                    {/* Libellé */}
+                    {/* LibellÃ© */}
                     <Form.Group className="mb-3">
                         <Form.Label className="fw-semibold">
-                            Libellé <span className="text-danger">*</span>
+                            LibellÃ© <span className="text-danger">*</span>
                         </Form.Label>
                         <Form.Control
                             value={label}
@@ -110,7 +111,7 @@ const ImageUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, image }) =
                         </Form.Text>
                     </Form.Group>
 
-                    {/* Aperçu */}
+                    {/* AperÃ§u */}
                     {preview && (
                         <div className="text-center p-3 bg-light rounded-3">
                             <img
@@ -120,11 +121,11 @@ const ImageUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, image }) =
                                          objectFit: 'contain' }}
                                 onError={e => {
                                     const t = e.target as HTMLImageElement;
-                                    t.onerror = null; // évite la boucle infinie
+                                    t.onerror = null; // Ã©vite la boucle infinie
                                     t.src = PLACEHOLDER;
                                 }}
                             />
-                            <p className="mb-0 small text-muted mt-2">Aperçu</p>
+                            <p className="mb-0 small text-muted mt-2">AperÃ§u</p>
                         </div>
                     )}
                 </Form>
