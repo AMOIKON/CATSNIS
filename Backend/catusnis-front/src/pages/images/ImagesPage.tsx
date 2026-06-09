@@ -7,6 +7,7 @@ import ImageUpdateModal  from './ImageUpdateModal';
 import ImageService      from '../../services/imageService';
 import { ImageResponse } from '../../types';
 import useAuth           from '../../hooks/useAuth';
+import { getImageSrc }   from '../../utils/imageUtils';
 
 const PLACEHOLDER = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="%23dee2e6"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>';
 
@@ -105,9 +106,9 @@ const ImagesPage: React.FC = () => {
                             {images.map(img => (
                                 <div key={img.id} className="col-6 col-md-3 col-lg-2">
                                     <div className="card border rounded-4 h-100 text-center p-3">
-                                        {/* ✅ Template string corrigée */}
+                                        {/* ✅ base64 prioritaire — pas de requête HTTP supplémentaire */}
                                         <img
-                                            src={ImageService.getFileUrl(img.fileName)}
+                                            src={getImageSrc(img.fileName, img.base64)}
                                             alt={img.label}
                                             className="mx-auto mb-2"
                                             style={{ width: '60px', height: '60px', objectFit: 'contain' }}

@@ -220,6 +220,7 @@ export interface ImageResponse {
   fileName: string;
   label:    string;
   url:      string;
+  base64?:  string | null;  // ✅ données LONGBLOB encodées par le backend
 }
 
 export interface ImageRequest {
