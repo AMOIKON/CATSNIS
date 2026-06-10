@@ -24,8 +24,8 @@ public class Image {
     @Column(name = "file_size")
     private Long fileSize;
 
-    // ✅ AJOUT — stockage binaire en base
-    @Lob
+
+
     @Column(name = "data", columnDefinition = "LONGBLOB")
     private byte[] data;
 }
