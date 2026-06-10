@@ -9,4 +9,5 @@ public class PartnerResponse {
     private String  logo;
     private String  color;
     private String  image;
+    private String  base64;   // ✅ AJOUT
 }
