@@ -90,7 +90,8 @@ const AppsPage: React.FC = () => {
                 background:`${color}20`,border:`2px solid ${color}`,display:'flex',
                 alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
                 {a.image
-                    ? <img src={getImageSrc(a.image)} alt={a.appsName} style={{width:'38px',height:'38px',objectFit:'contain'}}/>
+                    ? <img src={getImageSrc(a.image, a.base64)} alt={a.appsName} crossOrigin="anonymous"
+                           style={{width:'38px',height:'38px',objectFit:'contain'}}/>
                     : <i className={`bi ${a.icon||'bi-app-indicator'}`} style={{color,fontSize:'20px'}}/>}
             </div>
         );

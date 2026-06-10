@@ -73,7 +73,7 @@ export interface Page<T> {
 // ── Acquisitions ──────────────────────────────────────────────────────────────
 export interface AcquisitionResponse {
   id:          number;
-  fileName:    string;  // ⚠ était "image" — à confirmer selon réponse API
+  image:       string;
   tag:         string;
   dateAcq:     string;
   quantity:    number;
@@ -100,7 +100,7 @@ export interface AcquisitionRequest {
 export interface TypeResponse {
   id:       number;
   typeName: string;
-  fileName: string;  // ⚠ était "image" — à confirmer selon réponse API
+  image:    string;
   marque:   string;
   modele:   string;
 }
@@ -155,7 +155,8 @@ export interface PartnerResponse {
   partnerName: string;
   logo:        string;
   color:       string;
-  fileName:    string;  // ⚠ était "image" — à confirmer selon réponse API
+  image:       string;
+  base64?:     string | null;  // ✅ AJOUT
 }
 
 export interface PartnerRequest {
@@ -181,7 +182,8 @@ export interface AppsResponse {
   appsName: string;
   icon:     string;
   color:    string;
-  fileName: string;  // ✅ corrigé — était "image"
+  image:    string;
+  base64?:  string | null;  // ✅ AJOUT
 }
 
 export interface AppsRequest {
