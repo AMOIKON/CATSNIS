@@ -1,4 +1,4 @@
-server:
+﻿server:
   port: 8082
 
 spring:
@@ -63,10 +63,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: "*"
+      base-path: /actuator
   endpoint:
     health:
-      show-details: never
+      show-details: always
+      probes:
+        enabled: true
   health:
     db:
       enabled: false
@@ -74,7 +77,10 @@ management:
       enabled: false
     ping:
       enabled: true
-  # ✅ AJOUT — désactive la sécurité Spring Security sur Actuator
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
   security:
     enabled: false
 
