@@ -42,8 +42,8 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
-            "/actuator/**",          // ✅ AJOUT — health check mobile
-            "/actuator/health"       // ✅ AJOUT — explicite
+            "/actuator/**",
+            "/actuator/health"
     };
 
     @Bean
@@ -58,6 +58,9 @@ public class SecurityConfig {
 
                         // ── URLs publiques ────────────────────────────────────────────────
                         .requestMatchers(PUBLIC_URLS).permitAll()
+
+                        // ✅ FIX — GET images/file explicitement public (évite conflit avec /api/images/**)
+                        .requestMatchers(HttpMethod.GET, "/api/images/file/**").permitAll()
 
                         // ── Création de compte : SUPER_ADMIN uniquement ───────────────────
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("SUPER_ADMIN")
@@ -187,7 +190,7 @@ public class SecurityConfig {
                 "https://catsnis-h1cq.vercel.app",
                 "https://catsnis.vercel.app",
                 "https://neon-cassata-5a6d1e.netlify.app",
-                "https://catusnis.netlify.app"    // ✅ AJOUT
+                "https://catusnis.netlify.app"
         ));
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
