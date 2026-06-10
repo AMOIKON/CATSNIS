@@ -35,8 +35,8 @@ public class InterventionServiceImpl implements InterventionService {
     private final AcquisitionRepository     acquisitionRepository;
     private final TechnicianSiteRepository  technicianSiteRepository;
     private final SecurityUtils             securityUtils;
-    // ✅ AJOUT : injection de BookletService pour la création automatique
     private final BookletService            bookletService;
+    private final PartnerRepository         partnerRepository;   // ✅ AJOUT
 
     // ── Helper parseDate ──────────────────────────────────────────────────────
 
@@ -53,12 +53,6 @@ public class InterventionServiceImpl implements InterventionService {
         return new Date();
     }
 
-    // ── Helper : extraire nom/prénom depuis une chaîne ─────────────────────────
-
-    /**
-     * Découpe "NOM PRENOM" → [lastName, firstName].
-     * "DIABAGATE MADOUSSOU" → ["DIABAGATE", "MADOUSSOU"]
-     */
     private String[] splitName(String fullName) {
         if (fullName == null || fullName.isBlank()) return new String[]{"", ""};
         String[] parts = fullName.trim().split(" ", 2);
@@ -78,7 +72,7 @@ public class InterventionServiceImpl implements InterventionService {
                         "Intervention non trouvée avec l'id : " + id)));
     }
 
-    // ── Liste paginée avec filtre partenaire ──────────────────────────────────
+    // ── Liste paginée ─────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -157,7 +151,6 @@ public class InterventionServiceImpl implements InterventionService {
 
         String codeInter = "INT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-        // ✅ Construire le commentaire enrichi avec les infos de la personne manuelle
         boolean hasManualPerson = booklet == null
                 && request.getManualPersonName() != null
                 && !request.getManualPersonName().isBlank();
@@ -170,6 +163,12 @@ public class InterventionServiceImpl implements InterventionService {
                     ? " | Tel: " + request.getManualPersonContact() : "")
                     + (request.getManualPersonPost() != null
                     ? " | Poste: " + request.getManualPersonPost() : "");
+        }
+
+        // ✅ Résolution partenaire à la création
+        Partner partner = technician.getPartner();
+        if (request.getPartnerId() != null && request.getPartnerId() > 0) {
+            partner = partnerRepository.findById(request.getPartnerId()).orElse(partner);
         }
 
         Intervention intervention = Intervention.builder()
@@ -185,7 +184,7 @@ public class InterventionServiceImpl implements InterventionService {
                 .technician(technician)
                 .person(null)
                 .booklet(booklet)
-                .partner(technician.getPartner())
+                .partner(partner)
                 .enAttenteMaintenance(request.getEnAttenteMaintenance() != null
                         ? request.getEnAttenteMaintenance() : false)
                 .build();
@@ -193,21 +192,17 @@ public class InterventionServiceImpl implements InterventionService {
         Intervention saved = interventionRepository.save(intervention);
         saveItemStatesByIds(request);
 
-        // ✅ CRÉATION AUTOMATIQUE DU BOOKLET si personne saisie manuellement
         if (hasManualPerson) {
             try {
                 String[] nameParts = splitName(request.getManualPersonName());
                 bookletService.quickCreate(
-                        nameParts[0],                           // lastName
-                        nameParts[1],                           // firstName
-                        request.getManualPersonContact(),       // contact
-                        request.getManualPersonPost(),          // postName → crée le post si absent
-                        Long.valueOf(request.getRegionId()),    // regionId
-                        Long.valueOf(request.getDistrictId())   // districtId
+                        nameParts[0], nameParts[1],
+                        request.getManualPersonContact(),
+                        request.getManualPersonPost(),
+                        Long.valueOf(request.getRegionId()),
+                        Long.valueOf(request.getDistrictId())
                 );
             } catch (Exception e) {
-                // Ne pas bloquer l'intervention si la création du booklet échoue
-                // (ex: contrainte email vide, statut manquant…)
                 System.err.println("[WARN] Création booklet automatique échouée : " + e.getMessage());
             }
         }
@@ -242,6 +237,14 @@ public class InterventionServiceImpl implements InterventionService {
         Types      types      = resolveTypes(request.getTypesId(), deployment);
         Apps       apps       = resolveApps(request.getAppsId(), deployment);
 
+        // ✅ Résolution du partenaire
+        Partner partner = intervention.getPartner() != null
+                ? intervention.getPartner()
+                : (intervention.getTechnician() != null ? intervention.getTechnician().getPartner() : null);
+        if (request.getPartnerId() != null && request.getPartnerId() > 0) {
+            partner = partnerRepository.findById(request.getPartnerId()).orElse(partner);
+        }
+
         String actionInter = "EN_LIGNE".equals(request.getTypeInter())
                 ? "MAINTENANCE"
                 : (request.getActionInter() != null ? request.getActionInter() : "MAINTENANCE_CURATIVE");
@@ -250,7 +253,6 @@ public class InterventionServiceImpl implements InterventionService {
                 && request.getManualPersonName() != null
                 && !request.getManualPersonName().isBlank();
 
-        // ✅ Construire le commentaire (nettoyer l'ancien bloc [Personne assistee])
         String baseComment = request.getCommentInter() != null ? request.getCommentInter() : "";
         int oldIdx = baseComment.indexOf(" | [Personne assistee]");
         if (oldIdx >= 0) baseComment = baseComment.substring(0, oldIdx);
@@ -279,19 +281,18 @@ public class InterventionServiceImpl implements InterventionService {
         intervention.setDeployment(deployment);
         intervention.setPerson(null);
         intervention.setBooklet(booklet);
+        intervention.setPartner(partner);   // ✅
         intervention.setEnAttenteMaintenance(
                 request.getEnAttenteMaintenance() != null ? request.getEnAttenteMaintenance() : false);
 
         Intervention updated = interventionRepository.save(intervention);
         saveItemStatesByIds(request);
 
-        // ✅ CRÉATION AUTOMATIQUE DU BOOKLET si personne saisie manuellement
         if (hasManualPerson) {
             try {
                 String[] nameParts = splitName(request.getManualPersonName());
                 bookletService.quickCreate(
-                        nameParts[0],
-                        nameParts[1],
+                        nameParts[0], nameParts[1],
                         request.getManualPersonContact(),
                         request.getManualPersonPost(),
                         Long.valueOf(request.getRegionId()),
@@ -322,7 +323,6 @@ public class InterventionServiceImpl implements InterventionService {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
         if (partnerFilter == null)
             return interventionRepository.sumDurationByType("EN_LIGNE");
-
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
         if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
@@ -338,7 +338,6 @@ public class InterventionServiceImpl implements InterventionService {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
         if (partnerFilter == null)
             return interventionRepository.sumDurationByType("SUR_SITE");
-
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
         if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
@@ -354,7 +353,6 @@ public class InterventionServiceImpl implements InterventionService {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
         if (partnerFilter == null)
             return interventionRepository.sumDurationTotal();
-
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
         if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
@@ -446,9 +444,11 @@ public class InterventionServiceImpl implements InterventionService {
     // ── Mapping ───────────────────────────────────────────────────────────────
 
     private InterventionResponse mapToResponse(Intervention intervention) {
-        Partner partner = intervention.getTechnician() != null
-                && intervention.getTechnician().getPartner() != null
-                ? intervention.getTechnician().getPartner() : null;
+        // ✅ Utilise intervention.getPartner() en priorité
+        Partner partner = intervention.getPartner() != null
+                ? intervention.getPartner()
+                : (intervention.getTechnician() != null
+                ? intervention.getTechnician().getPartner() : null);
         Apps apps = intervention.getApps();
 
         List<DeploymentItemResponse> deploymentItems = new ArrayList<>();
@@ -528,6 +528,7 @@ public class InterventionServiceImpl implements InterventionService {
                 .partnerLogo(partner  != null && partner.getLogo()  != null ? partner.getLogo()  : "bi-building")
                 .partnerColor(partner != null && partner.getColor() != null ? partner.getColor() : "#616161")
                 .partnerImage(partner != null && partner.getImage() != null ? partner.getImage() : "")
+                .partnerId(partner != null ? partner.getId() : null)   // ✅ AJOUT
                 .personId(personId).personName(personName)
                 .personContact(personContact).personPost(personPost)
                 .enAttenteMaintenance(intervention.getEnAttenteMaintenance())

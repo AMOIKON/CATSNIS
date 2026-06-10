@@ -39,4 +39,5 @@ public class InterventionResponse {
     private String                     personContact;
     private String                     personPost;
     private Boolean                    enAttenteMaintenance;
+    private Integer                     partnerId;
 }

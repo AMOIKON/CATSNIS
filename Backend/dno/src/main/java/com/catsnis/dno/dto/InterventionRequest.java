@@ -20,6 +20,7 @@ public class InterventionRequest {
     private Integer             appsId;
     private Integer             bookletId;
     private Integer             personId;
+    private Integer             partnerId;        // ✅ AJOUT
     private Boolean             enAttenteMaintenance;
 
     private List<Long>          selectedItemIds;
