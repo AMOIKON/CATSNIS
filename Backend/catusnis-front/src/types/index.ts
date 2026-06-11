@@ -103,6 +103,7 @@ export interface TypeResponse {
   image:    string;
   marque:   string;
   modele:   string;
+  base64?:  string | null; 
 }
 
 export interface TypesRequest {
@@ -156,7 +157,7 @@ export interface PartnerResponse {
   logo:        string;
   color:       string;
   image:       string;
-  base64?:     string | null;  // ✅ AJOUT
+  base64?:     string | null;
 }
 
 export interface PartnerRequest {
@@ -183,7 +184,7 @@ export interface AppsResponse {
   icon:     string;
   color:    string;
   image:    string;
-  base64?:  string | null;  // ✅ AJOUT
+  base64?:  string | null;
 }
 
 export interface AppsRequest {
@@ -326,6 +327,7 @@ export interface InterventionResponse {
   enAttenteMaintenance?: boolean;
   personContact?: string;
   personPost?:    string;
+  partnerId?:     number;
 }
 
 export interface InterventionRequest {
@@ -353,6 +355,7 @@ export interface InterventionRequest {
   manualPersonName?:        string;
   manualPersonContact?:     string;
   manualPersonPost?:        string;
+  partnerId?:               number;
 }
 
 // ── Appreciation ──────────────────────────────────────────────────────────────

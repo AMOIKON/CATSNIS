@@ -35,12 +35,12 @@ const Sidebar: React.FC = () => {
       <div className="d-flex align-items-center justify-content-between p-3 border-bottom border-secondary">
         {!collapsed && (
           <div className="d-flex align-items-center gap-2">
-            <div className="rounded-2 bg-primary d-flex align-items-center justify-content-center"
-              style={{width:'28px',height:'28px',minWidth:'28px'}}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="white">
-                <path d="M8 1L15 5V11L8 15L1 11V5L8 1Z"/>
-              </svg>
-            </div>
+            {/* ✅ Logo image */}
+            <img
+              src="/images/equipements/concept-medias.avif"
+              alt="CATUSNIS"
+              style={{ width:'28px', height:'28px', minWidth:'28px', borderRadius:'6px', objectFit:'cover' }}
+            />
             <div>
               <div style={{fontSize:'13px',fontWeight:600,color:'#fff',lineHeight:1.2}}>CATUSNIS</div>
               <div style={{fontSize:'8px',color:'rgba(255,255,255,.35)',letterSpacing:'1px',textTransform:'uppercase'}}>Côte d'Ivoire</div>

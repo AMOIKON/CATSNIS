@@ -1,9 +1,4 @@
 // src/components/common/SafeChart.tsx
-//
-// Wrapper Recharts — rend les graphiques uniquement quand
-// le conteneur a des dimensions valides (> 0).
-// Élimine le warning "width(-1) and height(-1)".
-
 import React, { useEffect, useRef, useState } from 'react';
 
 interface SafeChartProps {
@@ -19,27 +14,39 @@ const SafeChart: React.FC<SafeChartProps> = ({
   emptyMsg = 'Aucune donnée',
   children,
 }) => {
-  const ref                    = useRef<HTMLDivElement | null>(null);
-  const [ready, setReady]      = useState(false);
+  const ref               = useRef<HTMLDivElement | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    // ✅ Vérifier width ET height > 0 avant de rendre
-    if (el.offsetWidth > 0 && el.offsetHeight > 0) {
+    // ✅ Vérifier que le conteneur a bien des dimensions > 0
+    const check = () => el.getBoundingClientRect().width > 0;
+
+    if (check()) {
       setReady(true);
       return;
     }
 
-    const ro = new ResizeObserver(() => {
-      if (el.offsetWidth > 0 && el.offsetHeight > 0) {
-        setReady(true);
-        ro.disconnect();
-      }
+    // ✅ Attendre que le layout soit calculé
+    let raf1: number;
+    let raf2: number;
+    let timer: ReturnType<typeof setTimeout>;
+
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (check()) { setReady(true); return; }
+        // Dernier recours : 100ms
+        timer = setTimeout(() => setReady(true), 100);
+      });
     });
-    ro.observe(el);
-    return () => ro.disconnect();
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      clearTimeout(timer);
+    };
   }, []);
 
   return (
@@ -50,7 +57,10 @@ const SafeChart: React.FC<SafeChartProps> = ({
         height,
         minHeight: height,
         width:     '100%',
+        minWidth:  0,
         overflow:  'hidden',
+        // ✅ position relative donne un contexte de layout au ResponsiveContainer
+        position:  'relative',
       }}
     >
       {isEmpty ? (
@@ -58,9 +68,7 @@ const SafeChart: React.FC<SafeChartProps> = ({
       ) : ready ? (
         children
       ) : (
-        <div className="d-flex justify-content-center align-items-center h-100">
-          <div className="spinner-border spinner-border-sm text-secondary" />
-        </div>
+        <div style={{ height, minHeight: height }} />
       )}
     </div>
   );

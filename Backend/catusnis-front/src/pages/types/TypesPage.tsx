@@ -48,11 +48,14 @@ const TypesPage: React.FC = () => {
         if (!selectedId) return;
         setDeleteLoading(true);
         try { await TypesService.delete(selectedId); loadTypes(); }
-        catch (err) { console.error(err); }
+        catch (err : any) {
+                    const message = err?.response?.data?.message
+            || "Impossible de supprimer ce type.";
+                alert(message); 
+           }
         finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
     };
 
-    // ✅ Impression globale
     const handlePrintAll = async () => {
         setIsPrinting(true);
         try {
@@ -147,9 +150,12 @@ const TypesPage: React.FC = () => {
                                     {types.map((t, i) => (
                                         <tr key={t.id}>
                                             <td className="text-muted small">{page * 10 + i + 1}</td>
-                                            <td><img src={getImageSrc(t.image)} alt={t.typeName}
-                                                style={{ width: '40px', height: '40px', objectFit: 'contain' }}
-                                                onError={handleImgError} /></td>
+                                            <td>
+                                                {/* ✅ Passe base64 en second argument */}
+                                                <img src={getImageSrc(t.image, t.base64)} alt={t.typeName}
+                                                    style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+                                                    onError={handleImgError} />
+                                            </td>
                                             <td><span className="fw-semibold">{t.typeName}</span></td>
                                             <td><span className="badge bg-warning bg-opacity-10 text-warning">{t.marque || '—'}</span></td>
                                             <td className="text-muted small">{t.modele || '—'}</td>

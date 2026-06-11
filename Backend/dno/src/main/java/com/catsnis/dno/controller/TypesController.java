@@ -45,8 +45,13 @@ public class TypesController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteTypes(@PathVariable Integer id) {
-        typesService.deleteTypes(id);
-        return ResponseEntity.ok(ApiResponse.success("Type supprimé avec succès", null));
+        try {
+            typesService.deleteTypes(id);
+            return ResponseEntity.ok(ApiResponse.success("Type supprimé", null));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT) .body(ApiResponse.error(e.getMessage()));
+
+        }
     }
 
 

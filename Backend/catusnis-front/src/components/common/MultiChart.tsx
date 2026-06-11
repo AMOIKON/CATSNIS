@@ -8,8 +8,14 @@ import {
   ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import SafeChart from './SafeChart';
 import { PeriodKey } from './PeriodFilter';
+
+// ✅ ChartBox : div hauteur fixe + minWidth:0 — évite width(-1)/height(-1) dans flex
+const ChartBox: React.FC<{ height: number; children: React.ReactNode }> = ({ height, children }) => (
+  <div style={{ height, minHeight: height, width: '100%', minWidth: 0, display: 'block', overflow: 'hidden' }}>
+    {children}
+  </div>
+);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type ChartType = 'bar' | 'pie' | 'line' | 'area' | 'radar' | 'composed';
@@ -93,10 +99,8 @@ const MultiChart: React.FC<MultiChartProps> = ({
   const keys = Array.isArray(valueKey) ? valueKey : [valueKey];
   const clrs = colors?.length ? colors : PIE_COLORS;
 
-  // ── Rendu du graphique selon le type ──────────────────────────────────────
   const renderChart = (): React.ReactElement => {
     switch (chartType) {
-
       case 'pie': return (
         <PieChart>
           <Pie data={data} dataKey={keys[0]} nameKey={nameKey} cx="50%" cy="50%" outerRadius={85} label>
@@ -105,7 +109,6 @@ const MultiChart: React.FC<MultiChartProps> = ({
           <Tooltip /><Legend wrapperStyle={{ fontSize: 11 }} />
         </PieChart>
       );
-
       case 'line': return (
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -118,7 +121,6 @@ const MultiChart: React.FC<MultiChartProps> = ({
           ))}
         </LineChart>
       );
-
       case 'area': return (
         <AreaChart data={data}>
           <defs>{keys.map((k, i) => (
@@ -137,7 +139,6 @@ const MultiChart: React.FC<MultiChartProps> = ({
           ))}
         </AreaChart>
       );
-
       case 'radar': return (
         <RadarChart data={data}>
           <PolarGrid stroke="#e2e8f0" />
@@ -150,7 +151,6 @@ const MultiChart: React.FC<MultiChartProps> = ({
           <Tooltip />{keys.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         </RadarChart>
       );
-
       case 'composed': return (
         <ComposedChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -164,8 +164,7 @@ const MultiChart: React.FC<MultiChartProps> = ({
           )}
         </ComposedChart>
       );
-
-      default: return ( // bar
+      default: return (
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey={nameKey} tick={{ fontSize: 11 }} />
@@ -183,12 +182,9 @@ const MultiChart: React.FC<MultiChartProps> = ({
     }
   };
 
-  // ── Rendu ─────────────────────────────────────────────────────────────────
   return (
     <div className="card border-0 shadow-sm rounded-4 h-100">
       <div className="card-header bg-transparent border-0 pt-3 pb-2">
-
-        {/* Titre + sélecteur de type */}
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
           <h6 className="fw-bold mb-0 d-flex align-items-center gap-2" style={{ color: iconColor }}>
             {icon && <i className={`bi ${icon}`} />}
@@ -196,9 +192,7 @@ const MultiChart: React.FC<MultiChartProps> = ({
           </h6>
           <div className="d-flex gap-1 flex-wrap">
             {CHART_BTNS.map(btn => (
-              <button
-                key={btn.key}
-                title={btn.title}
+              <button key={btn.key} title={btn.title}
                 onClick={() => { setChartType(btn.key); notify(btn.key, regionId, districtId, period); }}
                 style={{
                   width: '26px', height: '26px', flexShrink: 0,
@@ -208,65 +202,61 @@ const MultiChart: React.FC<MultiChartProps> = ({
                   color: chartType === btn.key ? iconColor : '#94a3b8',
                   cursor: 'pointer', fontSize: '11px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
+                }}>
                 <i className={`bi ${btn.icon}`} />
               </button>
             ))}
           </div>
         </div>
-
-        {/* Filtres */}
         <div className="d-flex gap-2 flex-wrap">
           {regions.length > 0 && (
-            <select
-              className="form-select form-select-sm"
+            <select className="form-select form-select-sm"
               style={{ fontSize: '11px', width: 'auto', maxWidth: '150px' }}
               value={regionId ?? ''}
               onChange={e => {
                 const v = e.target.value ? Number(e.target.value) : null;
-                setRegionId(v); setDistrictId(null);
-                notify(chartType, v, null, period);
-              }}
-            >
+                setRegionId(v); setDistrictId(null); notify(chartType, v, null, period);
+              }}>
               <option value="">🗺 Toutes régions</option>
               {regions.map(r => <option key={r.id} value={r.id}>{r.regionName}</option>)}
             </select>
           )}
           {districts.length > 0 && (
-            <select
-              className="form-select form-select-sm"
+            <select className="form-select form-select-sm"
               style={{ fontSize: '11px', width: 'auto', maxWidth: '150px' }}
               value={districtId ?? ''}
               onChange={e => {
                 const v = e.target.value ? Number(e.target.value) : null;
                 setDistrictId(v); notify(chartType, regionId, v, period);
-              }}
-            >
+              }}>
               <option value="">🏘 Tous districts</option>
               {filtDistricts.map(d => <option key={d.id} value={d.id}>{d.districtName}</option>)}
             </select>
           )}
-          <select
-            className="form-select form-select-sm"
+          <select className="form-select form-select-sm"
             style={{ fontSize: '11px', width: 'auto', maxWidth: '150px' }}
             value={period}
             onChange={e => {
               const v = e.target.value as PeriodKey;
               setPeriod(v); notify(chartType, regionId, districtId, v);
-            }}
-          >
+            }}>
             {PERIODS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
           </select>
         </div>
       </div>
 
-      <SafeChart height={height} isEmpty={isEmpty || data.length === 0} emptyMsg={emptyMsg}>
-        {/* minWidth={0} évite le warning width(-1) quand le parent est en flexbox */}
-        <ResponsiveContainer width="100%" height={height} minWidth={0}>
-          {renderChart()}
-        </ResponsiveContainer>
-      </SafeChart>
+      {isEmpty || data.length === 0 ? (
+        <div style={{ height, minHeight: height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p className="text-muted small mb-0">{emptyMsg}</p>
+        </div>
+      ) : (
+        <ChartBox height={height}>
+          {/* ✅ hauteur fixe numérique — évite width(-1)/height(-1) dans flex */}
+          <ResponsiveContainer width="100%" height={height} minWidth={0}>
+            {renderChart()}
+          </ResponsiveContainer>
+        </ChartBox>
+      )}
     </div>
   );
 };

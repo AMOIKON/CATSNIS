@@ -20,11 +20,12 @@ export const ALL_MENUS: NavMenu[] = [
   {
     key:'dashboard', label:'Tableau de bord', icon:'bi-grid-fill', color:'primary',
     children:[
+      { key:'db-user',    label:'Accueil',               path:'/dashboard-user',       icon:'bi-person-fill'     },
       { key:'db-general', label:'Dashboard général',     path:'/dashboard-general',    icon:'bi-house-fill'      },
       { key:'db-equip',   label:'Dashboard équipements', path:'/dashboard-equipement', icon:'bi-box-seam-fill'   },
       { key:'db-logi',    label:'Dashboard logistique',  path:'/dashboard-logistique', icon:'bi-car-front-fill'  },
       { key:'db-tech',    label:'Mon espace technicien', path:'/dashboard-technicien', icon:'bi-tools'           },
-      { key:'db-user',    label:'Accueil',               path:'/dashboard-user',       icon:'bi-person-fill'     },
+      
     ],
   },
   {

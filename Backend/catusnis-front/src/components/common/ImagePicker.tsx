@@ -11,11 +11,10 @@ interface ImagePickerProps {
 }
 
 const ImagePicker: React.FC<ImagePickerProps> = ({ value, onChange }) => {
-    const [show,      setShow]      = useState(false);
-    const [images,    setImages]    = useState<ImageResponse[]>([]);
-    const [loading,   setLoading]   = useState(false);
+    const [show,    setShow]    = useState(false);
+    const [images,  setImages]  = useState<ImageResponse[]>([]);
+    const [loading, setLoading] = useState(false);
 
-    // ✅ Charger les images depuis la DB
     useEffect(() => {
         setLoading(true);
         ImageService.getAllList()
@@ -24,10 +23,9 @@ const ImagePicker: React.FC<ImagePickerProps> = ({ value, onChange }) => {
             .finally(() => setLoading(false));
     }, []);
 
-    // ✅ Label de l'image sélectionnée
-    const selectedLabel = images.find(img => img.fileName === value)?.label || value;
+    const selectedImage = images.find(img => img.fileName === value);
+    const selectedLabel = selectedImage?.label || value;
 
-    // ✅ Handler onError centralisé
     const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
         const t = e.target as HTMLImageElement;
         t.onerror = null;
@@ -38,18 +36,17 @@ const ImagePicker: React.FC<ImagePickerProps> = ({ value, onChange }) => {
         <div>
             {/* ── Aperçu + bouton ouvrir ─────────────────────────── */}
             <div
-                className="border rounded-3 p-3 d-flex align-items-center
-                           gap-3 bg-light"
+                className="border rounded-3 p-3 d-flex align-items-center gap-3 bg-light"
                 onClick={() => setShow(!show)}
                 style={{ cursor: 'pointer' }}
             >
                 {value ? (
                     <>
+                        {/* ✅ passe base64 de l'image sélectionnée */}
                         <img
-                            src={getImageSrc(value)} // ✅ utilitaire
+                            src={getImageSrc(value, selectedImage?.base64)}
                             alt={value}
-                            style={{ width: '45px', height: '45px',
-                                     objectFit: 'contain' }}
+                            style={{ width: '45px', height: '45px', objectFit: 'contain' }}
                             onError={handleImgError}
                         />
                         <div>
@@ -74,8 +71,7 @@ const ImagePicker: React.FC<ImagePickerProps> = ({ value, onChange }) => {
                         </div>
                     </>
                 )}
-                <i className={`bi ${show ? 'bi-chevron-up' : 'bi-chevron-down'}
-                               ms-auto text-muted`} />
+                <i className={`bi ${show ? 'bi-chevron-up' : 'bi-chevron-down'} ms-auto text-muted`} />
             </div>
 
             {/* ── Grille de sélection ────────────────────────────── */}
@@ -115,21 +111,20 @@ const ImagePicker: React.FC<ImagePickerProps> = ({ value, onChange }) => {
                                             setShow(false);
                                         }}
                                     >
+                                        {/* ✅ passe img.base64 */}
                                         <img
-                                            src={getImageSrc(img.fileName)} // ✅ utilitaire
+                                            src={getImageSrc(img.fileName, img.base64)}
                                             alt={img.label}
                                             style={{ width: '40px', height: '40px',
                                                      objectFit: 'contain' }}
                                             onError={handleImgError}
                                         />
                                         <small className="text-muted"
-                                               style={{ fontSize: '0.65rem',
-                                                        lineHeight: '1.2' }}>
+                                               style={{ fontSize: '0.65rem', lineHeight: '1.2' }}>
                                             {img.label}
                                         </small>
                                         {value === img.fileName && (
-                                            <i className="bi bi-check-circle-fill
-                                                           text-warning small" />
+                                            <i className="bi bi-check-circle-fill text-warning small" />
                                         )}
                                     </div>
                                 </div>

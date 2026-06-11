@@ -6,7 +6,6 @@ import {
 
 import MainLayout      from '../../components/common/MainLayout';
 import PeriodFilter, { PeriodKey, filterByPeriod } from '../../components/common/PeriodFilter';
-import SafeChart       from '../../components/common/SafeChart';
 import useAuth         from '../../hooks/useAuth';
 import DashboardService, { UserStats } from '../../services/DashboardService';
 import { groupByMonth } from '../../utils/Dashboardutils';
@@ -26,6 +25,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 type SectionTab = 'acquisitions' | 'deployments';
+
+// ── Wrapper graphique sans SafeChart ─────────────────────────────────────────
+// ✅ Hauteur fixe + minWidth:0 évitent width(-1)/height(-1) dans flex
+const ChartBox: React.FC<{ height: number; children: React.ReactNode }> = ({ height, children }) => (
+  <div style={{ height, minHeight: height, width: '100%', minWidth: 0, display: 'block', overflow: 'hidden' }}>
+    {children}
+  </div>
+);
 
 // ── Tooltip personnalisé ──────────────────────────────────────────────────────
 const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
@@ -67,7 +74,6 @@ const DashboardUser: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Données filtrées par période ───────────────────────────────────────────
   const filteredAcq = useMemo(
     () => data ? filterByPeriod(data.acquisitions, period, 'dateAcquisition' as any) : [],
     [data, period],
@@ -77,11 +83,9 @@ const DashboardUser: React.FC = () => {
     [data, period],
   );
 
-  // ── Valeurs KPI (total réel si période = tout) ─────────────────────────────
   const acqKpiValue = period === 'all' ? (data?.acquisitionsTotal ?? 0) : filteredAcq.length;
   const depKpiValue = period === 'all' ? (data?.deploymentsTotal  ?? 0) : filteredDep.length;
 
-  // ── Types d'équipements présents ───────────────────────────────────────────
   const equipTypes = useMemo(() => {
     const types: Record<string, number> = {};
     filteredAcq.forEach(a => {
@@ -91,7 +95,6 @@ const DashboardUser: React.FC = () => {
     return Object.entries(types).sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [filteredAcq]);
 
-  // ── Acquisitions filtrées par type + recherche ─────────────────────────────
   const displayedAcq = useMemo(() => {
     return filteredAcq
       .filter(a => !selectedType || (a.typeName || a.Type || 'Autre') === selectedType)
@@ -107,7 +110,6 @@ const DashboardUser: React.FC = () => {
       });
   }, [filteredAcq, selectedType, searchTerm]);
 
-  // ── Déploiements filtrés par recherche ─────────────────────────────────────
   const displayedDep = useMemo(() => {
     if (!searchTerm) return filteredDep;
     const q = searchTerm.toLowerCase();
@@ -119,7 +121,6 @@ const DashboardUser: React.FC = () => {
     );
   }, [filteredDep, searchTerm]);
 
-  // ── Données graphiques ─────────────────────────────────────────────────────
   const pieData = useMemo(
     () => equipTypes.map(([name, value]) => ({ name, value })),
     [equipTypes],
@@ -138,7 +139,6 @@ const DashboardUser: React.FC = () => {
     { name:'Archives',  value: data?.archivesTotal ?? 0,   fill: COLORS.secondary },
   ];
 
-  // ── Métriques dérivées ─────────────────────────────────────────────────────
   const coverageRate = data?.sitesTotal
     ? Math.min(100, Math.round(((data.deploymentsTotal ?? 0) / data.sitesTotal) * 100))
     : 0;
@@ -161,12 +161,10 @@ const DashboardUser: React.FC = () => {
     return Object.entries(r).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [filteredDep]);
 
-  // ── Liste courante (limitée ou tout) ──────────────────────────────────────
   const currentList = activeSection === 'acquisitions' ? displayedAcq : displayedDep;
   const listItems   = showAll ? currentList : currentList.slice(0, 8);
   const listCount   = currentList.length;
 
-  // ── Détermine la couleur du statut ────────────────────────────────────────
   const getStatusColor = (st: string) => STATUS_COLORS[st] || COLORS.secondary;
 
   return (
@@ -196,7 +194,7 @@ const DashboardUser: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Bandeau info compact ── */}
+        {/* ── Bandeau info ── */}
         <div className="alert alert-info border-0 rounded-4 d-flex align-items-center gap-3 mb-4 py-2 px-3">
           <i className="bi bi-info-circle-fill text-info" />
           <p className="mb-0 small">
@@ -214,7 +212,6 @@ const DashboardUser: React.FC = () => {
             { label:'Archives',       value: loading ? '…' : (data?.archivesTotal ?? 0), icon:'bi-archive-fill',   color:'secondary' },
           ].map((c, i) => (
             <div key={i} className="col-6 col-md-3">
-              {/* ✅ Lecture seule — plus de navigation vers les pages */}
               <div className="card border-0 shadow-sm rounded-4 h-100">
                 <div className="card-body p-3">
                   <div className="d-flex align-items-center justify-content-between mb-3">
@@ -224,9 +221,7 @@ const DashboardUser: React.FC = () => {
                     </div>
                     <i className="bi bi-lock-fill text-muted opacity-50" style={{ fontSize:'13px' }} />
                   </div>
-                  <div className={`fw-bold text-${c.color}`} style={{ fontSize:'32px', lineHeight:1 }}>
-                    {c.value}
-                  </div>
+                  <div className={`fw-bold text-${c.color}`} style={{ fontSize:'32px', lineHeight:1 }}>{c.value}</div>
                   <div className="text-muted small mt-1">{c.label}</div>
                   <div className="mt-2 badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize:'9px' }}>
                     <i className="bi bi-lock me-1" />Accès restreint
@@ -239,8 +234,6 @@ const DashboardUser: React.FC = () => {
 
         {/* ── Métriques rapides ── */}
         <div className="row g-3 mb-4">
-
-          {/* Taux de couverture */}
           <div className="col-md-4">
             <div className="card border-0 shadow-sm rounded-4 h-100 p-3">
               <div className="d-flex align-items-center gap-2 mb-2">
@@ -254,8 +247,7 @@ const DashboardUser: React.FC = () => {
                 <span className="text-muted small mb-1">des sites couverts</span>
               </div>
               <div className="progress rounded-3 mb-2" style={{ height:'10px' }}>
-                <div
-                  className={`progress-bar ${coverageRate > 66 ? 'bg-success' : coverageRate > 33 ? 'bg-warning' : 'bg-danger'}`}
+                <div className={`progress-bar ${coverageRate > 66 ? 'bg-success' : coverageRate > 33 ? 'bg-warning' : 'bg-danger'}`}
                   style={{ width:`${coverageRate}%`, transition:'width 1s ease' }} />
               </div>
               <small className="text-muted" style={{ fontSize:'10px' }}>
@@ -264,7 +256,6 @@ const DashboardUser: React.FC = () => {
             </div>
           </div>
 
-          {/* Types d'équipements */}
           <div className="col-md-4">
             <div className="card border-0 shadow-sm rounded-4 h-100 p-3">
               <div className="d-flex align-items-center gap-2 mb-2">
@@ -295,7 +286,6 @@ const DashboardUser: React.FC = () => {
             </div>
           </div>
 
-          {/* Statuts équipements */}
           <div className="col-md-4">
             <div className="card border-0 shadow-sm rounded-4 h-100 p-3">
               <div className="d-flex align-items-center gap-2 mb-2">
@@ -332,17 +322,15 @@ const DashboardUser: React.FC = () => {
         {/* ── Corps principal ── */}
         <div className="row g-4">
 
-          {/* ── GAUCHE — liste interactive ─────────────────────────────────── */}
-          <div className="col-lg-7">
+          {/* ── GAUCHE ── */}
+          <div className="col-lg-7" style={{ minWidth: 0 }}>
             <div className="card border-0 shadow-sm rounded-4">
               <div className="card-header bg-transparent border-0 pt-3 px-4 pb-0">
-
-                {/* Onglets Acquisitions / Déploiements */}
                 <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                   <div className="d-flex gap-1 p-1 rounded-3" style={{ background:'#f1f5f9' }}>
                     {([
-                      { key:'acquisitions', label:`Acquisitions`, count: displayedAcq.length, icon:'bi-box-seam-fill', color:'primary' },
-                      { key:'deployments',  label:`Déploiements`, count: displayedDep.length,  icon:'bi-truck',         color:'success' },
+                      { key:'acquisitions', label:'Acquisitions', count: displayedAcq.length, icon:'bi-box-seam-fill', color:'primary' },
+                      { key:'deployments',  label:'Déploiements', count: displayedDep.length,  icon:'bi-truck',         color:'success' },
                     ] as { key: SectionTab; label: string; count: number; icon: string; color: string }[]).map(t => (
                       <button key={t.key}
                         className={`btn btn-sm d-flex align-items-center gap-1 rounded-2 ${activeSection === t.key ? `btn-${t.color}` : 'border-0 bg-transparent text-muted'}`}
@@ -356,25 +344,18 @@ const DashboardUser: React.FC = () => {
                         <i className={`bi ${t.icon}`} />
                         {t.label}
                         <span className={`badge ${activeSection === t.key ? 'bg-white text-'+t.color : 'bg-secondary bg-opacity-10 text-secondary'} ms-1`}
-                          style={{ fontSize:'9px' }}>
-                          {t.count}
-                        </span>
+                          style={{ fontSize:'9px' }}>{t.count}</span>
                       </button>
                     ))}
                   </div>
                 </div>
-
-                {/* Barre de recherche */}
                 <div className="input-group mb-2">
                   <span className="input-group-text bg-white border-end-0">
                     <i className="bi bi-search text-muted" style={{ fontSize:'11px' }} />
                   </span>
                   <input type="text" className="form-control border-start-0"
-                    placeholder={activeSection === 'acquisitions'
-                      ? 'Rechercher par tag, type, série...'
-                      : 'Rechercher par code, site, région...'}
-                    value={searchTerm}
-                    style={{ fontSize:'12px' }}
+                    placeholder={activeSection === 'acquisitions' ? 'Rechercher par tag, type, série...' : 'Rechercher par code, site, région...'}
+                    value={searchTerm} style={{ fontSize:'12px' }}
                     onChange={e => { setSearchTerm(e.target.value); setShowAll(false); }} />
                   {searchTerm && (
                     <button className="btn btn-outline-secondary" onClick={() => setSearchTerm('')}>
@@ -382,12 +363,9 @@ const DashboardUser: React.FC = () => {
                     </button>
                   )}
                 </div>
-
-                {/* Chips filtre par type (acquisitions uniquement) */}
                 {activeSection === 'acquisitions' && equipTypes.length > 0 && (
                   <div className="d-flex flex-wrap gap-1 pb-2">
-                    <button
-                      className={`btn btn-sm rounded-pill ${!selectedType ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    <button className={`btn btn-sm rounded-pill ${!selectedType ? 'btn-primary' : 'btn-outline-secondary'}`}
                       style={{ fontSize:'10px', padding:'2px 10px' }}
                       onClick={() => setSelectedType(null)}>
                       Tous ({filteredAcq.length})
@@ -405,8 +383,6 @@ const DashboardUser: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* Liste de données */}
               <div className="card-body pt-1 px-4">
                 {loading ? (
                   <div className="text-center py-5"><div className="spinner-border spinner-border-sm text-primary" /></div>
@@ -416,99 +392,79 @@ const DashboardUser: React.FC = () => {
                     <small>{searchTerm ? 'Aucun résultat' : 'Aucune donnée disponible'}</small>
                   </div>
                 ) : activeSection === 'acquisitions' ? (
-                  <>
-                    {listItems.map((a: any, i: number) => {
-                      const type   = a.typeName || a.Type || 'Autre';
-                      const statut = a.status || a.statut || '';
-                      const col    = getStatusColor(statut);
-                      return (
-                        <div key={i}
-                          className={`d-flex align-items-center gap-3 py-2 ${i < listItems.length - 1 ? 'border-bottom' : ''}`}
-                          style={{ transition:'background 0.1s' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = '#f8faff')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                          <div className="rounded-3 bg-primary bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
-                            style={{ width:'36px', height:'36px' }}>
-                            <i className="bi bi-box-seam-fill text-primary" style={{ fontSize:'13px' }} />
-                          </div>
-                          <div className="flex-grow-1 overflow-hidden">
-                            <div className="d-flex align-items-center gap-2">
-                              <span className="fw-semibold small text-truncate">{a.tag || `ID-${a.id}`}</span>
-                              <span className="badge bg-warning bg-opacity-10 text-warning flex-shrink-0" style={{ fontSize:'9px' }}>
-                                {type}
-                              </span>
-                            </div>
-                            <span className="text-muted text-truncate d-block" style={{ fontSize:'11px' }}>
-                              {a.serial || '—'}
-                            </span>
-                          </div>
-                          <div className="text-end flex-shrink-0">
-                            {statut && (
-                              <span className="badge d-block mb-1" style={{ background: col+'1a', color: col, fontSize:'9px' }}>
-                                {statut.replace(/_/g,' ')}
-                              </span>
-                            )}
-                            <span className="text-muted" style={{ fontSize:'10px' }}>
-                              {a.dateAcquisition ? new Date(a.dateAcquisition).toLocaleDateString('fr-FR') : '—'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </>
-                ) : (
-                  <>
-                    {listItems.map((d: any, i: number) => (
+                  listItems.map((a: any, i: number) => {
+                    const type   = a.typeName || a.Type || 'Autre';
+                    const statut = a.status || a.statut || '';
+                    const col    = getStatusColor(statut);
+                    return (
                       <div key={i}
                         className={`d-flex align-items-center gap-3 py-2 ${i < listItems.length - 1 ? 'border-bottom' : ''}`}
-                        style={{ transition:'background 0.1s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#f0fdf4')}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f8faff')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <div className="rounded-3 bg-success bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
+                        <div className="rounded-3 bg-primary bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
                           style={{ width:'36px', height:'36px' }}>
-                          <i className="bi bi-truck text-success" style={{ fontSize:'13px' }} />
+                          <i className="bi bi-box-seam-fill text-primary" style={{ fontSize:'13px' }} />
                         </div>
                         <div className="flex-grow-1 overflow-hidden">
-                          <div className="fw-semibold small text-truncate">
-                            {d.codeDep || d.code || `DEP-${d.id}`}
+                          <div className="d-flex align-items-center gap-2">
+                            <span className="fw-semibold small text-truncate">{a.tag || `ID-${a.id}`}</span>
+                            <span className="badge bg-warning bg-opacity-10 text-warning flex-shrink-0" style={{ fontSize:'9px' }}>{type}</span>
                           </div>
-                          <span className="text-muted text-truncate d-block" style={{ fontSize:'11px' }}>
-                            {d.healthDeploy || d.healthSiteName || '—'}
-                          </span>
+                          <span className="text-muted text-truncate d-block" style={{ fontSize:'11px' }}>{a.serial || '—'}</span>
                         </div>
                         <div className="text-end flex-shrink-0">
-                          {(d.regionDeploy || d.regionName) && (
-                            <span className="badge bg-info bg-opacity-10 text-info d-block mb-1" style={{ fontSize:'9px' }}>
-                              {d.regionDeploy || d.regionName}
+                          {statut && (
+                            <span className="badge d-block mb-1" style={{ background: col+'1a', color: col, fontSize:'9px' }}>
+                              {statut.replace(/_/g,' ')}
                             </span>
                           )}
                           <span className="text-muted" style={{ fontSize:'10px' }}>
-                            {(d.dateRecep || d.dateDeployment)
-                              ? new Date(d.dateRecep || d.dateDeployment).toLocaleDateString('fr-FR')
-                              : '—'}
+                            {a.dateAcquisition ? new Date(a.dateAcquisition).toLocaleDateString('fr-FR') : '—'}
                           </span>
                         </div>
                       </div>
-                    ))}
-                  </>
+                    );
+                  })
+                ) : (
+                  listItems.map((d: any, i: number) => (
+                    <div key={i}
+                      className={`d-flex align-items-center gap-3 py-2 ${i < listItems.length - 1 ? 'border-bottom' : ''}`}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#f0fdf4')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      <div className="rounded-3 bg-success bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{ width:'36px', height:'36px' }}>
+                        <i className="bi bi-truck text-success" style={{ fontSize:'13px' }} />
+                      </div>
+                      <div className="flex-grow-1 overflow-hidden">
+                        <div className="fw-semibold small text-truncate">{d.codeDep || d.code || `DEP-${d.id}`}</div>
+                        <span className="text-muted text-truncate d-block" style={{ fontSize:'11px' }}>{d.healthDeploy || d.healthSiteName || '—'}</span>
+                      </div>
+                      <div className="text-end flex-shrink-0">
+                        {(d.regionDeploy || d.regionName) && (
+                          <span className="badge bg-info bg-opacity-10 text-info d-block mb-1" style={{ fontSize:'9px' }}>
+                            {d.regionDeploy || d.regionName}
+                          </span>
+                        )}
+                        <span className="text-muted" style={{ fontSize:'10px' }}>
+                          {(d.dateRecep || d.dateDeployment)
+                            ? new Date(d.dateRecep || d.dateDeployment).toLocaleDateString('fr-FR') : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ))
                 )}
-
-                {/* Bouton voir plus */}
                 {!showAll && listCount > 8 && listItems.length > 0 && (
                   <div className="text-center pt-3">
                     <button className="btn btn-sm btn-outline-primary rounded-pill d-inline-flex align-items-center gap-1"
-                      onClick={() => setShowAll(true)}
-                      style={{ fontSize:'12px' }}>
-                      <i className="bi bi-chevron-down" />
-                      Voir {listCount - 8} de plus
+                      onClick={() => setShowAll(true)} style={{ fontSize:'12px' }}>
+                      <i className="bi bi-chevron-down" />Voir {listCount - 8} de plus
                     </button>
                   </div>
                 )}
                 {showAll && listCount > 8 && (
                   <div className="text-center pt-3">
                     <button className="btn btn-sm btn-outline-secondary rounded-pill d-inline-flex align-items-center gap-1"
-                      onClick={() => setShowAll(false)}
-                      style={{ fontSize:'12px' }}>
+                      onClick={() => setShowAll(false)} style={{ fontSize:'12px' }}>
                       <i className="bi bi-chevron-up" />Réduire
                     </button>
                   </div>
@@ -517,10 +473,10 @@ const DashboardUser: React.FC = () => {
             </div>
           </div>
 
-          {/* ── DROITE — graphiques ─────────────────────────────────────────── */}
-          <div className="col-lg-5">
+          {/* ── DROITE — graphiques ── */}
+          <div className="col-lg-5" style={{ minWidth: 0 }}>
 
-            {/* Pie — répartition par type */}
+            {/* Pie */}
             <div className="card border-0 shadow-sm rounded-4 mb-4">
               <div className="card-header bg-transparent border-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
                 <h6 className="fw-bold mb-0">
@@ -528,47 +484,46 @@ const DashboardUser: React.FC = () => {
                 </h6>
                 {selectedType && (
                   <button className="btn btn-sm btn-primary rounded-pill d-inline-flex align-items-center gap-1"
-                    style={{ fontSize:'10px' }}
-                    onClick={() => setSelectedType(null)}>
-                    <i className="bi bi-funnel-fill" />{selectedType}
-                    <i className="bi bi-x ms-1" />
+                    style={{ fontSize:'10px' }} onClick={() => setSelectedType(null)}>
+                    <i className="bi bi-funnel-fill" />{selectedType}<i className="bi bi-x ms-1" />
                   </button>
                 )}
               </div>
-              <SafeChart height={220} isEmpty={pieData.length === 0} emptyMsg="Aucune acquisition">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData} dataKey="value" nameKey="name"
-                      cx="50%" cy="50%" outerRadius={75} innerRadius={30}
-                      paddingAngle={2}
-                      onClick={(entry: any) => setSelectedType(selectedType === entry.name ? null : entry.name)}>
-                      {pieData.map((entry, i) => (
-                        <Cell key={i}
-                          fill={PIE_COLORS[i % PIE_COLORS.length]}
-                          opacity={!selectedType || selectedType === entry.name ? 1 : 0.25}
-                          style={{ cursor:'pointer' }} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize:'10px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </SafeChart>
+              {pieData.length === 0 ? (
+                <p className="text-muted small text-center py-5">Aucune acquisition</p>
+              ) : (
+                <ChartBox height={220}>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" nameKey="name"
+                        cx="50%" cy="50%" outerRadius={75} innerRadius={30} paddingAngle={2}
+                        onClick={(entry: any) => setSelectedType(selectedType === entry.name ? null : entry.name)}>
+                        {pieData.map((entry, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}
+                            opacity={!selectedType || selectedType === entry.name ? 1 : 0.25}
+                            style={{ cursor:'pointer' }} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend wrapperStyle={{ fontSize:'10px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartBox>
+              )}
               <p className="text-center text-muted pb-2 mb-0" style={{ fontSize:'10px' }}>
                 Cliquez sur un segment pour filtrer la liste
               </p>
             </div>
 
-            {/* Bar — vue d'ensemble */}
+            {/* Bar */}
             <div className="card border-0 shadow-sm rounded-4 mb-4">
               <div className="card-header bg-transparent border-0 pt-3 pb-0">
                 <h6 className="fw-bold mb-0">
                   <i className="bi bi-bar-chart-fill text-primary me-2" />Vue d'ensemble
                 </h6>
               </div>
-              <SafeChart height={190}>
-                <ResponsiveContainer width="100%" height="100%">
+              <ChartBox height={190}>
+                <ResponsiveContainer width="100%" height={190}>
                   <BarChart data={summaryBarData} barCategoryGap="30%">
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="name" tick={{ fontSize:10 }} />
@@ -579,10 +534,10 @@ const DashboardUser: React.FC = () => {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </SafeChart>
+              </ChartBox>
             </div>
 
-            {/* Top régions deployées */}
+            {/* Top régions */}
             {topRegions.length > 0 && (
               <div className="card border-0 shadow-sm rounded-4">
                 <div className="card-header bg-transparent border-0 pt-3 pb-0">
@@ -598,13 +553,10 @@ const DashboardUser: React.FC = () => {
                       <div key={i} className="mb-2">
                         <div className="d-flex justify-content-between align-items-center mb-1">
                           <span className="small fw-semibold text-truncate" style={{ maxWidth:'160px' }}>{reg}</span>
-                          <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize:'10px' }}>
-                            {count} dép.
-                          </span>
+                          <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize:'10px' }}>{count} dép.</span>
                         </div>
                         <div className="progress rounded-3" style={{ height:'6px' }}>
-                          <div className="progress-bar bg-success"
-                            style={{ width:`${pct}%`, transition:'width 0.8s ease' }} />
+                          <div className="progress-bar bg-success" style={{ width:`${pct}%`, transition:'width 0.8s ease' }} />
                         </div>
                       </div>
                     );
@@ -614,16 +566,16 @@ const DashboardUser: React.FC = () => {
             )}
           </div>
 
-          {/* ── BAS — évolution mensuelle ──────────────────────────────────── */}
+          {/* ── BAS — évolution mensuelle ── */}
           <div className="col-12">
             <div className="card border-0 shadow-sm rounded-4">
-              <div className="card-header bg-transparent border-0 pt-3 pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div className="card-header bg-transparent border-0 pt-3 pb-0">
                 <h6 className="fw-bold mb-0">
                   <i className="bi bi-graph-up-arrow text-primary me-2" />Évolution mensuelle des acquisitions — 6 derniers mois
                 </h6>
               </div>
-              <SafeChart height={220}>
-                <ResponsiveContainer width="100%" height="100%">
+              <ChartBox height={220}>
+                <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={monthlyData}>
                     <defs>
                       <linearGradient id="gradUserBlue" x1="0" y1="0" x2="0" y2="1">
@@ -635,19 +587,17 @@ const DashboardUser: React.FC = () => {
                     <XAxis dataKey="mois" tick={{ fontSize:11 }} />
                     <YAxis tick={{ fontSize:11 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area
-                      type="monotone" dataKey="total" name="Acquisitions"
-                      stroke={COLORS.primary} strokeWidth={2.5}
-                      fill="url(#gradUserBlue)"
+                    <Area type="monotone" dataKey="total" name="Acquisitions"
+                      stroke={COLORS.primary} strokeWidth={2.5} fill="url(#gradUserBlue)"
                       dot={{ r:4, fill:COLORS.primary, strokeWidth:2, stroke:'white' }}
                       activeDot={{ r:6 }} />
                   </AreaChart>
                 </ResponsiveContainer>
-              </SafeChart>
+              </ChartBox>
             </div>
           </div>
 
-          {/* ── Accès restreints ─────────────────────────────────────────────── */}
+          {/* ── Accès restreints ── */}
           <div className="col-12">
             <div className="card border-0 shadow-sm rounded-4">
               <div className="card-header bg-transparent border-0 pt-3 pb-0">
@@ -656,8 +606,6 @@ const DashboardUser: React.FC = () => {
                 </h6>
               </div>
               <div className="card-body pt-2">
-
-                {/* Bloc 1 — Pages de consultation bloquées */}
                 <p className="text-muted small fw-semibold mb-2" style={{ fontSize:'11px' }}>
                   <i className="bi bi-eye-slash me-1" />Pages de consultation
                 </p>
@@ -678,8 +626,6 @@ const DashboardUser: React.FC = () => {
                     </div>
                   ))}
                 </div>
-
-                {/* Bloc 2 — Actions bloquées */}
                 <p className="text-muted small fw-semibold mb-2" style={{ fontSize:'11px' }}>
                   <i className="bi bi-slash-circle me-1" />Actions de gestion
                 </p>
@@ -702,7 +648,6 @@ const DashboardUser: React.FC = () => {
                     </div>
                   ))}
                 </div>
-
               </div>
             </div>
           </div>

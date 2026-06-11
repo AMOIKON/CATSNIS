@@ -12,6 +12,8 @@ interface Props {
     type:      TypeResponse | null;
 }
 
+const PLACEHOLDER = '/images/equipements/equipement.png';
+
 const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => {
     const [isLoading,  setIsLoading]  = useState(false);
     const [error,      setError]      = useState<string | null>(null);
@@ -72,6 +74,12 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
 
     const selectedImage = images.find(img => img.fileName === form.image);
 
+    const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const t = e.target as HTMLImageElement;
+        t.onerror = null;
+        t.src = PLACEHOLDER;
+    };
+
     return (
         <Modal show={show} onHide={onHide} centered size="lg">
             <Modal.Header closeButton className="border-0 pb-0">
@@ -131,18 +139,12 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
                         >
                             {form.image ? (
                                 <>
+                                    {/* ✅ passe base64 de l'image sélectionnée */}
                                     <img
-                                        src={getImageSrc(form.image)}
+                                        src={getImageSrc(form.image, selectedImage?.base64 ?? type?.base64)}
                                         alt={form.image}
                                         style={{ width: '45px', height: '45px', objectFit: 'contain' }}
-                                        onError={e => {
-                                            const t = e.target as HTMLImageElement;
-                                            if (!t.src.includes('/images/equipements/')) {
-                                                t.src = `/images/equipements/${form.image}`;
-                                            } else {
-                                                t.src = '/images/equipements/equipement.png';
-                                            }
-                                        }}
+                                        onError={handleImgError}
                                     />
                                     <div>
                                         <p className="mb-0 fw-semibold small">
@@ -195,18 +197,12 @@ const TypeUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, type }) => 
                                                         setShowPicker(false);
                                                     }}
                                                 >
+                                                    {/* ✅ passe img.base64 */}
                                                     <img
-                                                        src={getImageSrc(img.fileName)}
+                                                        src={getImageSrc(img.fileName, img.base64)}
                                                         alt={img.label}
                                                         style={{ width: '40px', height: '40px', objectFit: 'contain' }}
-                                                        onError={e => {
-                                                            const t = e.target as HTMLImageElement;
-                                                            if (!t.src.includes('/images/equipements/')) {
-                                                                t.src = `/images/equipements/${img.fileName}`;
-                                                            } else {
-                                                                t.src = '/images/equipements/equipement.png';
-                                                            }
-                                                        }}
+                                                        onError={handleImgError}
                                                     />
                                                     <small className="text-muted" style={{ fontSize: '0.65rem', lineHeight: '1.2' }}>
                                                         {img.label}

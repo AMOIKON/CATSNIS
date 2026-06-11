@@ -3,7 +3,7 @@ import { Modal, Button, Form, Spinner, Alert } from "react-bootstrap";
 import TypesService from "../../services/typesService";
 import ImageService from "../../services/imageService";
 import { TypesRequest, ImageResponse } from "../../types";
-import { getImageSrc } from "../../utils/imageUtils"; // ✅ import utilitaire
+import { getImageSrc } from "../../utils/imageUtils";
 
 interface Props {
   show: boolean;
@@ -27,7 +27,6 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
     modele: "",
   });
 
-  // ── Charger les images depuis l'API ───────────────────────────────
   useEffect(() => {
     if (show) {
       setImgLoading(true);
@@ -38,7 +37,6 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
     }
   }, [show]);
 
-  // ── Réinitialiser à la fermeture ──────────────────────────────────
   useEffect(() => {
     if (!show) {
       setForm({ typeName: "", image: "", marque: "", modele: "" });
@@ -70,13 +68,11 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
     }
   };
 
-  // ── Image sélectionnée ────────────────────────────────────────────
   const selectedImage = images.find((img) => img.fileName === form.image);
 
-  // ── onError handler ───────────────────────────────────────────────
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const t = e.target as HTMLImageElement;
-    t.onerror = null; // ✅ évite la boucle infinie
+    t.onerror = null;
     t.src = PLACEHOLDER;
   };
 
@@ -95,7 +91,6 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
           </Alert>
         )}
         <Form>
-          {/* Nom */}
           <Form.Group className="mb-3">
             <Form.Label className="fw-semibold">
               Nom du type <span className="text-danger">*</span>
@@ -109,7 +104,6 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             />
           </Form.Group>
 
-          {/* Marque + Modèle */}
           <div className="row">
             <div className="col-md-6">
               <Form.Group className="mb-3">
@@ -137,11 +131,8 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             </div>
           </div>
 
-          {/* Image Picker dynamique */}
           <Form.Group className="mb-3">
             <Form.Label className="fw-semibold">Image</Form.Label>
-
-            {/* Aperçu + bouton ouvrir */}
             <div
               className="border rounded-3 p-3 d-flex align-items-center gap-3 bg-light"
               onClick={() => setShowPicker(!showPicker)}
@@ -149,11 +140,12 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             >
               {form.image ? (
                 <>
+                  {/* ✅ passe base64 de l'image sélectionnée */}
                   <img
-                    src={getImageSrc(form.image)} // ✅ utilitaire
+                    src={getImageSrc(form.image, selectedImage?.base64)}
                     alt={form.image}
                     style={{ width: "45px", height: "45px", objectFit: "contain" }}
-                    onError={handleImgError} // ✅ handler centralisé
+                    onError={handleImgError}
                   />
                   <div>
                     <p className="mb-0 fw-semibold small">
@@ -165,8 +157,7 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
               ) : (
                 <>
                   <div
-                    className="rounded-circle bg-secondary bg-opacity-10
-                                d-flex align-items-center justify-content-center"
+                    className="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center"
                     style={{ width: "45px", height: "45px", minWidth: "45px" }}
                   >
                     <i className="bi bi-image text-muted fs-4" />
@@ -179,12 +170,9 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                   </div>
                 </>
               )}
-              <i
-                className={`bi ${showPicker ? "bi-chevron-up" : "bi-chevron-down"} ms-auto text-muted`}
-              />
+              <i className={`bi ${showPicker ? "bi-chevron-up" : "bi-chevron-down"} ms-auto text-muted`} />
             </div>
 
-            {/* Grille de sélection */}
             {showPicker && (
               <div
                 className="border rounded-3 p-3 mt-2"
@@ -193,9 +181,7 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                 {imgLoading ? (
                   <div className="text-center py-3">
                     <div className="spinner-border spinner-border-sm text-warning" />
-                    <p className="text-muted small mt-2 mb-0">
-                      Chargement des images...
-                    </p>
+                    <p className="text-muted small mt-2 mb-0">Chargement des images...</p>
                   </div>
                 ) : images.length === 0 ? (
                   <div className="text-center py-3 text-muted small">
@@ -210,14 +196,10 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                     {images.map((img) => (
                       <div key={img.id} className="col-3">
                         <div
-                          className="border rounded-3 p-2 text-center
-                                     d-flex flex-column align-items-center gap-1"
+                          className="border rounded-3 p-2 text-center d-flex flex-column align-items-center gap-1"
                           style={{
                             cursor: "pointer",
-                            background:
-                              form.image === img.fileName
-                                ? "rgba(255,193,7,0.15)"
-                                : "white",
+                            background: form.image === img.fileName ? "rgba(255,193,7,0.15)" : "white",
                             transition: "all 0.2s",
                           }}
                           onClick={() => {
@@ -225,11 +207,12 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                             setShowPicker(false);
                           }}
                         >
+                          {/* ✅ passe img.base64 */}
                           <img
-                            src={getImageSrc(img.fileName)} // ✅ utilitaire
+                            src={getImageSrc(img.fileName, img.base64)}
                             alt={img.label}
                             style={{ width: "40px", height: "40px", objectFit: "contain" }}
-                            onError={handleImgError} // ✅ handler centralisé
+                            onError={handleImgError}
                           />
                           <small
                             className="text-muted"
@@ -261,15 +244,9 @@ const TypeFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
           className="rounded-3 text-white"
         >
           {isLoading ? (
-            <>
-              <Spinner size="sm" className="me-2" />
-              Enregistrement...
-            </>
+            <><Spinner size="sm" className="me-2" />Enregistrement...</>
           ) : (
-            <>
-              <i className="bi bi-plus-circle me-2" />
-              Enregistrer
-            </>
+            <><i className="bi bi-plus-circle me-2" />Enregistrer</>
           )}
         </Button>
       </Modal.Footer>

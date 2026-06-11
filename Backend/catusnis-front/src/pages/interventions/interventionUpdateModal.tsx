@@ -9,10 +9,12 @@ import HealthService         from '../../services/healthService';
 import DeploymentService     from '../../services/deploymentService';
 import AcquisitionService    from '../../services/acquisitionService';
 import BookletService        from '../../services/bookletService';
+import PartnerService        from '../../services/partnerService';
 import {
     InterventionRequest, InterventionResponse, EvaluationResponse,
     RegionResponse, DistrictResponse, HealthResponse,
     AcquisitionResponse, DeploymentItemResponse, DeploymentResponse,
+    PartnerResponse,
 } from '../../types';
 import { Booklet } from '../../types';
 import AppsService from '../../services/appsService';
@@ -50,27 +52,28 @@ interface Props {
 const InterventionUpdateModal: React.FC<Props> = ({
     show, onHide, onSuccess, intervention
 }) => {
-    const [isLoading,        setIsLoading]        = useState(false);
-    const [error,            setError]            = useState<string | null>(null);
-    const [form,             setForm]             = useState<InterventionRequest>({
+    const [isLoading,          setIsLoading]          = useState(false);
+    const [error,              setError]              = useState<string | null>(null);
+    const [form,               setForm]               = useState<InterventionRequest>({
         typeInter: 'EN_LIGNE', actionInter: 'MAINTENANCE',
         commentInter: '', dateInter: '', durationMinutes: 0,
         regionId: 0, districtId: 0, healthId: 0,
         typesId: 0, appsId: 0, deploymentId: 0, evaluationId: 0,
-        bookletId: undefined, enAttenteMaintenance: false,
+        bookletId: undefined, enAttenteMaintenance: false, partnerId: 0,
     });
-    const [evaluations,      setEvaluations]      = useState<EvaluationResponse[]>([]);
-    const [regions,          setRegions]          = useState<RegionResponse[]>([]);
-    const [districts,        setDistricts]        = useState<DistrictResponse[]>([]);
-    const [healths,          setHealths]          = useState<HealthResponse[]>([]);
-    const [booklets,         setBooklets]         = useState<Booklet[]>([]);
-    const [siteDeployments,  setSiteDeployments]  = useState<DeploymentResponse[]>([]);
-    const [siteItems,        setSiteItems]        = useState<DeploymentItemResponse[]>([]);
-    const [itemStates,       setItemStates]       = useState<Record<number, ItemState>>({});
-    const [availableAcqs,    setAvailableAcqs]    = useState<Record<number, AcquisitionResponse[]>>({});
-    const [acqLoading,       setAcqLoading]       = useState<Record<number, boolean>>({});
-    const [siteLoading,      setSiteLoading]      = useState(false);
-    const [apps,             setApps]             = useState<AppsResponse[]>([]);
+    const [evaluations,        setEvaluations]        = useState<EvaluationResponse[]>([]);
+    const [regions,            setRegions]            = useState<RegionResponse[]>([]);
+    const [districts,          setDistricts]          = useState<DistrictResponse[]>([]);
+    const [healths,            setHealths]            = useState<HealthResponse[]>([]);
+    const [booklets,           setBooklets]           = useState<Booklet[]>([]);
+    const [siteDeployments,    setSiteDeployments]    = useState<DeploymentResponse[]>([]);
+    const [siteItems,          setSiteItems]          = useState<DeploymentItemResponse[]>([]);
+    const [itemStates,         setItemStates]         = useState<Record<number, ItemState>>({});
+    const [availableAcqs,      setAvailableAcqs]      = useState<Record<number, AcquisitionResponse[]>>({});
+    const [acqLoading,         setAcqLoading]         = useState<Record<number, boolean>>({});
+    const [siteLoading,        setSiteLoading]        = useState(false);
+    const [apps,               setApps]               = useState<AppsResponse[]>([]);
+    const [partners,           setPartners]           = useState<PartnerResponse[]>([]); // ✅ AJOUT
     const [manualPerson,       setManualPerson]       = useState(false);
     const [manualPersonName,   setManualPersonName]   = useState('');
     const [manualPersonContact,setManualPersonContact]= useState('');
@@ -80,10 +83,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
         .filter(([_, s]) => s.selected)
         .map(([id]) => Number(id));
 
-    // ── Charger items du site ─────────────────────────────────────────────────
-    // ✅ FIX PRINCIPAL : en mode édition (existingItems présent), on inclut AUSSI
-    //    les items déjà traités (statut FONCTIONNEL, etc.) pour pouvoir les
-    //    modifier. Sans ça, selectedItems reste vide → bouton désactivé.
     const loadSiteItems = useCallback(async (
         healthId:      number,
         typeInter:     string,
@@ -95,19 +94,15 @@ const InterventionUpdateModal: React.FC<Props> = ({
             const deployments = deps
                 || (await DeploymentService.getAll(0, 100, undefined, undefined, healthId)).content;
 
-            // IDs des items qui faisaient partie de l'intervention existante
             const existingIds = new Set((existingItems || []).map(i => i.id));
 
             const allItems: DeploymentItemResponse[] = [];
             deployments.forEach(dep => {
                 (dep.items || []).forEach(item => {
-                    if (item.status === 'REMPLACE') return; // toujours exclu
-
+                    if (item.status === 'REMPLACE') return;
                     if (typeInter === 'EN_LIGNE') {
                         allItems.push({ ...item, deploymentCode: (dep as any).codeDep } as any);
                     } else {
-                        // ✅ En mode édition : inclure les items déjà traités (ils
-                        //    ont quitté EN_ATTENTE_INTERVENTION_SITE après correction)
                         if (item.status === 'EN_ATTENTE_INTERVENTION_SITE' || existingIds.has(item.id)) {
                             allItems.push({ ...item, deploymentCode: (dep as any).codeDep } as any);
                         }
@@ -121,7 +116,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
             allItems.forEach(item => {
                 const existing = existingItems?.find(i => i.id === item.id);
                 states[item.id] = {
-                    // ✅ Pré-sélectionner les items qui étaient dans l'intervention
                     selected:           existing !== undefined,
                     etatAvant:          existing?.etatAvant || item.status || 'FONCTIONNEL',
                     etatApres:          existing?.etatApres || '',
@@ -137,7 +131,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
         }
     }, []);
 
-    // ── Pré-remplir le formulaire ─────────────────────────────────────────────
     useEffect(() => {
         if (!show || !intervention) return;
         setError(null);
@@ -148,6 +141,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
         setManualPersonContact(''); setManualPersonPost('');
 
         AppsService.getAllList().then(setApps).catch(console.error);
+        PartnerService.getAllList().then(setPartners).catch(console.error); // ✅ AJOUT
 
         Promise.all([
             EvaluationService.getAllList(),
@@ -171,11 +165,10 @@ const InterventionUpdateModal: React.FC<Props> = ({
                     setBooklets(Array.isArray(bkts) ? bkts : []);
                 } catch { setBooklets([]); }
 
-                // ✅ Passer les items existants pour mode édition
                 await loadSiteItems(
                     intervention.healthId,
                     intervention.typeInter,
-                    intervention.deploymentItems,   // ← items pré-existants
+                    intervention.deploymentItems,
                     deps.content
                 );
             }
@@ -196,9 +189,9 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 personId:             undefined,
                 bookletId:            intervention.personId    || undefined,
                 enAttenteMaintenance: intervention.enAttenteMaintenance ?? false,
+                partnerId:            (intervention as any).partnerId || 0, // ✅ AJOUT
             });
 
-            // ✅ Pré-remplir la personne assistée
             if (intervention.personId) {
                 setManualPerson(false);
             } else if (intervention.personName?.trim()) {
@@ -210,7 +203,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
         }).catch(() => setError('Erreur lors du chargement des données'));
     }, [show, intervention, loadSiteItems]);
 
-    // ── Handlers ─────────────────────────────────────────────────────────────
     const handleTypeChange = async (typeInter: string) => {
         setForm(prev => ({
             ...prev, typeInter,
@@ -248,7 +240,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
             const bkts = await BookletService.getByDistrict(form.districtId);
             setBooklets(Array.isArray(bkts) ? bkts : []);
         } catch { setBooklets([]); }
-        // Nouveau site sélectionné → pas d'items existants
         await loadSiteItems(healthId, form.typeInter, undefined, deps.content);
     };
 
@@ -299,12 +290,10 @@ const InterventionUpdateModal: React.FC<Props> = ({
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
-    // ── Soumission ────────────────────────────────────────────────────────────
     const handleSubmit = async () => {
         setError(null);
         if (!intervention) return;
 
-        // ── Validations ──────────────────────────────────────────────────────
         if (!form.dateInter || !form.regionId || !form.districtId ||
             !form.healthId || !form.evaluationId ||
             !form.durationMinutes || !form.commentInter?.trim()) {
@@ -326,14 +315,12 @@ const InterventionUpdateModal: React.FC<Props> = ({
 
             selectedItems.forEach(id => {
                 const s = itemStates[id];
-                if (s.etatAvant)                    etatsAvant[id]          = s.etatAvant;
-                if (s.etatApres)                    etatsApres[id]          = s.etatApres;
-                if (s.replacementId)                replacements[id]        = s.replacementId;
-                if (s.maintenanceReussie !== undefined) maintenanceReussie[id] = s.maintenanceReussie;
+                if (s.etatAvant)                       etatsAvant[id]          = s.etatAvant;
+                if (s.etatApres)                       etatsApres[id]          = s.etatApres;
+                if (s.replacementId)                   replacements[id]        = s.replacementId;
+                if (s.maintenanceReussie !== undefined) maintenanceReussie[id]  = s.maintenanceReussie;
             });
 
-            // ✅ Le backend gère la création du booklet/post automatiquement
-            //    via bookletService.quickCreate() dans InterventionServiceImpl
             await InterventionService.update(intervention.id, {
                 ...form,
                 regionId:             Number(form.regionId),
@@ -344,12 +331,12 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 typesId:              Number(form.typesId),
                 appsId:               Number(form.appsId),
                 durationMinutes:      Number(form.durationMinutes),
+                partnerId:            form.partnerId ? Number(form.partnerId) : undefined, // ✅ AJOUT
                 personId:             undefined,
                 bookletId:            form.bookletId ? Number(form.bookletId) : undefined,
                 selectedItemIds:      selectedItems,
                 etatsAvant, etatsApres, replacements, maintenanceReussie,
                 enAttenteMaintenance: form.enAttenteMaintenance ?? false,
-                // ✅ Envoi des champs manuels → backend crée post + booklet
                 manualPersonName:    manualPerson && manualPersonName.trim()
                     ? manualPersonName.trim()     : undefined,
                 manualPersonContact: manualPerson && manualPersonContact.trim()
@@ -367,7 +354,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
         }
     };
 
-    // ── Rendu ─────────────────────────────────────────────────────────────────
     return (
         <Modal show={show} onHide={onHide} centered size="xl">
             <Modal.Header closeButton className="border-0 pb-0">
@@ -495,7 +481,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 overflow: 'hidden', flexShrink: 0 }}>
                                                 {selApp.image
-                                                    ? <img src={getImageSrc(selApp.image)} alt={selApp.appsName} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }} />
+                                                    ? <img src={getImageSrc(selApp.image, selApp.base64)} alt={selApp.appsName} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }} />
                                                     : <i className={`bi ${selApp.icon || 'bi-app-indicator'}`} style={{ color: selApp.color, fontSize: '13px' }} />}
                                             </div>
                                             <span className="fw-semibold small" style={{ color: selApp.color || '#616161', whiteSpace: 'nowrap' }}>{selApp.appsName}</span>
@@ -504,22 +490,25 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 })()}
                             </div>
                         </Col>
+                        {/* ✅ Bailleur modifiable */}
                         <Col md={6}>
                             <Form.Label className="fw-semibold small">Bailleur / Partenaire</Form.Label>
-                            {intervention?.partnerName ? (
-                                <div className="d-flex align-items-center gap-2 p-2 bg-white rounded-3 border">
-                                    <div className="rounded-3 bg-warning bg-opacity-10 d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', minWidth: '32px' }}>
-                                        <i className="bi bi-building text-warning" />
-                                    </div>
-                                    <div>
-                                        <span className="fw-semibold small d-block">{intervention.partnerName}</span>
-                                        <small className="text-muted" style={{ fontSize: '10px' }}>Auto-assigné depuis le technicien</small>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="p-2 bg-white rounded-3 border text-muted small">
-                                    <i className="bi bi-info-circle me-1" />Aucun partenaire assigné
-                                </div>
+                            <Form.Select
+                                name="partnerId"
+                                value={form.partnerId || 0}
+                                onChange={handleChange}
+                                className="rounded-3"
+                                size="sm">
+                                <option value={0}>-- Aucun partenaire --</option>
+                                {partners.map(p => (
+                                    <option key={p.id} value={p.id}>{p.partnerName}</option>
+                                ))}
+                            </Form.Select>
+                            {intervention?.partnerName && !form.partnerId && (
+                                <small className="text-muted">
+                                    <i className="bi bi-info-circle me-1"/>
+                                    Actuel : {intervention.partnerName}
+                                </small>
                             )}
                         </Col>
                     </Row>
@@ -555,7 +544,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             <i className="bi bi-pc-display-horizontal me-2" />
                             {form.typeInter === 'EN_LIGNE'
                                 ? 'Équipements du site'
-                                : 'Équipements concernés par l\'intervention'}
+                                : "Équipements concernés par l'intervention"}
                             <span className="badge bg-warning bg-opacity-10 text-warning ms-2 small fw-normal">
                                 {siteItems.length} équipement(s)
                             </span>
@@ -564,8 +553,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             <div className="text-center py-3"><Spinner size="sm" className="me-2" />Chargement...</div>
                         ) : siteItems.length === 0 ? (
                             <Alert variant="info" className="rounded-3 small mb-0">
-                                <i className="bi bi-info-circle me-2" />
-                                Aucun équipement trouvé pour ce site.
+                                <i className="bi bi-info-circle me-2" />Aucun équipement trouvé pour ce site.
                             </Alert>
                         ) : (
                             <Table size="sm" bordered hover className="mb-0">
@@ -585,8 +573,8 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 </thead>
                                 <tbody>
                                     {siteItems.map(item => {
-                                        const state    = itemStates[item.id] || { selected: false, etatAvant: 'FONCTIONNEL', etatApres: '' };
-                                        const isSelected     = state.selected;
+                                        const state = itemStates[item.id] || { selected: false, etatAvant: 'FONCTIONNEL', etatApres: '' };
+                                        const isSelected = state.selected;
                                         const maintenanceEchouee = state.maintenanceReussie === false;
                                         const itemDep = siteDeployments.find(d => d.items?.some(it => it.id === item.id));
                                         return (
@@ -676,7 +664,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 )}
 
                 {/* ══ Section 5 — Personne assistée ══ */}
-                {/* ✅ Affichée dès que le site est sélectionné OU si l'intervention existante a un site */}
                 {(form.healthId > 0 || intervention?.healthId) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-warning mb-3">
@@ -702,9 +689,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                     <Form.Control type="text" placeholder="Ex: KOUASSI Jean"
                                         value={manualPersonName} onChange={e => setManualPersonName(e.target.value)}
                                         className="rounded-3" size="sm" />
-                                    <small className="text-muted">
-                                        Cette personne sera automatiquement ajoutée dans la liste des agents.
-                                    </small>
+                                    <small className="text-muted">Cette personne sera automatiquement ajoutée dans la liste des agents.</small>
                                 </div>
                                 <div className="col-md-6">
                                     <Form.Label className="fw-semibold small">Contact / Téléphone</Form.Label>
@@ -717,9 +702,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                     <Form.Control type="text" placeholder="Ex: Infirmier chef"
                                         value={manualPersonPost} onChange={e => setManualPersonPost(e.target.value)}
                                         className="rounded-3" size="sm" />
-                                    <small className="text-muted">
-                                        Ce poste sera créé s'il n'existe pas encore.
-                                    </small>
+                                    <small className="text-muted">Ce poste sera créé s'il n'existe pas encore.</small>
                                 </div>
                                 {manualPersonName.trim() && (
                                     <div className="col-12">
@@ -804,7 +787,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
 
             <Modal.Footer className="border-0">
                 <Button variant="light" onClick={onHide} className="rounded-3">Annuler</Button>
-                {/* ✅ Désactivé seulement pendant le chargement ou si aucun item sélectionné ET le site est chargé */}
                 <Button variant="warning" onClick={handleSubmit}
                     disabled={isLoading || (siteItems.length > 0 && selectedItems.length === 0)}
                     className="rounded-3 text-white">
