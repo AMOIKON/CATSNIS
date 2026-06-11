@@ -64,6 +64,7 @@ public class ImageController {
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CACHE_CONTROL, "max-age=86400")
+                    .header("Cross-Origin-Resource-Policy", "cross-origin")
                     .body(image.getData());
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
