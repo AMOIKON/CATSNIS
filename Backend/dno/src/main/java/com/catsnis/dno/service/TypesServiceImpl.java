@@ -68,15 +68,24 @@ public class TypesServiceImpl implements TypesService {
         types.setMarque(request.getMarque());
         types.setModele(request.getModele());
 
-        // ✅ Mettre à jour l'image seulement si elle a changé
+        // ✅ Toujours recharger l'image depuis la table images
         if (request.getImage() != null && !request.getImage().isBlank()) {
             types.setImage(request.getImage());
             try {
                 Image img = imageService.getByFileName(request.getImage());
                 if (img != null && img.getData() != null) {
                     types.setData(img.getData());
+                } else {
+                    // ✅ Si image non trouvée, vider data pour éviter d'afficher l'ancienne
+                    types.setData(null);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                types.setData(null);
+            }
+        } else {
+            // ✅ Si aucune image sélectionnée, vider les deux champs
+            types.setImage(null);
+            types.setData(null);
         }
 
         return mapToResponse(typesRepository.save(types));
