@@ -29,14 +29,12 @@ public class ImageController {
             @RequestParam("file")  MultipartFile file,
             @RequestParam("label") String label) throws IOException {
 
-        // Générer un nom unique
         String originalName = file.getOriginalFilename();
         String extension = originalName != null && originalName.contains(".")
                 ? originalName.substring(originalName.lastIndexOf('.'))
                 : ".png";
         String fileName = UUID.randomUUID().toString() + extension;
 
-        // ✅ Stocker les bytes en base — plus de disque
         ImageRequest request = ImageRequest.builder()
                 .fileName(fileName)
                 .label(label)
@@ -59,13 +57,20 @@ public class ImageController {
             if (image == null || image.getData() == null) {
                 return ResponseEntity.notFound().build();
             }
-            String contentType = image.getMimeType() != null
-                    ? image.getMimeType() : "application/octet-stream";
+
+            // Détermination du Content-Type : priorité au mimeType stocké,
+            // fallback sur l'extension du nom de fichier
+            String contentType = resolveContentType(image.getMimeType(), fileName);
+
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CACHE_CONTROL, "max-age=86400")
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                    // FIX: Access-Control-Allow-Origin explicite pour les images publiques
+                    // (allowCredentials=false dans CorsConfig → compatible avec "*")
+                    .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                     .header("Cross-Origin-Resource-Policy", "cross-origin")
                     .body(image.getData());
+
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
@@ -99,5 +104,22 @@ public class ImageController {
         imageService.delete(id);
         return ResponseEntity.ok(ApiResponse.success(
                 "Image supprimée", null));
+    }
+
+    // ── Helper : résolution du Content-Type ──────────────────────────
+    private String resolveContentType(String storedMimeType, String fileName) {
+        if (storedMimeType != null && !storedMimeType.isBlank()
+                && !storedMimeType.equals("application/octet-stream")) {
+            return storedMimeType;
+        }
+        // Fallback sur l'extension
+        String lower = fileName.toLowerCase();
+        if (lower.endsWith(".png"))              return "image/png";
+        if (lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg"))     return "image/jpeg";
+        if (lower.endsWith(".gif"))             return "image/gif";
+        if (lower.endsWith(".webp"))            return "image/webp";
+        if (lower.endsWith(".svg"))             return "image/svg+xml";
+        return "image/png"; // défaut raisonnable pour CATUSNIS
     }
 }
