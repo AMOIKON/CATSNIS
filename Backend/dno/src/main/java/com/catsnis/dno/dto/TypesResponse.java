@@ -7,4 +7,5 @@ public class TypesResponse {
     private String  image;
     private String  marque;
     private String  modele;
+    private String  base64;
 }

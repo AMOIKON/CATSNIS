@@ -9,9 +9,15 @@ import lombok.*;
 public class Types {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
     @Column(name = "type_name", nullable = false, unique = true)
     private String typeName;
+
     private String marque;
     private String modele;
     private String image;
+
+
+    @Column(name = "data", columnDefinition = "LONGBLOB")
+    private byte[] data;
 }
