@@ -103,7 +103,7 @@ export interface TypeResponse {
   image:    string;
   marque:   string;
   modele:   string;
-  base64?:  string | null; 
+  base64?:  string | null;
 }
 
 export interface TypesRequest {
@@ -262,6 +262,9 @@ export interface DeploymentRequest {
   appsId:     number;
   items:      DeploymentItemRequest[];
   partnerId?: number;
+  // ── Géolocalisation ──────────────────────────────────────────────────────
+  latitude?:  number;
+  longitude?: number;
 }
 
 export interface DeploymentResponse {
@@ -287,6 +290,9 @@ export interface DeploymentResponse {
   districtId:     number;
   healthId:       number;
   items:          DeploymentItemResponse[];
+  // ── Géolocalisation ──────────────────────────────────────────────────────
+  latitude?:  number;
+  longitude?: number;
 }
 
 // ── Interventions ─────────────────────────────────────────────────────────────
@@ -328,6 +334,9 @@ export interface InterventionResponse {
   personContact?: string;
   personPost?:    string;
   partnerId?:     number;
+  // ── Géolocalisation ──────────────────────────────────────────────────────
+  latitude?:  number;
+  longitude?: number;
 }
 
 export interface InterventionRequest {
@@ -356,6 +365,9 @@ export interface InterventionRequest {
   manualPersonContact?:     string;
   manualPersonPost?:        string;
   partnerId?:               number;
+  // ── Géolocalisation ──────────────────────────────────────────────────────
+  latitude?:  number;
+  longitude?: number;
 }
 
 // ── Appreciation ──────────────────────────────────────────────────────────────

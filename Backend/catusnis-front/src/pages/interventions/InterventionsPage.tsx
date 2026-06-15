@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import MainLayout            from '../../components/common/MainLayout';
-import ConfirmModal          from '../../components/common/ConfirmModal';
-import Pagination            from '../../components/common/Pagination';
-import PrintPreviewModal     from '../../components/common/Printpreviewmodal';
-import InterventionFormModal from './InterventionFormModal';
+import MainLayout              from '../../components/common/MainLayout';
+import ConfirmModal            from '../../components/common/ConfirmModal';
+import Pagination              from '../../components/common/Pagination';
+import PrintPreviewModal       from '../../components/common/Printpreviewmodal';
+import InterventionFormModal   from './InterventionFormModal';
 import InterventionUpdateModal from './interventionUpdateModal';
-import InterventionService   from '../../services/interventionService';
-import RegionService         from '../../services/regionService';
-import DistrictService       from '../../services/districtService';
+import InterventionService     from '../../services/interventionService';
+import RegionService           from '../../services/regionService';
+import DistrictService         from '../../services/districtService';
 import { InterventionResponse, RegionResponse, DistrictResponse } from '../../types';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
-import useAuth               from '../../hooks/useAuth';
-import { getImageSrc }       from '../../utils/imageUtils';
+import useAuth                 from '../../hooks/useAuth';
+import { getImageSrc }         from '../../utils/imageUtils';
+import GpsTag                  from '../../components/common/GpsTag';
 
 type Tab = 'liste' | 'dashboard';
 
@@ -145,7 +146,6 @@ const InterventionsPage: React.FC = () => {
         setShowPrintModal(true);
     };
 
-    // ✅ Impression globale — nouvelle fenêtre (pas de répétition sur 2 pages)
     const handlePrintAll = async () => {
         setIsPrinting(true);
         try {
@@ -155,14 +155,9 @@ const InterventionsPage: React.FC = () => {
                 undefined,
                 keyword        || undefined
             );
-            // Appliquer filtre type localement
-            const all = activeFilter === 'ALL'
-                ? raw
-                : raw.filter(i => i.typeInter === activeFilter);
-
+            const all = activeFilter === 'ALL' ? raw : raw.filter(i => i.typeInter === activeFilter);
             const cfg = getPrintConfig();
-            const typeLabel = activeFilter === 'EN_LIGNE' ? ' — En ligne'
-                            : activeFilter === 'SUR_SITE' ? ' — Sur site' : '';
+            const typeLabel = activeFilter === 'EN_LIGNE' ? ' — En ligne' : activeFilter === 'SUR_SITE' ? ' — Sur site' : '';
             const header = buildHeader(`Liste des interventions${typeLabel}`, cfg);
 
             const actionLabels: Record<string, string> = {
@@ -178,17 +173,14 @@ const InterventionsPage: React.FC = () => {
                     <td style="color:#6c757d;font-size:10px;">${i + 1}</td>
                     <td style="font-weight:600;font-size:10px;">${inter.codeInter}</td>
                     <td style="font-size:10px;">${new Date(inter.dateInter).toLocaleDateString('fr-FR')}</td>
-                    <td style="font-size:10px;color:${inter.typeInter === 'EN_LIGNE' ? '#0d6efd' : '#198754'};font-weight:600;">
-                        ${inter.typeInter === 'EN_LIGNE' ? 'En ligne' : 'Sur site'}</td>
+                    <td style="font-size:10px;color:${inter.typeInter === 'EN_LIGNE' ? '#0d6efd' : '#198754'};font-weight:600;">${inter.typeInter === 'EN_LIGNE' ? 'En ligne' : 'Sur site'}</td>
                     <td style="font-size:10px;">${actionLabels[inter.actionInter] || inter.actionInter}</td>
                     <td><span style="background:#fce4e4;color:#921919;padding:1px 6px;border-radius:20px;font-size:10px;">${inter.healthName || '—'}</span></td>
                     <td><span style="background:#d1e7dd;color:#0a3622;padding:1px 6px;border-radius:20px;font-size:10px;">${inter.regionName || '—'}</span></td>
                     <td style="font-size:10px;">${inter.technicianName || '—'}</td>
-                    <td style="text-align:center;">
-                        <span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:20px;font-size:10px;">
-                            ${inter.durationMinutes} min</span></td>
-                    <td style="font-size:10px;color:${inter.enAttenteMaintenance ? '#fd7e14' : '#198754'};font-weight:600;">
-                        ${inter.enAttenteMaintenance ? 'En attente' : 'Normal'}</td>
+                    <td style="text-align:center;"><span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:20px;font-size:10px;">${inter.durationMinutes} min</span></td>
+                    <td style="font-size:10px;color:${inter.enAttenteMaintenance ? '#fd7e14' : '#198754'};font-weight:600;">${inter.enAttenteMaintenance ? 'En attente' : 'Normal'}</td>
+                    <td style="font-size:10px;color:#198754;">${inter.latitude != null ? `${inter.latitude.toFixed(4)}, ${inter.longitude?.toFixed(4)}` : '—'}</td>
                 </tr>`).join('');
 
             const html = `<!DOCTYPE html>
@@ -214,7 +206,7 @@ const InterventionsPage: React.FC = () => {
             <tr>
                 <th>#</th><th>Code</th><th>Date</th><th>Type</th><th>Action</th>
                 <th>Site</th><th>Région</th><th>Technicien</th>
-                <th style="text-align:center">Durée</th><th>Statut</th>
+                <th style="text-align:center">Durée</th><th>Statut</th><th>GPS</th>
             </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -234,10 +226,10 @@ const InterventionsPage: React.FC = () => {
     // ── Stats ─────────────────────────────────────────────────────────────────
     const enAttenteCount = interventions.filter(i => i.enAttenteMaintenance).length;
     const statsCards = [
-        { label: 'Total interventions', value: totalElements,      icon: 'bi-tools',          color: 'primary',                              sub: 'enregistrées'    },
-        { label: 'Minutes EN LIGNE',    value: stats.totalEnLigne, icon: 'bi-telephone-fill',  color: 'info',                                 sub: 'min téléphone'   },
-        { label: 'Minutes SUR SITE',    value: stats.totalSurSite, icon: 'bi-geo-alt-fill',    color: 'success',                              sub: 'min sur place'   },
-        { label: 'En attente',          value: enAttenteCount,     icon: 'bi-clock-history',   color: enAttenteCount > 0 ? 'warning' : 'secondary', sub: 'maintenance requise' },
+        { label: 'Total interventions', value: totalElements,      icon: 'bi-tools',         color: 'primary',                                   sub: 'enregistrées'        },
+        { label: 'Minutes EN LIGNE',    value: stats.totalEnLigne, icon: 'bi-telephone-fill', color: 'info',                                      sub: 'min téléphone'       },
+        { label: 'Minutes SUR SITE',    value: stats.totalSurSite, icon: 'bi-geo-alt-fill',   color: 'success',                                   sub: 'min sur place'       },
+        { label: 'En attente',          value: enAttenteCount,     icon: 'bi-clock-history',  color: enAttenteCount > 0 ? 'warning' : 'secondary', sub: 'maintenance requise' },
     ];
 
     const typeCards = [
@@ -291,6 +283,7 @@ const InterventionsPage: React.FC = () => {
                                     {rightSrc ? <img src={rightSrc} alt="logo-d" style={{ maxWidth: '90px', maxHeight: '80px', objectFit: 'contain', display: 'block' }} /> : <div style={{ width: '80px', height: '70px' }} />}
                                 </div>
                             </div>
+
                             <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse', fontSize: '12px' }}>
                                 <tbody>
                                     <tr><td style={{ padding: '5px 8px', width: '50%', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Code :</strong> {printTarget.codeInter}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Date :</strong> {new Date(printTarget.dateInter).toLocaleDateString('fr-FR')}</td></tr>
@@ -300,6 +293,23 @@ const InterventionsPage: React.FC = () => {
                                     <tr><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Personne assistée :</strong> {printTarget.personName?.trim() || '—'}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Évaluation :</strong> {printTarget.evlName}</td></tr>
                                 </tbody>
                             </table>
+
+                            {/* ── GPS dans la fiche imprimée ── */}
+                            {printTarget.latitude != null && printTarget.longitude != null && (
+                                <div style={{ marginBottom: '14px', padding: '8px 12px', background: '#d1e7dd', borderRadius: '6px', border: '1px solid #a3cfbb', fontSize: '11px', color: '#0a3622', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>📍</span>
+                                    <div>
+                                        <strong>Coordonnées GPS :</strong>{' '}
+                                        {printTarget.latitude.toFixed(6)}, {printTarget.longitude.toFixed(6)}
+                                        {' — '}
+                                        <a href={`https://www.google.com/maps?q=${printTarget.latitude},${printTarget.longitude}`}
+                                           style={{ color: '#0a3622', fontWeight: 'bold' }}>
+                                            Voir sur Google Maps ↗
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+
                             {printTarget.deploymentItems?.length > 0 && (<>
                                 <h4 style={{ marginBottom: '10px', fontSize: '14px', borderLeft: '4px solid #0d6efd', paddingLeft: '8px' }}>Équipements concernés</h4>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '16px' }}>
@@ -322,6 +332,7 @@ const InterventionsPage: React.FC = () => {
                                     ))}</tbody>
                                 </table>
                             </>)}
+
                             {printTarget.commentInter && <div style={{ marginBottom: '20px', padding: '10px 12px', background: '#f9f9f9', borderRadius: '6px', border: '1px solid #eee' }}><strong>Commentaire :</strong><p style={{ marginTop: '6px', marginBottom: 0 }}>{printTarget.commentInter}</p></div>}
                             <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between', gap: '40px' }}>
                                 <div style={{ textAlign: 'center', flex: 1 }}><p style={{ fontWeight: 'bold' }}>Signature Technicien</p><p style={{ color: '#666', fontSize: '11px' }}>{printTarget.technicianName}</p><div style={{ marginTop: '35px', borderTop: '1px solid #333', paddingTop: '4px', fontSize: '10px', color: '#888' }}>Nom & Signature</div></div>
@@ -344,16 +355,9 @@ const InterventionsPage: React.FC = () => {
                     <small className="text-muted">{totalElements} intervention(s) — {stats.totalGlobal} min total</small>
                 </div>
                 <div className="d-flex gap-2 align-items-center">
-                    {/* ✅ Impression globale — ouvre une nouvelle fenêtre */}
                     {activeTab === 'liste' && (
-                        <button
-                            className="btn btn-outline-secondary d-flex align-items-center gap-2"
-                            onClick={handlePrintAll}
-                            disabled={isPrinting}
-                            title="Imprimer toutes les interventions">
-                            {isPrinting
-                                ? <><span className="spinner-border spinner-border-sm" role="status" />Chargement...</>
-                                : <><i className="bi bi-printer" />Imprimer</>}
+                        <button className="btn btn-outline-secondary d-flex align-items-center gap-2" onClick={handlePrintAll} disabled={isPrinting}>
+                            {isPrinting ? <><span className="spinner-border spinner-border-sm" role="status" />Chargement...</> : <><i className="bi bi-printer" />Imprimer</>}
                         </button>
                     )}
                     {canCreate && (
@@ -487,7 +491,7 @@ const InterventionsPage: React.FC = () => {
                                                 <th>Localisation</th><th>Équipements</th>
                                                 <th>Application</th><th>Bailleur</th>
                                                 <th>Technicien</th><th>Personne</th>
-                                                <th>Durée</th><th>Statut</th>
+                                                <th>Durée</th><th>GPS</th><th>Statut</th>
                                                 <th className="text-end no-print">Actions</th>
                                             </tr>
                                         </thead>
@@ -541,6 +545,10 @@ const InterventionsPage: React.FC = () => {
                                                             <i className="bi bi-clock me-1" />{inter.durationMinutes} min
                                                         </span>
                                                     </td>
+                                                    {/* ── Colonne GPS ── */}
+                                                    <td>
+                                                        <GpsTag latitude={inter.latitude} longitude={inter.longitude} />
+                                                    </td>
                                                     <td>
                                                         {inter.enAttenteMaintenance
                                                             ? <span className="badge bg-warning bg-opacity-10 text-warning d-inline-flex align-items-center gap-1"><i className="bi bi-clock-history" />En attente</span>
@@ -588,6 +596,7 @@ const InterventionsPage: React.FC = () => {
                                         <div className="text-end">
                                             <span className="badge bg-primary bg-opacity-10 text-primary d-block">{inter.durationMinutes} min</span>
                                             <small className="text-muted" style={{ fontSize: '10px' }}>{new Date(inter.dateInter).toLocaleDateString('fr-FR')}</small>
+                                            {inter.latitude != null && <div className="mt-1"><GpsTag latitude={inter.latitude} longitude={inter.longitude} compact /></div>}
                                         </div>
                                     </div>
                                 ))}
@@ -630,7 +639,7 @@ const InterventionsPage: React.FC = () => {
                                 <div className="row g-4">
                                     {[
                                         { label: 'EN LIGNE', value: stats.totalEnLigne, color: 'primary', icon: 'bi-telephone-fill', pct: stats.totalGlobal > 0 ? Math.round((stats.totalEnLigne / stats.totalGlobal) * 100) : 0 },
-                                        { label: 'SUR SITE',  value: stats.totalSurSite, color: 'success', icon: 'bi-geo-alt-fill',   pct: stats.totalGlobal > 0 ? Math.round((stats.totalSurSite / stats.totalGlobal)  * 100) : 0 },
+                                        { label: 'SUR SITE',  value: stats.totalSurSite, color: 'success', icon: 'bi-geo-alt-fill',   pct: stats.totalGlobal > 0 ? Math.round((stats.totalSurSite  / stats.totalGlobal) * 100) : 0 },
                                     ].map((s, i) => (
                                         <div key={i} className="col-md-6">
                                             <div className="d-flex align-items-center gap-3 mb-2">

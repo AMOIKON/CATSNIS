@@ -13,6 +13,7 @@ import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
 import PrintPreviewModal     from '../../components/common/Printpreviewmodal';
 import useAuth               from '../../hooks/useAuth';
 import { getImageSrc }       from '../../utils/imageUtils';
+import GpsTag                from '../../components/common/GpsTag';
 
 type Tab = 'deployments' | 'items' | 'stats';
 
@@ -213,7 +214,6 @@ const DeploymentsPage: React.FC = () => {
         setPrintTarget(d); setPrintModalTarget(d); setShowPrintModal(true);
     };
 
-    // ✅ Impression globale — ouvre une nouvelle fenêtre (pas de répétition sur 2 pages)
     const handlePrintAll = async () => {
         setIsPrinting(true);
         try {
@@ -242,6 +242,7 @@ const DeploymentsPage: React.FC = () => {
                     <td style="text-align:center;font-weight:bold;">${d.items?.length || 0}</td>
                     <td style="font-size:10px;color:${d.appsColor || '#616161'};font-weight:500;">${d.appsDeploy || '—'}</td>
                     <td style="font-size:10px;">${d.partnerName || '—'}</td>
+                    <td style="font-size:10px;color:#198754;">${d.latitude != null ? `${d.latitude.toFixed(4)}, ${d.longitude?.toFixed(4)}` : '—'}</td>
                 </tr>`).join('');
 
             const html = `<!DOCTYPE html>
@@ -266,7 +267,7 @@ const DeploymentsPage: React.FC = () => {
         <thead>
             <tr>
                 <th>#</th><th>Code</th><th>Date</th><th>Site</th><th>District</th>
-                <th>Région</th><th style="text-align:center">Équip.</th><th>Application</th><th>Partenaire</th>
+                <th>Région</th><th style="text-align:center">Équip.</th><th>Application</th><th>Partenaire</th><th>GPS</th>
             </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -288,13 +289,13 @@ const DeploymentsPage: React.FC = () => {
         return `rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},${opacity})`;
     };
 
-    // ── Stats ─────────────────────────────────────────────────────────────────
     const allItems       = allDeployments.flatMap(d => d.items || []);
     const sitesCouverts  = new Set(allDeployments.map(d => d.healthDeploy)).size;
     const regionsActives = new Set(allDeployments.map(d => d.regionDeploy)).size;
     const fonctionnels   = allItems.filter(i => i.status === 'FONCTIONNEL').length;
     const nonFonct       = allItems.filter(i => i.status !== 'FONCTIONNEL').length;
     const tauxFonct      = allItems.length > 0 ? Math.round((fonctionnels / allItems.length) * 100) : 0;
+    const geolocCount    = allDeployments.filter(d => d.latitude != null).length;
 
     const topRegions = regions.map(r => ({
         id: r.id, label: r.regionName,
@@ -321,7 +322,7 @@ const DeploymentsPage: React.FC = () => {
         { label: 'Total déploiements',    value: totalElements,   icon: 'bi-truck',                     color: 'primary', sub: `${regionsActives} région(s)` },
         { label: 'Équipements déployés',  value: allItems.length, icon: 'bi-pc-display',                color: 'success', sub: `${tauxFonct}% fonctionnels`  },
         { label: 'Sites couverts',        value: sitesCouverts,   icon: 'bi-hospital-fill',             color: 'info',    sub: 'établissements'               },
-        { label: 'Non fonctionnels',      value: nonFonct,        icon: 'bi-exclamation-triangle-fill', color: nonFonct > 0 ? 'danger' : 'secondary', sub: 'à signaler' },
+        { label: 'Géolocalisés',          value: geolocCount,     icon: 'bi-geo-alt-fill',              color: 'success', sub: 'avec coordonnées GPS'         },
     ];
 
     return (
@@ -361,6 +362,7 @@ const DeploymentsPage: React.FC = () => {
                                     {rightSrc ? <img src={rightSrc} alt="logo-droite" style={{ maxWidth:'90px', maxHeight:'80px', objectFit:'contain', display:'block' }} /> : <div style={{ width:'80px', height:'70px' }} />}
                                 </div>
                             </div>
+
                             <table style={{ width:'100%', marginBottom:'16px', borderCollapse:'collapse', fontSize:'12px' }}>
                                 <tbody>
                                     <tr><td style={{ padding:'5px 8px', width:'50%', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Code :</strong> {printTarget.codeDep}</td><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Date :</strong> {new Date(printTarget.dateRecep).toLocaleDateString('fr-FR')}</td></tr>
@@ -368,6 +370,23 @@ const DeploymentsPage: React.FC = () => {
                                     <tr><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Région :</strong> {printTarget.regionDeploy}</td><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Application :</strong> {printTarget.appsDeploy}</td></tr>
                                 </tbody>
                             </table>
+
+                            {/* ── GPS dans la fiche imprimée ── */}
+                            {printTarget.latitude != null && printTarget.longitude != null && (
+                                <div style={{ marginBottom:'14px', padding:'8px 12px', background:'#d1e7dd', borderRadius:'6px', border:'1px solid #a3cfbb', fontSize:'11px', color:'#0a3622', display:'flex', alignItems:'center', gap:'8px' }}>
+                                    <span>📍</span>
+                                    <div>
+                                        <strong>Coordonnées GPS :</strong>{' '}
+                                        {printTarget.latitude.toFixed(6)}, {printTarget.longitude.toFixed(6)}
+                                        {' — '}
+                                        <a href={`https://www.google.com/maps?q=${printTarget.latitude},${printTarget.longitude}`}
+                                           style={{ color:'#0a3622', fontWeight:'bold' }}>
+                                            Voir sur Google Maps ↗
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+
                             <h4 style={{ marginBottom:'10px', fontSize:'14px', borderLeft:'4px solid #0d6efd', paddingLeft:'8px' }}>Équipements déployés ({printTarget.items?.length || 0})</h4>
                             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'11px' }}>
                                 <thead><tr style={{ background:'#0d6efd', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact' }}>
@@ -413,16 +432,9 @@ const DeploymentsPage: React.FC = () => {
                     <small className="text-muted">{totalElements} déploiement(s) — {allItems.length} équipements</small>
                 </div>
                 <div className="d-flex gap-2 align-items-center">
-                    {/* ✅ Impression globale — ouvre une nouvelle fenêtre */}
                     {(activeTab === 'deployments' || activeTab === 'items') && (
-                        <button
-                            className="btn btn-outline-secondary d-flex align-items-center gap-2"
-                            onClick={handlePrintAll}
-                            disabled={isPrinting}
-                            title="Imprimer tous les déploiements">
-                            {isPrinting
-                                ? <><span className="spinner-border spinner-border-sm" role="status" />Chargement...</>
-                                : <><i className="bi bi-printer" />Imprimer</>}
+                        <button className="btn btn-outline-secondary d-flex align-items-center gap-2" onClick={handlePrintAll} disabled={isPrinting}>
+                            {isPrinting ? <><span className="spinner-border spinner-border-sm" role="status" />Chargement...</> : <><i className="bi bi-printer" />Imprimer</>}
                         </button>
                     )}
                     {canCreate && (
@@ -433,7 +445,6 @@ const DeploymentsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Bandeau erreur action */}
             {actionError && (
                 <div className="alert alert-danger alert-dismissible rounded-4 mb-3 py-2 d-flex align-items-center gap-2">
                     <i className="bi bi-exclamation-triangle-fill" />
@@ -595,6 +606,7 @@ const DeploymentsPage: React.FC = () => {
                                                 <th>#</th><th>Code & Date</th><th>Localisation</th>
                                                 <th>Équipements</th><th>Application</th>
                                                 {isUnrestricted && <th>Partenaire</th>}
+                                                <th>GPS</th>
                                                 <th className="text-end no-print">Actions</th>
                                             </tr>
                                         </thead>
@@ -650,12 +662,16 @@ const DeploymentsPage: React.FC = () => {
                                                     {isUnrestricted && (
                                                         <td>{d.partnerName ? <span className="badge bg-warning bg-opacity-10 text-warning">{d.partnerName}</span> : <span className="text-muted small">—</span>}</td>
                                                     )}
+                                                    {/* ── Colonne GPS ── */}
+                                                    <td>
+                                                        <GpsTag latitude={d.latitude} longitude={d.longitude} />
+                                                    </td>
                                                     <td className="text-end no-print">
                                                         <button className="btn btn-sm btn-outline-primary me-1" onClick={() => handlePrintFiche(d)} title="Imprimer fiche">
                                                             <i className="bi bi-printer" />
                                                         </button>
                                                         {canEdit && nbTotal > 0 && (
-                                                            <button className="btn btn-sm btn-outline-warning me-1" onClick={() => handleOpenReturnModal(d)} title="Retourner un équipement">
+                                                            <button className="btn btn-sm btn-outline-warning me-1" onClick={() => handleOpenReturnModal(d)}>
                                                                 <i className="bi bi-arrow-return-left" />
                                                             </button>
                                                         )}
@@ -738,6 +754,7 @@ const DeploymentsPage: React.FC = () => {
                                         <div className="text-end">
                                             <span className="badge bg-primary bg-opacity-10 text-primary d-block">{d.items?.length || 0} équip.</span>
                                             <small className="text-muted" style={{ fontSize:'10px' }}>{new Date(d.dateRecep).toLocaleDateString('fr-FR')}</small>
+                                            {d.latitude != null && <div className="mt-1"><GpsTag latitude={d.latitude} longitude={d.longitude} compact /></div>}
                                         </div>
                                     </div>
                                 ))}
@@ -831,20 +848,15 @@ const DeploymentsPage: React.FC = () => {
             )}
             <DeploymentFormModal   show={showForm}   onHide={() => setShowForm(false)}   onSuccess={() => { loadDeployments(); loadAllForStats(); }} />
             <DeploymentUpdateModal show={showUpdate} onHide={() => { setShowUpdate(false); setSelected(null); }} onSuccess={() => { loadDeployments(); loadAllForStats(); }} deployment={selected} />
-            <ReturnItemModal
-                show={showReturnModal} deployment={returnTarget}
+            <ReturnItemModal show={showReturnModal} deployment={returnTarget}
                 onHide={() => { setShowReturnModal(false); setReturnTarget(null); }}
-                onConfirmOne={handleItemSelected}
-                onConfirmAll={handleReturnAll}
-            />
+                onConfirmOne={handleItemSelected} onConfirmAll={handleReturnAll} />
             <ConfirmModal show={showReturnConfirm} title="Confirmer le retour en stock"
                 message={`Confirmer le retour de "${returnItem?.label}" en stock ? Il sera remis en DISPONIBLE.`}
                 onConfirm={handleReturnConfirm} onCancel={() => { setShowReturnConfirm(false); setReturnItem(null); }} isLoading={returnLoading} />
             <ConfirmModal show={showReturnAllConfirm} title="Retourner tous les équipements"
                 message={`Retourner les ${returnTarget?.items?.length || 0} équipement(s) de "${returnTarget?.codeDep}" en stock ? Le déploiement sera supprimé.`}
-                onConfirm={handleReturnAllConfirm}
-                onCancel={() => { setShowReturnAllConfirm(false); setReturnTarget(null); }}
-                isLoading={returnAllLoading} />
+                onConfirm={handleReturnAllConfirm} onCancel={() => { setShowReturnAllConfirm(false); setReturnTarget(null); }} isLoading={returnAllLoading} />
             <ConfirmModal show={showConfirm} title="Supprimer le déploiement"
                 message="Êtes-vous sûr ? Les équipements retourneront en stock."
                 onConfirm={handleDeleteConfirm} onCancel={() => setShowConfirm(false)} isLoading={deleteLoading} />
