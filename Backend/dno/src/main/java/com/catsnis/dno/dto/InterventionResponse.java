@@ -1,7 +1,9 @@
 package com.catsnis.dno.dto;
+
 import lombok.*;
 import java.util.Date;
 import java.util.List;
+
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class InterventionResponse {
     private Integer                    id;
@@ -39,5 +41,9 @@ public class InterventionResponse {
     private String                     personContact;
     private String                     personPost;
     private Boolean                    enAttenteMaintenance;
-    private Integer                     partnerId;
+    private Integer                    partnerId;
+
+    // ── Géolocalisation ───────────────────────────────────────────────────────
+    private Double                     latitude;
+    private Double                     longitude;
 }

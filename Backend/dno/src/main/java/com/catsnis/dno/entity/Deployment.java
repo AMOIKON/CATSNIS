@@ -25,6 +25,13 @@ public class Deployment {
 
     private String comment;
 
+    // ── Géolocalisation ───────────────────────────────────────────────────────
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "region_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -50,13 +57,10 @@ public class Deployment {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
     private Person createdBy;
 
-    // ✅ FIX PRINCIPAL — orphanRemoval = true
-    // Sans ceci, deployment.getItems().clear() ne supprime PAS les items en BDD
-    // → les anciens items restent et s'accumulent à chaque update
     @OneToMany(
             mappedBy      = "deployment",
             cascade       = CascadeType.ALL,
-            orphanRemoval = true,              // ← CLÉ : supprime en BDD quand retiré de la liste
+            orphanRemoval = true,
             fetch         = FetchType.EAGER
     )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "deployment"})

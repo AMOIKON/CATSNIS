@@ -20,13 +20,16 @@ public class InterventionRequest {
     private Integer             appsId;
     private Integer             bookletId;
     private Integer             personId;
-    private Integer             partnerId;        // ✅ AJOUT
+    private Integer             partnerId;
     private Boolean             enAttenteMaintenance;
+
+    // ── Géolocalisation ───────────────────────────────────────────────────────
+    private Double              latitude;
+    private Double              longitude;
 
     private List<Long>          selectedItemIds;
     private Map<Long, String>   etatsAvant;
     private Map<Long, String>   etatsApres;
-
     private Map<Long, Boolean>  maintenanceReussie;
 
     private String              manualPersonName;

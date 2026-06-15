@@ -36,9 +36,7 @@ public class InterventionServiceImpl implements InterventionService {
     private final TechnicianSiteRepository  technicianSiteRepository;
     private final SecurityUtils             securityUtils;
     private final BookletService            bookletService;
-    private final PartnerRepository         partnerRepository;   // ✅ AJOUT
-
-    // ── Helper parseDate ──────────────────────────────────────────────────────
+    private final PartnerRepository         partnerRepository;
 
     private Date parseDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return new Date();
@@ -62,8 +60,6 @@ public class InterventionServiceImpl implements InterventionService {
         };
     }
 
-    // ── Lecture par ID ────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public InterventionResponse getInterventionById(Integer id) {
@@ -71,8 +67,6 @@ public class InterventionServiceImpl implements InterventionService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Intervention non trouvée avec l'id : " + id)));
     }
-
-    // ── Liste paginée ─────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -117,8 +111,6 @@ public class InterventionServiceImpl implements InterventionService {
                         pageable, regionId, districtId, healthId, keyword, null, partnerFilter)
                 .map(this::mapToResponse);
     }
-
-    // ── Créer une intervention ────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -165,7 +157,6 @@ public class InterventionServiceImpl implements InterventionService {
                     ? " | Poste: " + request.getManualPersonPost() : "");
         }
 
-        // ✅ Résolution partenaire à la création
         Partner partner = technician.getPartner();
         if (request.getPartnerId() != null && request.getPartnerId() > 0) {
             partner = partnerRepository.findById(request.getPartnerId()).orElse(partner);
@@ -187,6 +178,9 @@ public class InterventionServiceImpl implements InterventionService {
                 .partner(partner)
                 .enAttenteMaintenance(request.getEnAttenteMaintenance() != null
                         ? request.getEnAttenteMaintenance() : false)
+                // ── Géolocalisation ──────────────────────────────────────────
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .build();
 
         Intervention saved = interventionRepository.save(intervention);
@@ -210,8 +204,6 @@ public class InterventionServiceImpl implements InterventionService {
         return mapToResponse(saved);
     }
 
-    // ── Modifier une intervention ─────────────────────────────────────────────
-
     @Override
     @Transactional
     public InterventionResponse updateIntervention(Integer id, InterventionRequest request) {
@@ -221,7 +213,8 @@ public class InterventionServiceImpl implements InterventionService {
         Booklet booklet = null;
         if (request.getBookletId() != null) {
             booklet = bookletRepository.findById(Long.valueOf(request.getBookletId()))
-                    .orElseThrow(() -> new ResourceNotFoundException("Booklet non trouvé : " + request.getBookletId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Booklet non trouvé : " + request.getBookletId()));
         }
 
         Region     region     = regionRepository.findById(request.getRegionId())
@@ -237,7 +230,6 @@ public class InterventionServiceImpl implements InterventionService {
         Types      types      = resolveTypes(request.getTypesId(), deployment);
         Apps       apps       = resolveApps(request.getAppsId(), deployment);
 
-        // ✅ Résolution du partenaire
         Partner partner = intervention.getPartner() != null
                 ? intervention.getPartner()
                 : (intervention.getTechnician() != null ? intervention.getTechnician().getPartner() : null);
@@ -281,9 +273,12 @@ public class InterventionServiceImpl implements InterventionService {
         intervention.setDeployment(deployment);
         intervention.setPerson(null);
         intervention.setBooklet(booklet);
-        intervention.setPartner(partner);   // ✅
+        intervention.setPartner(partner);
         intervention.setEnAttenteMaintenance(
                 request.getEnAttenteMaintenance() != null ? request.getEnAttenteMaintenance() : false);
+        // ── Géolocalisation ───────────────────────────────────────────────────
+        if (request.getLatitude()  != null) intervention.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) intervention.setLongitude(request.getLongitude());
 
         Intervention updated = interventionRepository.save(intervention);
         saveItemStatesByIds(request);
@@ -306,8 +301,6 @@ public class InterventionServiceImpl implements InterventionService {
         return mapToResponse(updated);
     }
 
-    // ── Supprimer ─────────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public void deleteIntervention(Integer id) {
@@ -316,18 +309,14 @@ public class InterventionServiceImpl implements InterventionService {
         interventionRepository.delete(intervention);
     }
 
-    // ── Statistiques minutes ──────────────────────────────────────────────────
-
     @Override
     public Long getTotalMinutesEnLigne() {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
-        if (partnerFilter == null)
-            return interventionRepository.sumDurationByType("EN_LIGNE");
+        if (partnerFilter == null) return interventionRepository.sumDurationByType("EN_LIGNE");
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
         if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
-            return healthIds.isEmpty() ? 0L
-                    : interventionRepository.sumDurationByTypeAndSites("EN_LIGNE", healthIds);
+            return healthIds.isEmpty() ? 0L : interventionRepository.sumDurationByTypeAndSites("EN_LIGNE", healthIds);
         }
         if (partnerFilter == -1L) return interventionRepository.sumDurationByTypeAndPartnerNull("EN_LIGNE");
         return interventionRepository.sumDurationByTypeAndPartner("EN_LIGNE", partnerFilter);
@@ -336,13 +325,11 @@ public class InterventionServiceImpl implements InterventionService {
     @Override
     public Long getTotalMinutesSurSite() {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
-        if (partnerFilter == null)
-            return interventionRepository.sumDurationByType("SUR_SITE");
+        if (partnerFilter == null) return interventionRepository.sumDurationByType("SUR_SITE");
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
         if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
-            return healthIds.isEmpty() ? 0L
-                    : interventionRepository.sumDurationByTypeAndSites("SUR_SITE", healthIds);
+            return healthIds.isEmpty() ? 0L : interventionRepository.sumDurationByTypeAndSites("SUR_SITE", healthIds);
         }
         if (partnerFilter == -1L) return interventionRepository.sumDurationByTypeAndPartnerNull("SUR_SITE");
         return interventionRepository.sumDurationByTypeAndPartner("SUR_SITE", partnerFilter);
@@ -351,13 +338,11 @@ public class InterventionServiceImpl implements InterventionService {
     @Override
     public Long getTotalMinutesGlobal() {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
-        if (partnerFilter == null)
-            return interventionRepository.sumDurationTotal();
+        if (partnerFilter == null) return interventionRepository.sumDurationTotal();
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
         if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
-            return healthIds.isEmpty() ? 0L
-                    : interventionRepository.sumDurationTotalBySites(healthIds);
+            return healthIds.isEmpty() ? 0L : interventionRepository.sumDurationTotalBySites(healthIds);
         }
         if (partnerFilter == -1L) return interventionRepository.sumDurationTotalByPartnerNull();
         return interventionRepository.sumDurationTotalByPartner(partnerFilter);
@@ -441,10 +426,7 @@ public class InterventionServiceImpl implements InterventionService {
         });
     }
 
-    // ── Mapping ───────────────────────────────────────────────────────────────
-
     private InterventionResponse mapToResponse(Intervention intervention) {
-        // ✅ Utilise intervention.getPartner() en priorité
         Partner partner = intervention.getPartner() != null
                 ? intervention.getPartner()
                 : (intervention.getTechnician() != null
@@ -472,8 +454,8 @@ public class InterventionServiceImpl implements InterventionService {
             }).collect(Collectors.toList());
         }
 
-        String personName = null; String personContact = null;
-        String personPost = null; Integer personId = null;
+        String personName = null, personContact = null, personPost = null;
+        Integer personId = null;
         if (intervention.getBooklet() != null) {
             Booklet b = intervention.getBooklet();
             personName    = b.getLastName() + " " + b.getFirstName();
@@ -528,10 +510,13 @@ public class InterventionServiceImpl implements InterventionService {
                 .partnerLogo(partner  != null && partner.getLogo()  != null ? partner.getLogo()  : "bi-building")
                 .partnerColor(partner != null && partner.getColor() != null ? partner.getColor() : "#616161")
                 .partnerImage(partner != null && partner.getImage() != null ? partner.getImage() : "")
-                .partnerId(partner != null ? partner.getId() : null)   // ✅ AJOUT
+                .partnerId(partner != null ? partner.getId() : null)
                 .personId(personId).personName(personName)
                 .personContact(personContact).personPost(personPost)
                 .enAttenteMaintenance(intervention.getEnAttenteMaintenance())
+                // ── Géolocalisation ──────────────────────────────────────────
+                .latitude(intervention.getLatitude())
+                .longitude(intervention.getLongitude())
                 .build();
     }
 }

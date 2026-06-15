@@ -22,11 +22,9 @@ public class Intervention {
     @Column(name = "action_inter", nullable = false)
     private String actionInter;
 
-    // ✅ Colonne réelle NOT NULL dans la BDD
     @Column(name = "comment_intervention", nullable = false)
     private String commentInter;
 
-    // ✅ Colonne réelle NOT NULL dans la BDD
     @Column(name = "date_intervention", nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private Date dateInter;
@@ -37,6 +35,13 @@ public class Intervention {
     @Builder.Default
     @Column(name = "en_attente_maintenance")
     private Boolean enAttenteMaintenance = false;
+
+    // ── Géolocalisation ───────────────────────────────────────────────────────
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "region_id", nullable = false)

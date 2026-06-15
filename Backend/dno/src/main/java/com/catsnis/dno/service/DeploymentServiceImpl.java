@@ -31,8 +31,6 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final InterventionRepository     interventionRepository;
     private final SecurityUtils              securityUtils;
 
-    // ── Lecture par ID ────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public DeploymentResponse getDeploymentById(Integer id) {
@@ -40,8 +38,6 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Deploiement non trouve : " + id)));
     }
-
-    // ── Liste paginée ─────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -85,12 +81,9 @@ public class DeploymentServiceImpl implements DeploymentService {
         }
         return deploymentRepository
                 .findAllWithFiltersAndPartner(
-                        pageable, regionId, districtId, healthId, keyword,
-                        partnerFilter)
+                        pageable, regionId, districtId, healthId, keyword, partnerFilter)
                 .map(this::mapToResponse);
     }
-
-    // ── Créer ─────────────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -115,6 +108,9 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .apps(findApps(request.getAppsId()))
                 .createdBy(technician)
                 .partner(deployPartner)
+                // ── Géolocalisation ──────────────────────────────────────────
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .build();
 
         Deployment saved = deploymentRepository.saveAndFlush(deployment);
@@ -151,8 +147,6 @@ public class DeploymentServiceImpl implements DeploymentService {
         return mapToResponse(deploymentRepository.saveAndFlush(saved));
     }
 
-    // ── Modifier ──────────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public DeploymentResponse updateDeployment(Integer id, DeploymentRequest request) {
@@ -160,7 +154,6 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Deploiement non trouve : " + id));
 
-        // ── 1. Remettre les anciennes acquisitions en stock ───────────────────
         List<DeploymentItem> oldItems = new java.util.ArrayList<>(deployment.getItems());
         for (DeploymentItem oldItem : oldItems) {
             Acquisition acq = acquisitionRepository
@@ -173,25 +166,19 @@ public class DeploymentServiceImpl implements DeploymentService {
             }
         }
 
-        // ── 2. Vider les items ────────────────────────────────────────────────
-        // ✅ CORRECTION PRINCIPALE :
-        // orphanRemoval=true sur l'entité Deployment supprime automatiquement
-        // les DeploymentItem en BDD lors du saveAndFlush.
-        // ❌ L'ancien code faisait en plus :
-        //      deploymentItemRepository.deleteAll(oldItems)  ← double suppression
-        //      deploymentItemRepository.flush()
-        // → Hibernate lançait EntityNotFoundException → mappé en 404
         deployment.getItems().clear();
         deploymentRepository.saveAndFlush(deployment);
 
-        // ── 3. Mettre à jour les champs ───────────────────────────────────────
         deployment.setCodeDep(request.getCodeDep());
         deployment.setDateRecep(request.getDateRecep());
         deployment.setComment(request.getComment());
         deployment.setRegion(findRegion(request.getRegionId()));
         deployment.setDistrict(findDistrict(request.getDistrictId()));
         deployment.setHealth(findHealth(request.getHealthId()));
-        deployment.setApps(findApps(request.getAppsId())); // ✅ null-safe
+        deployment.setApps(findApps(request.getAppsId()));
+        // ── Géolocalisation ───────────────────────────────────────────────────
+        if (request.getLatitude()  != null) deployment.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) deployment.setLongitude(request.getLongitude());
 
         if (request.getPartnerId() != null && request.getPartnerId() > 0) {
             partnerRepository.findById(request.getPartnerId())
@@ -200,7 +187,6 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         Deployment saved = deploymentRepository.saveAndFlush(deployment);
 
-        // ── 4. Recréer les nouveaux items ─────────────────────────────────────
         if (request.getItems() != null) {
             for (DeploymentItemRequest itemReq : request.getItems()) {
                 Acquisition acquisition = acquisitionRepository
@@ -229,8 +215,6 @@ public class DeploymentServiceImpl implements DeploymentService {
         return mapToResponse(deploymentRepository.saveAndFlush(saved));
     }
 
-    // ── Supprimer ─────────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public void deleteDeployment(Integer id) {
@@ -248,8 +232,6 @@ public class DeploymentServiceImpl implements DeploymentService {
         interventionRepository.unlinkFromDeployment(id);
         deploymentRepository.delete(deployment);
     }
-
-    // ── Retirer un équipement ─────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -271,8 +253,7 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         Acquisition acquisition = acquisitionRepository
                 .findById(Long.valueOf(item.getAcquisition().getId()))
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Acquisition non trouvee"));
+                .orElseThrow(() -> new ResourceNotFoundException("Acquisition non trouvee"));
 
         acquisition.setStatus("DISPONIBLE");
         acquisition.setDeployed(false);
@@ -287,9 +268,7 @@ public class DeploymentServiceImpl implements DeploymentService {
             interventionRepository.unlinkFromDeployment(deploymentId);
             deploymentRepository.delete(deployment);
             return DeploymentResponse.builder()
-                    .id(deploymentId)
-                    .codeDep("")
-                    .build();
+                    .id(deploymentId).codeDep("").build();
         }
 
         return mapToResponse(deploymentRepository
@@ -313,14 +292,11 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Health : " + id));
     }
 
-    // ✅ null-safe — appsId est optionnel dans DeploymentRequest
     private Apps findApps(Integer id) {
         if (id == null) return null;
         return appsRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Apps : " + id));
     }
-
-    // ── Mapper ────────────────────────────────────────────────────────────────
 
     private DeploymentItemResponse mapItemToResponse(DeploymentItem item) {
         return DeploymentItemResponse.builder()
@@ -394,6 +370,9 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .regionId(deployment.getRegion()   != null ? deployment.getRegion().getId()   : null)
                 .districtId(deployment.getDistrict() != null ? deployment.getDistrict().getId() : null)
                 .healthId(deployment.getHealth()   != null ? deployment.getHealth().getId()   : null)
+                // ── Géolocalisation ──────────────────────────────────────────
+                .latitude(deployment.getLatitude())
+                .longitude(deployment.getLongitude())
                 .build();
     }
 }
