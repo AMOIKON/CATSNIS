@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Alert, Spinner, Badge } from 'react-bootstrap';
 import MainLayout from '../../components/common/MainLayout';
-import SignatureService from '../../services/Signatureservice';
+import signatureService from '../../services/signatureService';
 
 const SignatureSettingsPage: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,7 +16,7 @@ const SignatureSettingsPage: React.FC = () => {
     const [existing,   setExisting]   = useState<string | null>(null);
 
     useEffect(() => {
-        SignatureService.get()
+        signatureService.get()
             .then(data => {
                 setConfigured(data.configured);
                 if (data.signatureBase64) setExisting(data.signatureBase64);
@@ -88,7 +88,7 @@ const SignatureSettingsPage: React.FC = () => {
         setError(null); setSuccess(false); setSaving(true);
         try {
             const base64 = canvas.toDataURL('image/png');
-            await SignatureService.update({ signatureBase64: base64 });
+            await signatureService.update({ signatureBase64: base64 });
             setConfigured(true);
             setSuccess(true);
         } catch (err: any) {
