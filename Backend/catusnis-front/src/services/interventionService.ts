@@ -56,12 +56,21 @@ const InterventionService = {
         await api.delete(`/api/interventions/${id}`);
     },
 
-    getStats: async (): Promise<{ totalEnLigne: number; totalSurSite: number; totalGlobal: number }> => {
-        const response = await api.get<ApiResponse<{ totalEnLigne: number; totalSurSite: number; totalGlobal: number }>>(
+    // ✅ totalHorsBase ajouté — assistances techniques (équipement hors base)
+    getStats: async (): Promise<{ totalEnLigne: number; totalSurSite: number; totalGlobal: number; totalHorsBase: number }> => {
+        const response = await api.get<ApiResponse<{ totalEnLigne: number; totalSurSite: number; totalGlobal: number; totalHorsBase: number }>>(
             '/api/interventions/stats/minutes'
         );
         return response.data.data;
     },
+
+    // ✅ Télécharge la fiche PDF de l'intervention (remplace l'ancien envoi SMTP —
+    //    l'utilisateur l'envoie ensuite lui-même via son propre client email)
+    downloadPdf: async (id: number): Promise<Blob> => {
+        const response = await api.get(`/api/interventions/${id}/pdf`, { responseType: 'blob' });
+        return response.data;
+    },
+
 };
 
 export default InterventionService;

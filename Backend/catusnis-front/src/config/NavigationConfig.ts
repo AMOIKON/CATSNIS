@@ -1,4 +1,3 @@
-// ── Types exportés ───────────────────────────────────────────────────────────
 export interface NavSubItem {
   key:    string;
   label:  string;
@@ -25,7 +24,7 @@ export const ALL_MENUS: NavMenu[] = [
       { key:'db-equip',   label:'Dashboard équipements', path:'/dashboard-equipement', icon:'bi-box-seam-fill'   },
       { key:'db-logi',    label:'Dashboard logistique',  path:'/dashboard-logistique', icon:'bi-car-front-fill'  },
       { key:'db-tech',    label:'Mon espace technicien', path:'/dashboard-technicien', icon:'bi-tools'           },
-      
+
     ],
   },
   {
@@ -66,6 +65,8 @@ export const ALL_MENUS: NavMenu[] = [
       { key:'images',       label:'Images',            path:'/settings/images',       icon:'bi-image-fill'     },
       { key:'print-config', label:'Config impression', path:'/settings/print-config', icon:'bi-printer-fill'   },
       { key:'evaluations',  label:'Évaluations',       path:'/settings/evaluations',  icon:'bi-star-fill'      },
+      // ✅ Signature numérique personnelle (intégrée aux fiches PDF)
+      { key:'signature',    label:'Ma signature',      path:'/settings/signature',    icon:'bi-pen-fill'       },
     ],
   },
   {
@@ -75,7 +76,6 @@ export const ALL_MENUS: NavMenu[] = [
       { key:'permissions', label:'Permissions',        path:'/settings/permissions', icon:'bi-shield-shaded' },
     ],
   },
-
   // ✅ Documentation — visible par tous les rôles authentifiés
   {
     key:'documentation', label:'Documentation', icon:'bi-book-fill', color:'secondary',
@@ -94,7 +94,7 @@ const SUBMENU_RULES: Record<string, string[]> = {
     'regions','districts','health-sites','partners','booklets','tech-sites',
     'acquisitions','deployments','interventions','types','archives',
     'logistique','fournitures',
-    'posts','units','apps','states','images','print-config','evaluations',
+    'posts','units','apps','states','images','print-config','evaluations','signature',
     // ✅ Documentation
     'manual-user','manual-proc',
   ],
@@ -103,13 +103,13 @@ const SUBMENU_RULES: Record<string, string[]> = {
     'regions','health-sites','booklets',
     'deployments','interventions','archives',
     'logistique','fournitures',
-    'tech-sites','evaluations',
+    'tech-sites','evaluations','signature',
     // ✅ Documentation
     'manual-user','manual-proc',
   ],
   LOGISTICIEN: [
     'db-logi',
-    'logistique','fournitures',
+    'logistique','fournitures','signature',
     // ✅ Documentation
     'manual-user','manual-proc',
   ],

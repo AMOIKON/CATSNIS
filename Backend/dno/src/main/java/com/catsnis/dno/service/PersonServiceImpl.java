@@ -4,6 +4,8 @@ import com.catsnis.dno.common.exception.ResourceNotFoundException;
 import com.catsnis.dno.common.utils.SecurityUtils;
 import com.catsnis.dno.dto.PersonRequest;
 import com.catsnis.dno.dto.PersonResponse;
+import com.catsnis.dno.dto.SignatureRequest;
+import com.catsnis.dno.dto.SignatureResponse;
 import com.catsnis.dno.entity.*;
 import com.catsnis.dno.repository.PartnerRepository;
 import com.catsnis.dno.repository.PersonRepository;
@@ -129,6 +131,32 @@ public class PersonServiceImpl implements PersonService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Personne non trouvée : " + id));
         personRepository.delete(person);
+    }
+
+    // ── Signature numérique personnelle ─────────────────────────────────────
+    @Override
+    @Transactional(readOnly = true)
+    public SignatureResponse getSignature(Integer personId) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Personne non trouvée : " + personId));
+        return SignatureResponse.builder()
+                .configured(person.getSignatureBase64() != null && !person.getSignatureBase64().isBlank())
+                .signatureBase64(person.getSignatureBase64())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void updateSignature(Integer personId, SignatureRequest request) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Personne non trouvée : " + personId));
+        if (request.getSignatureBase64() == null || request.getSignatureBase64().isBlank()) {
+            throw new IllegalArgumentException("Aucune signature fournie.");
+        }
+        person.setSignatureBase64(request.getSignatureBase64());
+        personRepository.save(person);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

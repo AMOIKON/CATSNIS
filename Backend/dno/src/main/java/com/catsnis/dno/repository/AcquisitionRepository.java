@@ -20,10 +20,14 @@ public interface AcquisitionRepository extends JpaRepository<Acquisition, Long> 
     @Query("SELECT COUNT(a) FROM Acquisition a WHERE a.deployed = false AND a.status = 'DISPONIBLE'")
     long countStock();
 
+    List<Acquisition> findByStatus(String status);
+
     // ── Sans filtre partenaire (SUPER_ADMIN / ITECH) ──────────────────────────
+    // ✅ status ajouté — filtre optionnel (ex : "HORS_BASE" pour la vue de suivi)
     @Query("""
         SELECT a FROM Acquisition a
         WHERE (:typesId IS NULL OR a.types.id = :typesId)
+          AND (:status  IS NULL OR a.status = :status)
           AND (:keyword  IS NULL
                OR LOWER(a.tag)    LIKE LOWER(CONCAT('%',:keyword,'%'))
                OR LOWER(a.serial) LIKE LOWER(CONCAT('%',:keyword,'%')))
@@ -32,12 +36,14 @@ public interface AcquisitionRepository extends JpaRepository<Acquisition, Long> 
     Page<Acquisition> findAllWithFilters(
             Pageable pageable,
             @Param("typesId") Integer typesId,
+            @Param("status")  String  status,
             @Param("keyword") String keyword);
 
     // ── Filtré par partenaire spécifique ─────────────────────────────────────
     @Query("""
         SELECT a FROM Acquisition a
         WHERE (:typesId IS NULL OR a.types.id = :typesId)
+          AND (:status  IS NULL OR a.status = :status)
           AND a.partner.id = :partnerId
           AND (:keyword  IS NULL
                OR LOWER(a.tag)    LIKE LOWER(CONCAT('%',:keyword,'%'))
@@ -47,6 +53,7 @@ public interface AcquisitionRepository extends JpaRepository<Acquisition, Long> 
     Page<Acquisition> findAllWithFiltersAndPartner(
             Pageable pageable,
             @Param("typesId")   Integer typesId,
+            @Param("status")    String  status,
             @Param("keyword")   String  keyword,
             @Param("partnerId") Long    partnerId);
 
@@ -54,6 +61,7 @@ public interface AcquisitionRepository extends JpaRepository<Acquisition, Long> 
     @Query("""
         SELECT a FROM Acquisition a
         WHERE (:typesId IS NULL OR a.types.id = :typesId)
+          AND (:status  IS NULL OR a.status = :status)
           AND a.partner IS NULL
           AND (:keyword  IS NULL
                OR LOWER(a.tag)    LIKE LOWER(CONCAT('%',:keyword,'%'))
@@ -63,6 +71,7 @@ public interface AcquisitionRepository extends JpaRepository<Acquisition, Long> 
     Page<Acquisition> findAllWithFiltersAndPartnerNull(
             Pageable pageable,
             @Param("typesId") Integer typesId,
+            @Param("status")  String  status,
             @Param("keyword") String  keyword);
 
     // ── Disponibles ───────────────────────────────────────────────────────────
@@ -90,4 +99,7 @@ public interface AcquisitionRepository extends JpaRepository<Acquisition, Long> 
           AND a.partner IS NULL
         """)
     List<Acquisition> findAvailableAndPartnerNull(@Param("typesId") Integer typesId);
+
+    // ✅ Compteur dédié pour la vue de suivi des équipements hors base
+    long countByStatus(String status);
 }

@@ -3,6 +3,9 @@ package com.catsnis.dno.controller;
 import com.catsnis.dno.common.response.ApiResponse;
 import com.catsnis.dno.dto.PersonRequest;
 import com.catsnis.dno.dto.PersonResponse;
+import com.catsnis.dno.dto.SignatureRequest;
+import com.catsnis.dno.dto.SignatureResponse;
+import com.catsnis.dno.entity.Person;
 import com.catsnis.dno.service.PersonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -10,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -76,5 +80,23 @@ public class PersonController {
         personService.deletePerson(id);
         return ResponseEntity.ok(ApiResponse.success(
                 "Personne supprimée avec succès", null));
+    }
+
+    // ── Signature numérique personnelle — TOUS les rôles authentifiés ────────
+    //    (technicien, super admin, admin, logisticien peuvent tous réaliser
+    //    des interventions et doivent pouvoir signer leur fiche)
+    @GetMapping("/me/signature")
+    public ResponseEntity<ApiResponse<SignatureResponse>> getMySignature(
+            @AuthenticationPrincipal Person currentUser) {
+        return ResponseEntity.ok(ApiResponse.success(
+                personService.getSignature(currentUser.getId())));
+    }
+
+    @PutMapping("/me/signature")
+    public ResponseEntity<ApiResponse<Void>> updateMySignature(
+            @AuthenticationPrincipal Person currentUser,
+            @RequestBody SignatureRequest request) {
+        personService.updateSignature(currentUser.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Signature enregistrée avec succès", null));
     }
 }

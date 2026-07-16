@@ -3,20 +3,22 @@ import { ApiResponse, Page, AcquisitionResponse, AcquisitionRequest, TypeRespons
 
 const AcquisitionService = {
 
-    getAll: async (page = 0, size = 10, keyword?: string): Promise<Page<AcquisitionResponse>> => {
+    getAll: async (page = 0, size = 10, keyword?: string, status?: string): Promise<Page<AcquisitionResponse>> => {
         const params: Record<string, any> = { page, size };
         if (keyword) params.keyword = keyword;
+        if (status)  params.status  = status;
         const response = await api.get<ApiResponse<Page<AcquisitionResponse>>>('/api/acquisitions', { params });
         return response.data.data;
     },
 
     // ✅ Pour impression globale (tous les éléments)
-    getAllForPrint: async (keyword?: string): Promise<AcquisitionResponse[]> => {
+    getAllForPrint: async (keyword?: string, status?: string): Promise<AcquisitionResponse[]> => {
         const all: AcquisitionResponse[] = [];
         let page = 0, total = 0;
         do {
             const params: Record<string, any> = { page, size: 100 };
             if (keyword) params.keyword = keyword;
+            if (status)  params.status  = status;
             const response = await api.get<ApiResponse<Page<AcquisitionResponse>>>('/api/acquisitions', { params });
             const data = response.data.data;
             all.push(...data.content);
@@ -49,6 +51,12 @@ const AcquisitionService = {
         const params: Record<string, any> = {};
         if (typesId) params.typesId = typesId;
         const response = await api.get<ApiResponse<AcquisitionResponse[]>>('/api/acquisitions/available', { params });
+        return response.data.data;
+    },
+
+    // ✅ Compteur d'équipements hors base (assistance technique)
+    getHorsBaseCount: async (): Promise<number> => {
+        const response = await api.get<ApiResponse<number>>('/api/acquisitions/stats/hors-base');
         return response.data.data;
     },
 };

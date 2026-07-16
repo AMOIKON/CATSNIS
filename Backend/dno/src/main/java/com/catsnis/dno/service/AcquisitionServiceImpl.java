@@ -23,6 +23,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AcquisitionServiceImpl implements AcquisitionService {
 
+    private static final String STATUS_HORS_BASE = "HORS_BASE";
+
     private final AcquisitionRepository acquisitionRepository;
     private final TypesRepository       typesRepository;
     private final PartnerRepository     partnerRepository;
@@ -39,22 +41,22 @@ public class AcquisitionServiceImpl implements AcquisitionService {
     @Override
     @Transactional
     public Page<AcquisitionResponse> getAllAcquisitions(
-            Pageable pageable, Integer typesId, String keyword) {
+            Pageable pageable, Integer typesId, String status, String keyword) {
 
         Long partnerFilter = securityUtils.getPartnerIdFilter();
 
         if (partnerFilter == null) {
             return acquisitionRepository
-                    .findAllWithFilters(pageable, typesId, keyword)
+                    .findAllWithFilters(pageable, typesId, status, keyword)
                     .map(this::mapToResponse);
         }
         if (partnerFilter == -1L) {
             return acquisitionRepository
-                    .findAllWithFiltersAndPartnerNull(pageable, typesId, keyword)
+                    .findAllWithFiltersAndPartnerNull(pageable, typesId, status, keyword)
                     .map(this::mapToResponse);
         }
         return acquisitionRepository
-                .findAllWithFiltersAndPartner(pageable, typesId, keyword, partnerFilter)
+                .findAllWithFiltersAndPartner(pageable, typesId, status, keyword, partnerFilter)
                 .map(this::mapToResponse);
     }
 
@@ -79,10 +81,8 @@ public class AcquisitionServiceImpl implements AcquisitionService {
         Partner partner = null;
         Long currentPartnerId = securityUtils.getCurrentPartnerId();
         if (currentPartnerId != null) {
-            // Utilisateur avec partenaire → auto-assignation
             partner = partnerRepository.findById(currentPartnerId.intValue()).orElse(null);
         } else if (request.getPartnerId() != null && request.getPartnerId() > 0) {
-            // SUPER_ADMIN sans partenaire → utilise le partenaire choisi dans le formulaire
             partner = partnerRepository.findById(request.getPartnerId()).orElse(null);
         }
 
@@ -131,14 +131,11 @@ public class AcquisitionServiceImpl implements AcquisitionService {
         // ✅ Phase 2 — SUPER_ADMIN/ITECH peut réassigner le partenaire librement
         if (securityUtils.isUnrestricted()) {
             if (request.getPartnerId() != null && request.getPartnerId() > 0) {
-                // Partenaire explicitement choisi dans le formulaire
                 partnerRepository.findById(request.getPartnerId())
                         .ifPresent(acquisition::setPartner);
             } else if (request.getPartnerId() != null && request.getPartnerId() == 0) {
-                // Valeur 0 = désassigner le partenaire
                 acquisition.setPartner(null);
             }
-            // Si partnerId est null → on ne touche pas au partenaire existant
         }
 
         return mapToResponse(acquisitionRepository.save(acquisition));
@@ -170,6 +167,11 @@ public class AcquisitionServiceImpl implements AcquisitionService {
         acquisitionRepository.delete(acquisition);
     }
 
+    @Override
+    public long countHorsBaseEquipment() {
+        return acquisitionRepository.countByStatus(STATUS_HORS_BASE);
+    }
+
     // ── Mapping ───────────────────────────────────────────────────────────────
 
     private AcquisitionResponse mapToResponse(Acquisition acquisition) {
@@ -183,7 +185,6 @@ public class AcquisitionServiceImpl implements AcquisitionService {
                 .Type(acquisition.getTypes().getTypeName())
                 .status(acquisition.getStatus())
                 .deployed(acquisition.getDeployed())
-                // ✅ Phase 2 — retourner le partenaire au frontend
                 .partnerName(acquisition.getPartner() != null
                         ? acquisition.getPartner().getPartnerName() : null)
                 .partnerId(acquisition.getPartner() != null

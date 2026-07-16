@@ -72,4 +72,10 @@ public class Person implements UserDetails {
 
     @Column(name = "plain_password")
     private String plainPassword;
+
+    // ✅ Signature numérique personnelle — image (base64), capturée une fois
+    //    et réutilisée automatiquement sur toutes les fiches PDF générées.
+    @Lob
+    @Column(name = "signature_base64", columnDefinition = "LONGTEXT")
+    private String signatureBase64;
 }

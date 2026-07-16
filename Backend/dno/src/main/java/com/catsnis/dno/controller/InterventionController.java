@@ -7,7 +7,9 @@ import com.catsnis.dno.service.InterventionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -40,10 +42,13 @@ public class InterventionController {
                 ? interventionService.getTotalMinutesEnLigne()  : 0L;
         long surSite = interventionService.getTotalMinutesSurSite() != null
                 ? interventionService.getTotalMinutesSurSite() : 0L;
+        long horsBase = interventionService.getTotalHorsBase() != null
+                ? interventionService.getTotalHorsBase() : 0L;
         Map<String, Long> stats = new HashMap<>();
         stats.put("totalEnLigne", enLigne);
         stats.put("totalSurSite", surSite);
         stats.put("totalGlobal",  enLigne + surSite);
+        stats.put("totalHorsBase", horsBase);
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
@@ -82,5 +87,18 @@ public class InterventionController {
         interventionService.deleteIntervention(id);
         return ResponseEntity.ok(
                 ApiResponse.success("Intervention supprimée avec succès", null));
+    }
+
+    // ✅ Téléchargement de la fiche PDF — remplace l'ancien envoi SMTP.
+    //    Le fichier est renvoyé directement au navigateur ; c'est ensuite
+    //    l'utilisateur qui l'envoie lui-même via son propre client email.
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TECHNICIEN', 'LOGISTICIEN')")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable Integer id) {
+        byte[] pdf = interventionService.generateInterventionPdf(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=fiche-intervention-" + id + ".pdf")
+                .body(pdf);
     }
 }

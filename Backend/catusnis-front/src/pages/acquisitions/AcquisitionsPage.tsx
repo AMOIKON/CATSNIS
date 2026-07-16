@@ -14,10 +14,13 @@ import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
 type Tab = 'liste' | 'parType';
 
 // ── Config statuts ─────────────────────────────────────────────────────────
+// ✅ HORS_BASE ajouté — équipement non inventorié, créé automatiquement lors
+//    d'une assistance technique (cf. AcquisitionQuickCreateService)
 const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string; bg: string }> = {
     'DISPONIBLE':      { color: '#198754', label: 'Disponible',      icon: 'bi-check-circle-fill', bg: 'rgba(25,135,84,0.1)'   },
     'DEPLOYE':         { color: '#6c757d', label: 'Déployé',         icon: 'bi-geo-alt-fill',      bg: 'rgba(108,117,125,0.1)' },
     'NON_FONCTIONNEL': { color: '#dc3545', label: 'Non fonctionnel', icon: 'bi-x-circle-fill',     bg: 'rgba(220,53,69,0.1)'   },
+    'HORS_BASE':       { color: '#4f46e5', label: 'Hors base',       icon: 'bi-pencil-square',     bg: 'rgba(79,70,229,0.1)'   },
 };
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -59,16 +62,17 @@ const AcquisitionsPage: React.FC = () => {
     const [deleteLoading,     setDeleteLoading]     = useState(false);
     const [allAcq,            setAllAcq]            = useState<AcquisitionResponse[]>([]);
 
+    // ✅ status filtré côté serveur désormais (au lieu d'un filtre client sur la page chargée uniquement)
     const loadAcquisitions = useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await AcquisitionService.getAll(page, 10, keyword || undefined);
+            const data = await AcquisitionService.getAll(page, 10, keyword || undefined, filterStatus || undefined);
             setAcquisitions(data.content);
             setTotalPages(data.page.totalPages);
             setTotalElements(data.page.totalElements);
         } catch (err) { console.error(err); }
         finally { setIsLoading(false); }
-    }, [page, keyword]);
+    }, [page, keyword, filterStatus]);
 
     const loadAllForStats = useCallback(async () => {
         try {
@@ -96,11 +100,9 @@ const AcquisitionsPage: React.FC = () => {
     const handlePrintAll = async () => {
         setIsPrinting(true);
         try {
-            const raw = await AcquisitionService.getAllForPrint(keyword || undefined);
-            // Appliquer filtres locaux
-            const all = raw
-                .filter(a => !filterStatus    || a.status === filterStatus)
-                .filter(a => !activeTypeFilter || a.Type   === activeTypeFilter);
+            const raw = await AcquisitionService.getAllForPrint(keyword || undefined, filterStatus || undefined);
+            // Filtre local restant : le type (nom), non géré côté backend
+            const all = raw.filter(a => !activeTypeFilter || a.Type === activeTypeFilter);
 
             const cfg = getPrintConfig();
             let titre = 'Liste des acquisitions';
@@ -118,7 +120,8 @@ const AcquisitionsPage: React.FC = () => {
                     <td style="text-align:center;">${acq.quantity}</td>
                     <td><span style="font-size:10px;font-weight:600;color:${
                         acq.status === 'DISPONIBLE'      ? '#198754' :
-                        acq.status === 'NON_FONCTIONNEL' ? '#dc3545' : '#6c757d'
+                        acq.status === 'NON_FONCTIONNEL' ? '#dc3545' :
+                        acq.status === 'HORS_BASE'       ? '#4f46e5' : '#6c757d'
                     };">${STATUS_CONFIG[acq.status || '']?.label || acq.status || '—'}</span></td>
                     <td style="font-size:10px;">${acq.partnerName || '—'}</td>
                 </tr>`).join('');
@@ -211,11 +214,13 @@ const AcquisitionsPage: React.FC = () => {
     };
 
     // ── Stats cards ──────────────────────────────────────────────────────────
+    // ✅ Carte "Hors base" ajoutée
     const statsCards = [
         { label: 'Total',            value: allAcq.length,                                             icon: 'bi-box-seam-fill',     color: 'warning'   },
         { label: 'Disponibles',      value: allAcq.filter(a => a.status === 'DISPONIBLE').length,      icon: 'bi-check-circle-fill', color: 'success'   },
         { label: 'Déployés',         value: allAcq.filter(a => a.status === 'DEPLOYE').length,         icon: 'bi-geo-alt-fill',      color: 'secondary' },
         { label: 'Non fonctionnels', value: allAcq.filter(a => a.status === 'NON_FONCTIONNEL').length, icon: 'bi-x-circle-fill',     color: 'danger'    },
+        { label: 'Hors base',        value: allAcq.filter(a => a.status === 'HORS_BASE').length,       icon: 'bi-pencil-square',     color: 'indigo'    },
     ];
 
     // ── Stats par type (cliquables) ──────────────────────────────────────────
@@ -227,10 +232,8 @@ const AcquisitionsPage: React.FC = () => {
         dispo: allAcq.filter(a => a.Type === t && a.status === 'DISPONIBLE').length,
     }));
 
-    // ── Filtre local ─────────────────────────────────────────────────────────
-    const filtered = acquisitions
-        .filter(a => !filterStatus    || a.status === filterStatus)
-        .filter(a => !activeTypeFilter || a.Type   === activeTypeFilter);
+    // ── Filtre local (uniquement le type — le statut est désormais filtré côté serveur) ──
+    const filtered = acquisitions.filter(a => !activeTypeFilter || a.Type === activeTypeFilter);
 
     // ── Vue par type ─────────────────────────────────────────────────────────
     const parTypeData = types.map(t => ({
@@ -294,22 +297,25 @@ const AcquisitionsPage: React.FC = () => {
 
             {/* ── Stats cards ── */}
             <div className="row g-3 mb-3">
-                {statsCards.map((s, i) => (
-                    <div key={i} className="col-6 col-md-3">
-                        <div className="card border-0 shadow-sm rounded-4 h-100">
-                            <div className="card-body p-3 d-flex align-items-center gap-3">
-                                <div className={`rounded-3 bg-${s.color} bg-opacity-10 d-flex align-items-center justify-content-center`}
-                                    style={{ width: '44px', height: '44px', minWidth: '44px' }}>
-                                    <i className={`bi ${s.icon} text-${s.color}`} />
-                                </div>
-                                <div>
-                                    <p className="mb-0 text-muted small">{s.label}</p>
-                                    <h5 className="fw-bold mb-0">{s.value}</h5>
+                {statsCards.map((s, i) => {
+                    const isIndigo = s.color === 'indigo';
+                    return (
+                        <div key={i} className="col-6 col-md-3">
+                            <div className="card border-0 shadow-sm rounded-4 h-100">
+                                <div className="card-body p-3 d-flex align-items-center gap-3">
+                                    <div className={!isIndigo ? `rounded-3 bg-${s.color} bg-opacity-10 d-flex align-items-center justify-content-center` : 'rounded-3 d-flex align-items-center justify-content-center'}
+                                        style={{ width: '44px', height: '44px', minWidth: '44px', ...(isIndigo ? { background: 'rgba(79,70,229,0.1)' } : {}) }}>
+                                        <i className={`bi ${s.icon} ${!isIndigo ? `text-${s.color}` : ''}`} style={isIndigo ? { color: '#4f46e5' } : undefined} />
+                                    </div>
+                                    <div>
+                                        <p className="mb-0 text-muted small">{s.label}</p>
+                                        <h5 className="fw-bold mb-0">{s.value}</h5>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* ── Stats par type (cliquables) ── */}
@@ -363,7 +369,7 @@ const AcquisitionsPage: React.FC = () => {
             {/* ══ TAB Liste ══════════════════════════════════════════════════ */}
             {activeTab === 'liste' && (
                 <>
-                    {/* Filtres statut */}
+                    {/* Filtres statut — HORS_BASE inclus automatiquement (boucle sur STATUS_CONFIG) */}
                     <div className="d-flex gap-2 mb-3 flex-wrap align-items-center">
                         <button
                             className={`btn btn-sm ${filterStatus === '' ? 'btn-secondary' : 'btn-outline-secondary'}`}
@@ -399,6 +405,16 @@ const AcquisitionsPage: React.FC = () => {
                             </span>
                         )}
                     </div>
+
+                    {/* ✅ Info contextuelle quand le filtre Hors base est actif */}
+                    {filterStatus === 'HORS_BASE' && (
+                        <div className="alert alert-secondary border-0 rounded-3 small mb-3" style={{ background: 'rgba(79,70,229,0.08)', color: '#4338ca' }}>
+                            <i className="bi bi-info-circle me-2" />
+                            Ces équipements ont été enregistrés automatiquement lors d'assistances techniques
+                            sur du matériel non inventorié. Pensez à les compléter (tag réel, numéro de série)
+                            si vous souhaitez les intégrer officiellement à l'inventaire.
+                        </div>
+                    )}
 
                     {/* Recherche */}
                     <div className="card border-0 shadow-sm rounded-4 mb-4">
@@ -466,6 +482,11 @@ const AcquisitionsPage: React.FC = () => {
                                                                     {acq.status === 'DEPLOYE' && (
                                                                         <small className="text-secondary" style={{ fontSize: '10px' }}>
                                                                             <i className="bi bi-geo-alt-fill me-1" />Déployé
+                                                                        </small>
+                                                                    )}
+                                                                    {acq.status === 'HORS_BASE' && (
+                                                                        <small style={{ fontSize: '10px', color: '#4f46e5' }}>
+                                                                            <i className="bi bi-pencil-square me-1" />Assistance technique
                                                                         </small>
                                                                     )}
                                                                 </div>

@@ -23,4 +23,9 @@ public interface PersonService {
     PersonResponse               updatePerson(Integer id, PersonRequest request);
 
     void                         deletePerson(Integer id);
+
+    // ── Signature numérique personnelle ─────────────────────────────────────
+    com.catsnis.dno.dto.SignatureResponse getSignature(Integer personId);
+
+    void                         updateSignature(Integer personId, com.catsnis.dno.dto.SignatureRequest request);
 }

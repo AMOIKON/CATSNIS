@@ -22,7 +22,7 @@ public class Intervention {
     @Column(name = "action_inter", nullable = false)
     private String actionInter;
 
-    @Column(name = "comment_intervention", nullable = false)
+    @Column(name = "comment_intervention", nullable = false, columnDefinition = "TEXT")
     private String commentInter;
 
     @Column(name = "date_intervention", nullable = false)
@@ -43,23 +43,33 @@ public class Intervention {
     @Column(name = "longitude")
     private Double longitude;
 
+    // ── Suivi de l'envoi email du rapport d'intervention ───────────────────────
+    @Builder.Default
+    @Column(name = "email_sent", nullable = false)
+    private Boolean emailSent = false;
+
+    @Column(name = "email_sent_at")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date emailSentAt;
+
+    // ── Assistance technique : région/district/site nullable ──────────────────
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "region_id", nullable = false)
+    @JoinColumn(name = "region_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Region region;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "district_id", nullable = false)
+    @JoinColumn(name = "district_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "region"})
     private District district;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "health_id", nullable = false)
+    @JoinColumn(name = "health_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "district", "region"})
     private Health health;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "deployment_id", nullable = false)
+    @JoinColumn(name = "deployment_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "items", "createdBy"})
     private Deployment deployment;
 
@@ -69,12 +79,12 @@ public class Intervention {
     private Evaluation evaluation;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "types_id", nullable = false)
+    @JoinColumn(name = "types_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Types types;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "apps_id", nullable = false)
+    @JoinColumn(name = "apps_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Apps apps;
 

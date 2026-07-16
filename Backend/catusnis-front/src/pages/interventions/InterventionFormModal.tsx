@@ -10,11 +10,14 @@ import DeploymentService     from '../../services/deploymentService';
 import TechnicianSiteService from '../../services/technicianSiteService';
 import AcquisitionService    from '../../services/acquisitionService';
 import BookletService        from '../../services/bookletService';
+import AppsService           from '../../services/appsService';
+import PartnerService        from '../../services/partnerService';
 
 import {
     InterventionRequest, EvaluationResponse,
     RegionResponse, DistrictResponse, HealthResponse,
     AcquisitionResponse, DeploymentItemResponse, DeploymentResponse,
+    AppsResponse, PartnerResponse,
 } from '../../types';
 import { Booklet } from '../../types';
 import useAuth from '../../hooks/useAuth';
@@ -61,6 +64,7 @@ const initialForm: InterventionRequest = {
     evaluationId:         0,
     bookletId:            undefined,
     enAttenteMaintenance: false,
+    partnerId:            0,
 };
 
 const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
@@ -89,6 +93,16 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
     const [manualPersonName,    setManualPersonName]    = useState('');
     const [manualPersonContact, setManualPersonContact] = useState('');
     const [manualPersonPost,    setManualPersonPost]    = useState('');
+    const [manualPersonEmail,   setManualPersonEmail]   = useState('');
+    // ✅ Assistance technique — équipement hors base (non inventorié)
+    const [manualEquipment,       setManualEquipment]       = useState(false);
+    const [manualStructure,       setManualStructure]       = useState(false);
+    const [manualStructureName,   setManualStructureName]   = useState('');
+    const [manualEquipmentName,   setManualEquipmentName]   = useState('');
+    const [manualEquipmentType,   setManualEquipmentType]   = useState('');
+    // ✅ Application / Partenaire — nécessaires en mode hors base (pas de déploiement à déduire)
+    const [apps,                  setApps]                  = useState<AppsResponse[]>([]);
+    const [partners,              setPartners]              = useState<PartnerResponse[]>([]);
 
     const selectedItems = Object.entries(itemStates)
         .filter(([_, s]) => s.selected)
@@ -101,12 +115,16 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
         setDistricts([]); setHealths([]);
         setSiteItems([]); setItemStates([]);
         setSiteDeployments([]); setBooklets([]);
-        setManualPerson(false); setManualPersonName(''); setManualPersonContact(''); setManualPersonPost('');
+        setManualPerson(false); setManualPersonName(''); setManualPersonContact(''); setManualPersonPost(''); setManualPersonEmail('');
+        setManualEquipment(false); setManualEquipmentName(''); setManualEquipmentType('');
+        setManualStructure(false); setManualStructureName('');
 
         const load = async () => {
             try {
                 const evls = await EvaluationService.getAllList();
                 setEvaluations(evls);
+                AppsService.getAllList().then(setApps).catch(() => setApps([]));
+                PartnerService.getAllList().then(setPartners).catch(() => setPartners([]));
                 if (isTechnician && person?.id) {
                     const [healthIds, regionIds, districtIds] = await Promise.all([
                         TechnicianSiteService.getHealthIds(person.id),
@@ -264,15 +282,36 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
+    // ✅ Basculer en mode "assistance technique" (équipement hors base)
+    const handleToggleManualEquipment = (value: boolean) => {
+        setManualEquipment(value);
+        if (value) {
+            // On quitte le mode inventorié : on vide la sélection d'équipements/déploiement
+            setSiteItems([]); setItemStates({});
+            setForm(prev => ({ ...prev, deploymentId: 0, typesId: 0 }));
+        } else {
+            setManualEquipmentName(''); setManualEquipmentType('');
+            if (form.healthId) loadSiteItems(form.healthId, form.typeInter);
+        }
+    };
+
     const handleSubmit = async () => {
         setError(null);
-        if (!form.dateInter || !form.regionId || !form.districtId ||
-            !form.healthId || !form.evaluationId ||
+        if (!form.dateInter || !form.evaluationId ||
             !form.durationMinutes || !form.commentInter.trim()) {
             setError('Veuillez remplir tous les champs obligatoires.'); return;
         }
-        if (selectedItems.length === 0) {
-            setError('Veuillez sélectionner au moins un équipement.'); return;
+        if (!manualStructure && (!form.regionId || !form.districtId || !form.healthId)) {
+            setError('Veuillez sélectionner une région/district/site, ou basculer en saisie manuelle de la structure.'); return;
+        }
+        if (manualStructure && !manualStructureName.trim()) {
+            setError('Veuillez indiquer le nom de la structure.'); return;
+        }
+        if (!manualEquipment && selectedItems.length === 0) {
+            setError('Veuillez sélectionner au moins un équipement, ou basculer en mode assistance technique.'); return;
+        }
+        if (manualEquipment && !manualEquipmentName.trim()) {
+            setError('Veuillez indiquer la désignation de l\'équipement hors base.'); return;
         }
         if (!form.bookletId && !manualPersonName.trim()) {
             setError('Veuillez sélectionner ou saisir la personne assistée.'); return;
@@ -295,18 +334,26 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
 
             await InterventionService.create({
                 ...form,
-                regionId:             Number(form.regionId),
-                districtId:           Number(form.districtId),
-                healthId:             Number(form.healthId),
-                deploymentId:         Number(form.deploymentId),
+                regionId:             manualStructure ? 0 : Number(form.regionId),
+                districtId:           manualStructure ? 0 : Number(form.districtId),
+                healthId:             manualStructure ? 0 : Number(form.healthId),
+                deploymentId:         manualEquipment ? 0 : Number(form.deploymentId),
                 evaluationId:         Number(form.evaluationId),
                 durationMinutes:      Number(form.durationMinutes),
+                appsId:               form.appsId ? Number(form.appsId) : 0,
+                partnerId:            form.partnerId ? Number(form.partnerId) : undefined,
                 personId:             undefined,
                 bookletId:            form.bookletId ? Number(form.bookletId) : undefined,
                 manualPersonName:     manualPersonName.trim()    || undefined,
                 manualPersonContact:  manualPersonContact.trim() || undefined,
                 manualPersonPost:     manualPersonPost.trim()    || undefined,
-                selectedItemIds:      selectedItems,
+                manualPersonEmail:    manualPersonEmail.trim()   || undefined,
+                // ✅ Assistance technique — équipement hors base
+                manualEquipmentName:  manualEquipment ? manualEquipmentName.trim() || undefined : undefined,
+                manualEquipmentType:  manualEquipment ? manualEquipmentType.trim() || undefined : undefined,
+                // ✅ Structure hors base (région/district/site non renseignés)
+                manualStructureName:  manualStructure ? manualStructureName.trim() || undefined : undefined,
+                selectedItemIds:      manualEquipment ? [] : selectedItems,
                 etatsAvant,
                 etatsApres,
                 replacements,
@@ -315,7 +362,8 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
             });
 
             // ✅ Saisie manuelle → créer/retrouver la personne dans la table booklet
-            if (manualPerson && manualPersonName.trim()) {
+            // (uniquement si région/district connus — impossible en mode structure hors base)
+            if (manualPerson && manualPersonName.trim() && !manualStructure) {
                 const parts = manualPersonName.trim().split(' ');
                 await BookletService.createFromIntervention({
                     lastName:   parts[0],
@@ -384,174 +432,270 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                 {/* ══ Section 2 — Localisation ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-primary mb-3"><i className="bi bi-geo-alt me-2" />Localisation</h6>
-                    <Row className="g-3">
-                        <Col md={4}>
-                            <Form.Label className="fw-semibold small">Région <span className="text-danger">*</span></Form.Label>
-                            <Form.Select value={form.regionId} onChange={e => handleRegionChange(Number(e.target.value))} className="rounded-3" size="sm">
-                                <option value={0}>-- Région --</option>
-                                {regions.map(r => <option key={r.id} value={r.id}>{r.regionName}</option>)}
-                            </Form.Select>
-                        </Col>
-                        <Col md={4}>
-                            <Form.Label className="fw-semibold small">District <span className="text-danger">*</span></Form.Label>
-                            <Form.Select value={form.districtId} onChange={e => handleDistrictChange(Number(e.target.value))} disabled={!form.regionId} className="rounded-3" size="sm">
-                                <option value={0}>-- District --</option>
-                                {districts.map(d => <option key={d.id} value={d.id}>{d.DistrictName}</option>)}
-                            </Form.Select>
-                        </Col>
-                        <Col md={4}>
-                            <Form.Label className="fw-semibold small">Site <span className="text-danger">*</span></Form.Label>
-                            <Form.Select value={form.healthId} onChange={e => handleHealthChange(Number(e.target.value))} disabled={!form.districtId} className="rounded-3" size="sm">
-                                <option value={0}>-- Site --</option>
-                                {healths.map(h => <option key={h.id} value={h.id}>{h.healthName}</option>)}
-                            </Form.Select>
-                        </Col>
-                    </Row>
+
+                    {/* ✅ Toggle structure connue / hors base */}
+                    <div className="d-flex gap-2 mb-3">
+                        <button type="button"
+                            className={`btn btn-sm rounded-3 ${!manualStructure ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => setManualStructure(false)}>
+                            <i className="bi bi-geo-alt-fill me-1" />Structure enregistrée
+                        </button>
+                        <button type="button"
+                            className={`btn btn-sm rounded-3 ${manualStructure ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => {
+                                setManualStructure(true);
+                                setForm(prev => ({ ...prev, regionId: 0, districtId: 0, healthId: 0, deploymentId: 0 }));
+                                setDistricts([]); setHealths([]); setSiteDeployments([]); setSiteItems([]); setItemStates({}); setBooklets([]);
+                            }}>
+                            <i className="bi bi-pencil me-1" />Structure non enregistrée (hors base)
+                        </button>
+                    </div>
+
+                    {manualStructure ? (
+                        <Row className="g-3">
+                            <Col md={12}>
+                                <Form.Label className="fw-semibold small">
+                                    Nom de la structure / lieu <span className="text-danger">*</span>
+                                </Form.Label>
+                                <Form.Control type="text"
+                                    placeholder="Ex: Pharmacie de quartier Koumassi Nord"
+                                    value={manualStructureName}
+                                    onChange={e => setManualStructureName(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                                <small className="text-muted">
+                                    Région/district/site inconnus ou non enregistrés dans CATUSNIS.
+                                </small>
+                            </Col>
+                        </Row>
+                    ) : (
+                        <Row className="g-3">
+                            <Col md={4}>
+                                <Form.Label className="fw-semibold small">Région <span className="text-danger">*</span></Form.Label>
+                                <Form.Select value={form.regionId} onChange={e => handleRegionChange(Number(e.target.value))} className="rounded-3" size="sm">
+                                    <option value={0}>-- Région --</option>
+                                    {regions.map(r => <option key={r.id} value={r.id}>{r.regionName}</option>)}
+                                </Form.Select>
+                            </Col>
+                            <Col md={4}>
+                                <Form.Label className="fw-semibold small">District <span className="text-danger">*</span></Form.Label>
+                                <Form.Select value={form.districtId} onChange={e => handleDistrictChange(Number(e.target.value))} disabled={!form.regionId} className="rounded-3" size="sm">
+                                    <option value={0}>-- District --</option>
+                                    {districts.map(d => <option key={d.id} value={d.id}>{d.DistrictName}</option>)}
+                                </Form.Select>
+                            </Col>
+                            <Col md={4}>
+                                <Form.Label className="fw-semibold small">Site <span className="text-danger">*</span></Form.Label>
+                                <Form.Select value={form.healthId} onChange={e => handleHealthChange(Number(e.target.value))} disabled={!form.districtId} className="rounded-3" size="sm">
+                                    <option value={0}>-- Site --</option>
+                                    {healths.map(h => <option key={h.id} value={h.id}>{h.healthName}</option>)}
+                                </Form.Select>
+                            </Col>
+                        </Row>
+                    )}
                 </div>
 
-                {/* ══ Section 3 — Déploiement concerné ══ */}
-                {form.healthId > 0 && (
-                    <div className="card border-0 bg-light rounded-4 p-3 mb-3">
-                        <h6 className="fw-bold text-primary mb-3"><i className="bi bi-truck me-2" />Déploiement concerné <span className="text-danger">*</span></h6>
-                        {siteDeployments.length === 0 ? (
-                            <Alert variant="warning" className="rounded-3 small mb-0">
-                                <i className="bi bi-exclamation-triangle me-2" />Aucun déploiement trouvé pour ce site.
-                            </Alert>
-                        ) : (
-                            <Form.Select name="deploymentId" value={form.deploymentId} onChange={handleChange} className="rounded-3" size="sm">
-                                <option value={0}>-- Sélectionner un déploiement --</option>
-                                {siteDeployments.map(d => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.codeDep} — {d.appsDeploy} — {d.items?.length || 0} équipement(s)
-                                    </option>
-                                ))}
-                            </Form.Select>
-                        )}
-                    </div>
-                )}
-
-                {/* ══ Section 4 — Équipements ══ */}
-                {form.healthId > 0 && (
+                {/* ══ Section 3 — Équipement concerné (inventorié ou hors base) ══ */}
+                {(form.healthId > 0 || manualStructure) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-primary mb-3">
-                            <i className="bi bi-pc-display-horizontal me-2" />
-                            {form.typeInter === 'EN_LIGNE' ? 'Équipements du site' : "Équipements en attente d'intervention"}
-                            <span className="badge bg-primary bg-opacity-10 text-primary ms-2 small fw-normal">{siteItems.length} équipement(s)</span>
+                            <i className="bi bi-pc-display-horizontal me-2" />Équipement concerné <span className="text-danger">*</span>
                         </h6>
 
-                        {siteLoading ? (
-                            <div className="text-center py-3"><Spinner size="sm" className="me-2" />Chargement...</div>
-                        ) : siteItems.length === 0 ? (
-                            <Alert variant="info" className="rounded-3 small mb-0">
-                                <i className="bi bi-info-circle me-2" />
-                                {form.typeInter === 'SUR_SITE' ? "Aucun équipement en attente d'intervention sur site." : 'Aucun équipement déployé sur ce site.'}
-                            </Alert>
+                        {/* ✅ Toggle entre équipement inventorié et assistance technique hors base */}
+                        <div className="d-flex gap-2 mb-3">
+                            <button type="button"
+                                className={`btn btn-sm rounded-3 ${!manualEquipment ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => handleToggleManualEquipment(false)}>
+                                <i className="bi bi-hdd-stack me-1" />Équipement inventorié
+                            </button>
+                            <button type="button"
+                                className={`btn btn-sm rounded-3 ${manualEquipment ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => handleToggleManualEquipment(true)}>
+                                <i className="bi bi-pencil me-1" />Assistance technique (équipement hors base)
+                            </button>
+                        </div>
+
+                        {manualEquipment ? (
+                            /* ✅ Saisie manuelle d'un équipement non inventorié */
+                            <div className="row g-2">
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">
+                                        Désignation de l'équipement <span className="text-danger">*</span>
+                                    </Form.Label>
+                                    <Form.Control type="text"
+                                        placeholder="Ex: Concentrateur O2 portable"
+                                        value={manualEquipmentName}
+                                        onChange={e => setManualEquipmentName(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Type d'équipement</Form.Label>
+                                    <Form.Control type="text"
+                                        placeholder="Ex: Concentrateur d'oxygène"
+                                        value={manualEquipmentType}
+                                        onChange={e => setManualEquipmentType(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Application</Form.Label>
+                                    <Form.Select name="appsId" value={form.appsId || 0} onChange={handleChange} className="rounded-3" size="sm">
+                                        <option value={0}>-- Application --</option>
+                                        {apps.map(a => <option key={a.id} value={a.id}>{a.appsName}</option>)}
+                                    </Form.Select>
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Bailleur / Partenaire</Form.Label>
+                                    <Form.Select name="partnerId" value={form.partnerId || 0} onChange={handleChange} className="rounded-3" size="sm">
+                                        <option value={0}>-- Aucun partenaire --</option>
+                                        {partners.map(p => <option key={p.id} value={p.id}>{p.partnerName}</option>)}
+                                    </Form.Select>
+                                </div>
+                                <div className="col-12">
+                                    <Alert variant="info" className="rounded-3 small mb-0 mt-1">
+                                        <i className="bi bi-info-circle me-2" />
+                                        Cet équipement sera automatiquement enregistré dans l'inventaire
+                                        (statut « hors base ») pour un suivi ultérieur.
+                                    </Alert>
+                                </div>
+                            </div>
                         ) : (
-                            <Table size="sm" bordered hover className="mb-0">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th style={{ width: '40px' }}>✓</th>
-                                        <th>Tag</th>
-                                        <th>Équipement</th>
-                                        <th>N° Série</th>
-                                        {/* ✅ Partenaire équipement */}
-                                        <th>Partenaire</th>
-                                        <th>Statut au déploiement</th>
-                                        <th>État avant</th>
-                                        <th>État après</th>
-                                        {form.typeInter === 'SUR_SITE' && <th>Résultat maintenance</th>}
-                                        {form.typeInter === 'SUR_SITE' && <th>Remplacement</th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {siteItems.map(item => {
-                                        const state = itemStates[item.id] || { selected: false, etatAvant: 'FONCTIONNEL', etatApres: '' };
-                                        const isSelected = state.selected;
-                                        const maintenanceEchouee = state.maintenanceReussie === false;
-                                        // ✅ Chercher le partenaire depuis les déploiements
-                                        const itemDep = siteDeployments.find(d => d.items?.some(it => it.id === item.id));
+                            <>
+                                {/* ── Sélecteur de déploiement ── */}
+                                {siteDeployments.length === 0 ? (
+                                    <Alert variant="warning" className="rounded-3 small mb-3">
+                                        <i className="bi bi-exclamation-triangle me-2" />Aucun déploiement trouvé pour ce site.
+                                    </Alert>
+                                ) : (
+                                    <Form.Select name="deploymentId" value={form.deploymentId} onChange={handleChange} className="rounded-3 mb-3" size="sm">
+                                        <option value={0}>-- Sélectionner un déploiement --</option>
+                                        {siteDeployments.map(d => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.codeDep} — {d.appsDeploy} — {d.items?.length || 0} équipement(s)
+                                            </option>
+                                        ))}
+                                    </Form.Select>
+                                )}
 
-                                        return (
-                                            <tr key={item.id} style={{ background: isSelected ? '#f0f7ff' : 'white', opacity: !isSelected ? 0.7 : 1 }}>
-                                                <td className="text-center"><Form.Check type="checkbox" checked={isSelected} onChange={() => toggleItemSelected(item.id)} /></td>
-                                                <td className="small fw-semibold">{item.tag}</td>
-                                                <td className="small">{item.typeName}</td>
-                                                <td className="small text-muted">{item.serial}</td>
-                                                {/* ✅ Partenaire de l'équipement */}
-                                                <td>
-                                                    {itemDep?.partnerName
-                                                        ? <span className="badge bg-warning bg-opacity-10 text-warning"><i className="bi bi-building me-1" />{itemDep.partnerName}</span>
-                                                        : <span className="text-muted small">—</span>}
-                                                </td>
-                                                <td><StatusBadge status={item.status} /></td>
-                                                <td>
-                                                    {isSelected ? (
-                                                        <Form.Select size="sm" value={state.etatAvant}
-                                                            onChange={e => setItemStates(prev => ({ ...prev, [item.id]: { ...prev[item.id], etatAvant: e.target.value } }))}>
-                                                            <option value="FONCTIONNEL">✅ Fonctionnel</option>
-                                                            <option value="DEGRADE">⚠️ Dégradé</option>
-                                                            <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
-                                                        </Form.Select>
-                                                    ) : <span className="text-muted small">—</span>}
-                                                </td>
-                                                <td>
-                                                    {isSelected ? (
-                                                        <Form.Select size="sm" value={state.etatApres} onChange={e => handleEtatApresChange(item.id, e.target.value)}>
-                                                            <option value="">-- Choisir --</option>
-                                                            <option value="FONCTIONNEL">✅ Fonctionnel</option>
-                                                            <option value="DEGRADE">⚠️ Dégradé</option>
-                                                            <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
-                                                        </Form.Select>
-                                                    ) : <span className="text-muted small">—</span>}
-                                                </td>
-                                                {form.typeInter === 'SUR_SITE' && (
-                                                    <td>
-                                                        {isSelected ? (
-                                                            <div className="d-flex gap-1">
-                                                                <Button size="sm" variant={state.maintenanceReussie === true ? 'success' : 'outline-success'} className="rounded-2 py-0"
-                                                                    onClick={() => handleMaintenanceResult(item.id, true, item.typeName)}>✅ Réussie</Button>
-                                                                <Button size="sm" variant={state.maintenanceReussie === false ? 'danger' : 'outline-danger'} className="rounded-2 py-0"
-                                                                    onClick={() => handleMaintenanceResult(item.id, false, item.typeName)}>❌ Échouée</Button>
-                                                            </div>
-                                                        ) : <span className="text-muted small">—</span>}
-                                                    </td>
-                                                )}
-                                                {form.typeInter === 'SUR_SITE' && (
-                                                    <td>
-                                                        {isSelected && maintenanceEchouee ? (
-                                                            acqLoading[item.id] ? <Spinner size="sm" />
-                                                            : (availableAcqs[item.id] || []).length === 0
-                                                                ? <span className="text-danger small">Aucun disponible</span>
-                                                                : (
-                                                                    <Form.Select size="sm" className="border-danger" value={state.replacementId || 0}
-                                                                        onChange={e => handleReplacementChange(item.id, Number(e.target.value))}>
-                                                                        <option value={0}>-- Choisir ({(availableAcqs[item.id] || []).length}) --</option>
-                                                                        {(availableAcqs[item.id] || []).map(a => (
-                                                                            <option key={a.id} value={a.id}>🔧 {a.tag} | {a.serial}</option>
-                                                                        ))}
-                                                                    </Form.Select>
-                                                                )
-                                                        ) : <span className="text-muted small">—</span>}
-                                                    </td>
-                                                )}
+                                {/* ── Table des équipements ── */}
+                                <div className="d-flex align-items-center gap-2 mb-2">
+                                    <span className="fw-semibold small">
+                                        {form.typeInter === 'EN_LIGNE' ? 'Équipements du site' : "Équipements en attente d'intervention"}
+                                    </span>
+                                    <span className="badge bg-primary bg-opacity-10 text-primary small fw-normal">{siteItems.length} équipement(s)</span>
+                                </div>
+
+                                {siteLoading ? (
+                                    <div className="text-center py-3"><Spinner size="sm" className="me-2" />Chargement...</div>
+                                ) : siteItems.length === 0 ? (
+                                    <Alert variant="info" className="rounded-3 small mb-0">
+                                        <i className="bi bi-info-circle me-2" />
+                                        {form.typeInter === 'SUR_SITE' ? "Aucun équipement en attente d'intervention sur site." : 'Aucun équipement déployé sur ce site.'}
+                                    </Alert>
+                                ) : (
+                                    <Table size="sm" bordered hover className="mb-0">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th style={{ width: '40px' }}>✓</th>
+                                                <th>Tag</th>
+                                                <th>Équipement</th>
+                                                <th>N° Série</th>
+                                                <th>Partenaire</th>
+                                                <th>Statut au déploiement</th>
+                                                <th>État avant</th>
+                                                <th>État après</th>
+                                                {form.typeInter === 'SUR_SITE' && <th>Résultat maintenance</th>}
+                                                {form.typeInter === 'SUR_SITE' && <th>Remplacement</th>}
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </Table>
-                        )}
+                                        </thead>
+                                        <tbody>
+                                            {siteItems.map(item => {
+                                                const state = itemStates[item.id] || { selected: false, etatAvant: 'FONCTIONNEL', etatApres: '' };
+                                                const isSelected = state.selected;
+                                                const maintenanceEchouee = state.maintenanceReussie === false;
+                                                const itemDep = siteDeployments.find(d => d.items?.some(it => it.id === item.id));
 
-                        {form.typeInter === 'EN_LIGNE' && Object.values(itemStates).some(s => s.selected && (s.etatApres === 'NON_FONCTIONNEL' || s.etatApres === 'DEGRADE')) && (
-                            <Alert variant="warning" className="rounded-3 mt-2 small mb-0">
-                                <i className="bi bi-exclamation-triangle me-2" />
-                                Les équipements défaillants/dégradés seront marqués <strong>En attente d'intervention sur site</strong>.
-                            </Alert>
+                                                return (
+                                                    <tr key={item.id} style={{ background: isSelected ? '#f0f7ff' : 'white', opacity: !isSelected ? 0.7 : 1 }}>
+                                                        <td className="text-center"><Form.Check type="checkbox" checked={isSelected} onChange={() => toggleItemSelected(item.id)} /></td>
+                                                        <td className="small fw-semibold">{item.tag}</td>
+                                                        <td className="small">{item.typeName}</td>
+                                                        <td className="small text-muted">{item.serial}</td>
+                                                        <td>
+                                                            {itemDep?.partnerName
+                                                                ? <span className="badge bg-warning bg-opacity-10 text-warning"><i className="bi bi-building me-1" />{itemDep.partnerName}</span>
+                                                                : <span className="text-muted small">—</span>}
+                                                        </td>
+                                                        <td><StatusBadge status={item.status} /></td>
+                                                        <td>
+                                                            {isSelected ? (
+                                                                <Form.Select size="sm" value={state.etatAvant}
+                                                                    onChange={e => setItemStates(prev => ({ ...prev, [item.id]: { ...prev[item.id], etatAvant: e.target.value } }))}>
+                                                                    <option value="FONCTIONNEL">✅ Fonctionnel</option>
+                                                                    <option value="DEGRADE">⚠️ Dégradé</option>
+                                                                    <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
+                                                                </Form.Select>
+                                                            ) : <span className="text-muted small">—</span>}
+                                                        </td>
+                                                        <td>
+                                                            {isSelected ? (
+                                                                <Form.Select size="sm" value={state.etatApres} onChange={e => handleEtatApresChange(item.id, e.target.value)}>
+                                                                    <option value="">-- Choisir --</option>
+                                                                    <option value="FONCTIONNEL">✅ Fonctionnel</option>
+                                                                    <option value="DEGRADE">⚠️ Dégradé</option>
+                                                                    <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
+                                                                </Form.Select>
+                                                            ) : <span className="text-muted small">—</span>}
+                                                        </td>
+                                                        {form.typeInter === 'SUR_SITE' && (
+                                                            <td>
+                                                                {isSelected ? (
+                                                                    <div className="d-flex gap-1">
+                                                                        <Button size="sm" variant={state.maintenanceReussie === true ? 'success' : 'outline-success'} className="rounded-2 py-0"
+                                                                            onClick={() => handleMaintenanceResult(item.id, true, item.typeName)}>✅ Réussie</Button>
+                                                                        <Button size="sm" variant={state.maintenanceReussie === false ? 'danger' : 'outline-danger'} className="rounded-2 py-0"
+                                                                            onClick={() => handleMaintenanceResult(item.id, false, item.typeName)}>❌ Échouée</Button>
+                                                                    </div>
+                                                                ) : <span className="text-muted small">—</span>}
+                                                            </td>
+                                                        )}
+                                                        {form.typeInter === 'SUR_SITE' && (
+                                                            <td>
+                                                                {isSelected && maintenanceEchouee ? (
+                                                                    acqLoading[item.id] ? <Spinner size="sm" />
+                                                                    : (availableAcqs[item.id] || []).length === 0
+                                                                        ? <span className="text-danger small">Aucun disponible</span>
+                                                                        : (
+                                                                            <Form.Select size="sm" className="border-danger" value={state.replacementId || 0}
+                                                                                onChange={e => handleReplacementChange(item.id, Number(e.target.value))}>
+                                                                                <option value={0}>-- Choisir ({(availableAcqs[item.id] || []).length}) --</option>
+                                                                                {(availableAcqs[item.id] || []).map(a => (
+                                                                                    <option key={a.id} value={a.id}>🔧 {a.tag} | {a.serial}</option>
+                                                                                ))}
+                                                                            </Form.Select>
+                                                                        )
+                                                                ) : <span className="text-muted small">—</span>}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </Table>
+                                )}
+
+                                {form.typeInter === 'EN_LIGNE' && Object.values(itemStates).some(s => s.selected && (s.etatApres === 'NON_FONCTIONNEL' || s.etatApres === 'DEGRADE')) && (
+                                    <Alert variant="warning" className="rounded-3 mt-2 small mb-0">
+                                        <i className="bi bi-exclamation-triangle me-2" />
+                                        Les équipements défaillants/dégradés seront marqués <strong>En attente d'intervention sur site</strong>.
+                                    </Alert>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
 
                 {/* ══ Section 5 — Personne assistée ══ */}
-                {form.healthId > 0 && (
+                {(form.healthId > 0 || manualStructure) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-primary mb-3">
                             <i className="bi bi-person-fill me-2" />
@@ -562,7 +706,7 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                         <div className="d-flex gap-2 mb-3">
                             <button type="button"
                                 className={`btn btn-sm rounded-3 ${!manualPerson ? 'btn-primary' : 'btn-outline-primary'}`}
-                                onClick={() => { setManualPerson(false); setManualPersonName(''); setManualPersonContact(''); setManualPersonPost(''); }}>
+                                onClick={() => { setManualPerson(false); setManualPersonName(''); setManualPersonContact(''); setManualPersonPost(''); setManualPersonEmail(''); }}>
                                 <i className="bi bi-person-lines-fill me-1" />Sélectionner dans la liste
                             </button>
                             <button type="button"
@@ -600,6 +744,15 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                                         value={manualPersonPost}
                                         onChange={e => setManualPersonPost(e.target.value)}
                                         className="rounded-3" size="sm" />
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Email</Form.Label>
+                                    <Form.Control type="email"
+                                        placeholder="Ex: nom@exemple.com"
+                                        value={manualPersonEmail}
+                                        onChange={e => setManualPersonEmail(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                    <small className="text-muted">Pour l'envoi du rapport d'intervention.</small>
                                 </div>
                                 {manualPersonName.trim() && (
                                     <div className="col-12">
@@ -669,11 +822,13 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
             <Modal.Footer className="border-0">
                 <Button variant="light" onClick={onHide} className="rounded-3">Annuler</Button>
                 <Button variant="primary" onClick={handleSubmit}
-                    disabled={isLoading || selectedItems.length === 0}
+                    disabled={isLoading || (!manualEquipment && selectedItems.length === 0)}
                     className="rounded-3">
                     {isLoading
                         ? <><Spinner size="sm" className="me-2" />Enregistrement...</>
-                        : <><i className="bi bi-plus-circle me-2" />Enregistrer ({selectedItems.length} équipement(s))</>
+                        : <><i className="bi bi-plus-circle me-2" />Enregistrer
+                            {manualEquipment ? ' (assistance technique)' : ` (${selectedItems.length} équipement(s))`}
+                          </>
                     }
                 </Button>
             </Modal.Footer>

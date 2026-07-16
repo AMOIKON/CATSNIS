@@ -65,6 +65,9 @@ const formatStatut = (s?: string) =>
 const formatEtat = (etat?: string | null) =>
     etat === 'NON_FONCTIONNEL' ? '❌ Non fonctionnel' : etat === 'DEGRADE' ? '⚠️ Dégradé' : '✅ Fonctionnel';
 
+const isHorsBase = (inter: InterventionResponse) =>
+    !inter.deploymentId && !!inter.manualEquipmentName?.trim();
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 const InterventionsPage: React.FC = () => {
     const { person } = useAuth();
@@ -74,7 +77,7 @@ const InterventionsPage: React.FC = () => {
     const canDelete = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'TECHNICIEN';
 
     const [activeTab,      setActiveTab]      = useState<Tab>('liste');
-    const [activeFilter,   setActiveFilter]   = useState<'ALL' | 'EN_LIGNE' | 'SUR_SITE'>('ALL');
+    const [activeFilter,   setActiveFilter]   = useState<'ALL' | 'EN_LIGNE' | 'SUR_SITE' | 'HORS_BASE'>('ALL');
     const [interventions,  setInterventions]  = useState<InterventionResponse[]>([]);
     const [regions,        setRegions]        = useState<RegionResponse[]>([]);
     const [districts,      setDistricts]      = useState<DistrictResponse[]>([]);
@@ -95,7 +98,9 @@ const InterventionsPage: React.FC = () => {
     const [deleteLoading,  setDeleteLoading]  = useState(false);
     const [printTarget,    setPrintTarget]    = useState<InterventionResponse | null>(null);
     const [printModal,     setPrintModal]     = useState<InterventionResponse | null>(null);
-    const [stats, setStats]                   = useState({ totalEnLigne: 0, totalSurSite: 0, totalGlobal: 0 });
+    const [sendingEmailId, setSendingEmailId]  = useState<number | null>(null);
+    const [emailFeedback,  setEmailFeedback]   = useState<{ type: 'success' | 'danger' | 'warning'; text: string } | null>(null);
+    const [stats, setStats]                   = useState({ totalEnLigne: 0, totalSurSite: 0, totalGlobal: 0, totalHorsBase: 0 });
 
     useEffect(() => {
         RegionService.getAllList().then(setRegions);
@@ -146,6 +151,61 @@ const InterventionsPage: React.FC = () => {
         setShowPrintModal(true);
     };
 
+    // ✅ Téléchargement de la fiche PDF + ouverture du client email pré-rempli
+    //    (remplace l'ancien envoi SMTP côté serveur)
+    const handleDownloadAndMail = async (inter: InterventionResponse) => {
+        setEmailFeedback(null);
+
+        const recipientEmail = inter.personEmail?.trim();
+        if (!recipientEmail) {
+            setEmailFeedback({
+                type: 'warning',
+                text: `Aucun email renseigné pour le bénéficiaire de ${inter.codeInter}. `
+                    + `Ajoutez-en un dans sa fiche (carnet) ou en modification d'intervention.`,
+            });
+            setTimeout(() => setEmailFeedback(null), 8000);
+            return;
+        }
+
+        setSendingEmailId(inter.id);
+        try {
+            // ── 1. Télécharger le PDF ────────────────────────────────────────
+            const blob = await InterventionService.downloadPdf(inter.id);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `fiche-intervention-${inter.codeInter}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            // ── 2. Ouvrir le client email pré-rempli ─────────────────────────
+            const subject = encodeURIComponent(`Fiche d'intervention — ${inter.codeInter}`);
+            const body = encodeURIComponent(
+                `Bonjour${inter.personName ? ' ' + inter.personName.trim() : ''},\n\n`
+                + `Veuillez trouver ci-joint la fiche récapitulative de l'intervention ${inter.codeInter} `
+                + `réalisée le ${new Date(inter.dateInter).toLocaleDateString('fr-FR')}.\n\n`
+                + `⚠️ Le PDF vient d'être téléchargé — pensez à le joindre manuellement à cet email.\n\n`
+                + `Cordialement,\n${inter.technicianName || ''}`
+            );
+            window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
+
+            setEmailFeedback({
+                type: 'success',
+                text: `Fiche téléchargée pour ${inter.codeInter}. N'oubliez pas de joindre le PDF dans votre client email.`,
+            });
+        } catch (err: any) {
+            setEmailFeedback({
+                type: 'danger',
+                text: err.response?.data?.message || 'Échec de la génération du PDF.',
+            });
+        } finally {
+            setSendingEmailId(null);
+            setTimeout(() => setEmailFeedback(null), 8000);
+        }
+    };
+
     const handlePrintAll = async () => {
         setIsPrinting(true);
         try {
@@ -155,9 +215,13 @@ const InterventionsPage: React.FC = () => {
                 undefined,
                 keyword        || undefined
             );
-            const all = activeFilter === 'ALL' ? raw : raw.filter(i => i.typeInter === activeFilter);
+            const all = activeFilter === 'ALL' ? raw
+                : activeFilter === 'HORS_BASE' ? raw.filter(isHorsBase)
+                : raw.filter(i => i.typeInter === activeFilter);
             const cfg = getPrintConfig();
-            const typeLabel = activeFilter === 'EN_LIGNE' ? ' — En ligne' : activeFilter === 'SUR_SITE' ? ' — Sur site' : '';
+            const typeLabel = activeFilter === 'EN_LIGNE' ? ' — En ligne'
+                : activeFilter === 'SUR_SITE' ? ' — Sur site'
+                : activeFilter === 'HORS_BASE' ? ' — Assistance technique (hors base)' : '';
             const header = buildHeader(`Liste des interventions${typeLabel}`, cfg);
 
             const actionLabels: Record<string, string> = {
@@ -226,18 +290,22 @@ const InterventionsPage: React.FC = () => {
     // ── Stats ─────────────────────────────────────────────────────────────────
     const enAttenteCount = interventions.filter(i => i.enAttenteMaintenance).length;
     const statsCards = [
-        { label: 'Total interventions', value: totalElements,      icon: 'bi-tools',         color: 'primary',                                   sub: 'enregistrées'        },
-        { label: 'Minutes EN LIGNE',    value: stats.totalEnLigne, icon: 'bi-telephone-fill', color: 'info',                                      sub: 'min téléphone'       },
-        { label: 'Minutes SUR SITE',    value: stats.totalSurSite, icon: 'bi-geo-alt-fill',   color: 'success',                                   sub: 'min sur place'       },
-        { label: 'En attente',          value: enAttenteCount,     icon: 'bi-clock-history',  color: enAttenteCount > 0 ? 'warning' : 'secondary', sub: 'maintenance requise' },
+        { label: 'Total interventions',   value: totalElements,       icon: 'bi-tools',          color: 'primary',                                   sub: 'enregistrées'          },
+        { label: 'Minutes EN LIGNE',      value: stats.totalEnLigne,  icon: 'bi-telephone-fill', color: 'info',                                      sub: 'min téléphone'         },
+        { label: 'Minutes SUR SITE',      value: stats.totalSurSite,  icon: 'bi-geo-alt-fill',   color: 'success',                                   sub: 'min sur place'         },
+        { label: 'En attente',            value: enAttenteCount,      icon: 'bi-clock-history',  color: enAttenteCount > 0 ? 'warning' : 'secondary', sub: 'maintenance requise'   },
+        { label: 'Assistances techniques', value: stats.totalHorsBase, icon: 'bi-pencil-square', color: 'dark',                                      sub: 'équipement hors base'  },
     ];
 
     const typeCards = [
-        { key: 'EN_LIGNE' as const, label: 'En ligne', icon: 'bi-telephone-fill', color: 'primary', count: interventions.filter(i => i.typeInter === 'EN_LIGNE').length },
-        { key: 'SUR_SITE' as const, label: 'Sur site', icon: 'bi-geo-alt-fill',   color: 'success', count: interventions.filter(i => i.typeInter === 'SUR_SITE').length },
+        { key: 'EN_LIGNE' as const,   label: 'En ligne',   icon: 'bi-telephone-fill', color: 'primary',   count: interventions.filter(i => i.typeInter === 'EN_LIGNE').length },
+        { key: 'SUR_SITE' as const,   label: 'Sur site',   icon: 'bi-geo-alt-fill',   color: 'success',   count: interventions.filter(i => i.typeInter === 'SUR_SITE').length },
+        { key: 'HORS_BASE' as const,  label: 'Hors base',  icon: 'bi-pencil-square',  color: 'indigo',    count: interventions.filter(isHorsBase).length },
     ];
 
-    const filtered = activeFilter === 'ALL' ? interventions : interventions.filter(i => i.typeInter === activeFilter);
+    const filtered = activeFilter === 'ALL' ? interventions
+        : activeFilter === 'HORS_BASE' ? interventions.filter(isHorsBase)
+        : interventions.filter(i => i.typeInter === activeFilter);
 
     const actionStats = Object.entries(ACTION_CONFIG).map(([key, conf]) => ({
         key, label: conf.label, color: conf.color, icon: conf.icon,
@@ -277,6 +345,7 @@ const InterventionsPage: React.FC = () => {
                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
                                         {printTarget.technicianName && <span style={{ padding: '3px 12px', background: '#f0f0f0', borderRadius: '20px', fontSize: '11px' }}>👤 {printTarget.technicianName}</span>}
                                         {printTarget.enAttenteMaintenance && <span style={{ padding: '3px 12px', background: '#fff3cd', borderRadius: '20px', fontSize: '11px', color: '#856404' }}>⚠️ En attente maintenance</span>}
+                                        {!printTarget.deploymentId && printTarget.manualEquipmentName && <span style={{ padding: '3px 12px', background: '#e0e7ff', borderRadius: '20px', fontSize: '11px', color: '#3730a3' }}>🔧 Assistance technique</span>}
                                     </div>
                                 </div>
                                 <div style={{ width: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -291,6 +360,12 @@ const InterventionsPage: React.FC = () => {
                                     <tr><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Site :</strong> {printTarget.healthName}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>District :</strong> {printTarget.districtName}</td></tr>
                                     <tr><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Région :</strong> {printTarget.regionName}</td><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Durée :</strong> {printTarget.durationMinutes} min</td></tr>
                                     <tr><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Personne assistée :</strong> {printTarget.personName?.trim() || '—'}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Évaluation :</strong> {printTarget.evlName}</td></tr>
+                                    {!printTarget.deploymentId && printTarget.manualEquipmentName && (
+                                        <tr>
+                                            <td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Équipement (hors base) :</strong> {printTarget.manualEquipmentName}</td>
+                                            <td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Type :</strong> {printTarget.manualEquipmentType || '—'}</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
 
@@ -348,6 +423,18 @@ const InterventionsPage: React.FC = () => {
                 );
             })()}
 
+            {/* ── Feedback envoi email ── */}
+            {emailFeedback && (
+                <div className={`alert alert-${emailFeedback.type} rounded-3 d-flex align-items-center gap-2`}>
+                    <i className={`bi ${
+                        emailFeedback.type === 'success' ? 'bi-check-circle'
+                        : emailFeedback.type === 'warning' ? 'bi-exclamation-circle'
+                        : 'bi-exclamation-triangle'
+                    }`} />
+                    {emailFeedback.text}
+                </div>
+            )}
+
             {/* ── Header ── */}
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
@@ -397,19 +484,29 @@ const InterventionsPage: React.FC = () => {
                 {[{ key: 'ALL' as const, label: 'Toutes', icon: 'bi-list-ul', color: 'secondary', count: totalElements },
                   ...typeCards].map((s, i) => {
                     const isActive = activeFilter === s.key;
+                    const isIndigo = s.color === 'indigo';
+                    const indigoBg = '#4f46e5';
                     return (
-                        <div key={i} className="col-4">
-                            <div className={`card rounded-4 h-100 ${isActive ? `bg-${s.color} shadow` : 'border-0 shadow-sm'}`}
-                                style={{ cursor: 'pointer', transition: 'all 0.15s' }}
+                        <div key={i} className="col-6 col-md-3">
+                            <div className={`card rounded-4 h-100 ${!isIndigo ? (isActive ? `bg-${s.color} shadow` : 'border-0 shadow-sm') : 'border-0 shadow-sm'}`}
+                                style={{
+                                    cursor: 'pointer', transition: 'all 0.15s',
+                                    ...(isIndigo && isActive ? { background: indigoBg, boxShadow: '0 .5rem 1rem rgba(0,0,0,.15)' } : {}),
+                                }}
                                 onClick={() => { setActiveFilter(s.key); setActiveTab('liste'); setPage(0); }}>
                                 <div className="card-body p-3 d-flex align-items-center gap-3">
-                                    <div className={`rounded-3 d-flex align-items-center justify-content-center ${isActive ? 'bg-white bg-opacity-25' : `bg-${s.color} bg-opacity-10`}`}
-                                        style={{ width: '40px', height: '40px', minWidth: '40px' }}>
-                                        <i className={`bi ${s.icon} ${isActive ? 'text-white' : `text-${s.color}`}`} />
+                                    <div className={!isIndigo ? `rounded-3 d-flex align-items-center justify-content-center ${isActive ? 'bg-white bg-opacity-25' : `bg-${s.color} bg-opacity-10`}` : 'rounded-3 d-flex align-items-center justify-content-center'}
+                                        style={{
+                                            width: '40px', height: '40px', minWidth: '40px',
+                                            ...(isIndigo ? { background: isActive ? 'rgba(255,255,255,0.25)' : 'rgba(79,70,229,0.1)' } : {}),
+                                        }}>
+                                        <i className={`bi ${s.icon} ${!isIndigo ? (isActive ? 'text-white' : `text-${s.color}`) : ''}`}
+                                            style={isIndigo ? { color: isActive ? '#fff' : indigoBg } : undefined} />
                                     </div>
                                     <div className="flex-grow-1">
                                         <p className="mb-0 small" style={{ color: isActive ? 'rgba(255,255,255,0.8)' : '#6c757d' }}>{s.label}</p>
-                                        <h5 className={`fw-bold mb-0 ${isActive ? 'text-white' : `text-${s.color}`}`}>{s.count}</h5>
+                                        <h5 className={!isIndigo ? `fw-bold mb-0 ${isActive ? 'text-white' : `text-${s.color}`}` : 'fw-bold mb-0'}
+                                            style={isIndigo ? { color: isActive ? '#fff' : indigoBg } : undefined}>{s.count}</h5>
                                     </div>
                                     {isActive && <i className="bi bi-check-circle-fill text-white" />}
                                 </div>
@@ -518,18 +615,33 @@ const InterventionsPage: React.FC = () => {
                                                         <span className="badge bg-success bg-opacity-10 text-success d-block">{inter.regionName}</span>
                                                     </td>
                                                     <td style={{ minWidth: '160px' }}>
-                                                        {inter.deploymentItems?.length > 0 ? inter.deploymentItems.map(item => (
-                                                            <div key={item.id} className="mb-1">
-                                                                <span className={`badge d-block ${itemBadgeClass(item.status)}`} style={{ fontSize: '10px' }}>
-                                                                    <i className="bi bi-pc-display me-1" />{item.typeName} — {item.tag}
-                                                                </span>
-                                                                {item.replacementTag && (
-                                                                    <span className="badge bg-success bg-opacity-10 text-success d-block mt-1" style={{ fontSize: '10px' }}>
-                                                                        → 🔧 {item.replacementTag}
+                                                        {inter.deploymentItems?.length > 0 ? (
+                                                            inter.deploymentItems.map(item => (
+                                                                <div key={item.id} className="mb-1">
+                                                                    <span className={`badge d-block ${itemBadgeClass(item.status)}`} style={{ fontSize: '10px' }}>
+                                                                        <i className="bi bi-pc-display me-1" />{item.typeName} — {item.tag}
                                                                     </span>
-                                                                )}
+                                                                    {item.replacementTag && (
+                                                                        <span className="badge bg-success bg-opacity-10 text-success d-block mt-1" style={{ fontSize: '10px' }}>
+                                                                            → 🔧 {item.replacementTag}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                        ) : inter.manualEquipmentName?.trim() ? (
+                                                            /* ✅ Équipement hors base (assistance technique) */
+                                                            <div className="mb-1">
+                                                                <span className="badge d-block"
+                                                                    style={{ fontSize: '10px', background: 'rgba(99,102,241,0.1)', color: '#4f46e5' }}>
+                                                                    <i className="bi bi-pencil-square me-1" />
+                                                                    {inter.manualEquipmentName}
+                                                                    {inter.manualEquipmentType ? ` (${inter.manualEquipmentType})` : ''}
+                                                                </span>
+                                                                <span className="badge bg-secondary bg-opacity-10 text-secondary d-block mt-1" style={{ fontSize: '9px' }}>
+                                                                    hors base
+                                                                </span>
                                                             </div>
-                                                        )) : <span className="text-muted small">—</span>}
+                                                        ) : <span className="text-muted small">—</span>}
                                                     </td>
                                                     <td><LogoBadge image={inter.appsImage} icon={inter.appsIcon} color={inter.appsColor} name={inter.appName} /></td>
                                                     <td><LogoBadge image={inter.partnerImage} icon={inter.partnerLogo} color={inter.partnerColor} name={inter.partnerName || '—'} /></td>
@@ -557,6 +669,14 @@ const InterventionsPage: React.FC = () => {
                                                     <td className="text-end no-print">
                                                         <button className="btn btn-sm btn-outline-primary me-1" onClick={() => handlePrintFiche(inter)} title="Imprimer fiche">
                                                             <i className="bi bi-printer" />
+                                                        </button>
+                                                        <button className="btn btn-sm btn-outline-success me-1"
+                                                            onClick={() => handleDownloadAndMail(inter)}
+                                                            disabled={sendingEmailId === inter.id}
+                                                            title="Télécharger la fiche PDF et ouvrir un email pré-rempli">
+                                                            {sendingEmailId === inter.id
+                                                                ? <span className="spinner-border spinner-border-sm" />
+                                                                : <i className="bi bi-envelope" />}
                                                         </button>
                                                         {canEdit && <button className="btn btn-sm btn-outline-warning me-1" onClick={() => { setSelected(inter); setShowUpdate(true); }}><i className="bi bi-pencil" /></button>}
                                                         {canDelete && <button className="btn btn-sm btn-outline-danger" onClick={() => { setSelectedId(inter.id); setShowConfirm(true); }}><i className="bi bi-trash" /></button>}

@@ -28,8 +28,12 @@ public class AcquisitionController {
                 acquisitionService.getAvailable(typesId)));
     }
 
-
-
+    // ── Compteur équipements hors base ← DOIT ÊTRE AVANT /{id} ────────
+    @GetMapping("/stats/hors-base")
+    public ResponseEntity<ApiResponse<Long>> getHorsBaseCount() {
+        return ResponseEntity.ok(ApiResponse.success(
+                acquisitionService.countHorsBaseEquipment()));
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<AcquisitionResponse>> getAcquisitionById(@PathVariable Integer id) {
@@ -40,9 +44,12 @@ public class AcquisitionController {
     public ResponseEntity<ApiResponse<Page<AcquisitionResponse>>> getAllAcquisitions(
             Pageable pageable,
             @RequestParam(required = false) Integer typesId,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword) {
-        return ResponseEntity.ok(ApiResponse.success(acquisitionService.getAllAcquisitions(pageable, typesId, keyword)));
+        return ResponseEntity.ok(ApiResponse.success(
+                acquisitionService.getAllAcquisitions(pageable, typesId, status, keyword)));
     }
+
     @PostMapping
     public ResponseEntity<ApiResponse<AcquisitionResponse>> saveAcquisition(@RequestBody AcquisitionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -61,8 +68,4 @@ public class AcquisitionController {
         acquisitionService.deleteAcquisition(id);
         return ResponseEntity.ok(ApiResponse.success("Acquisition supprimée avec succès", null));
     }
-
-
-
-
 }

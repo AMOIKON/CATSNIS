@@ -26,4 +26,10 @@ public interface InterventionService {
     Long                         getTotalMinutesSurSite();
 
     Long                         getTotalMinutesGlobal();
+
+    // ── Assistances techniques (équipement hors base) ──────────────────────────
+    Long                         getTotalHorsBase();
+
+    // ── Fiche PDF de l'intervention — téléchargement direct, plus d'envoi SMTP
+    byte[]                       generateInterventionPdf(Integer id);
 }

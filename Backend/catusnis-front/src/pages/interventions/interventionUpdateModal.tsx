@@ -73,11 +73,18 @@ const InterventionUpdateModal: React.FC<Props> = ({
     const [acqLoading,         setAcqLoading]         = useState<Record<number, boolean>>({});
     const [siteLoading,        setSiteLoading]        = useState(false);
     const [apps,               setApps]               = useState<AppsResponse[]>([]);
-    const [partners,           setPartners]           = useState<PartnerResponse[]>([]); // ✅ AJOUT
+    const [partners,           setPartners]           = useState<PartnerResponse[]>([]);
     const [manualPerson,       setManualPerson]       = useState(false);
     const [manualPersonName,   setManualPersonName]   = useState('');
     const [manualPersonContact,setManualPersonContact]= useState('');
     const [manualPersonPost,   setManualPersonPost]   = useState('');
+    const [manualPersonEmail,  setManualPersonEmail]  = useState('');
+    // ✅ Assistance technique — équipement hors base (non inventorié)
+    const [manualEquipment,     setManualEquipment]     = useState(false);
+    const [manualStructure,     setManualStructure]     = useState(false);
+    const [manualStructureName, setManualStructureName] = useState('');
+    const [manualEquipmentName, setManualEquipmentName] = useState('');
+    const [manualEquipmentType, setManualEquipmentType] = useState('');
 
     const selectedItems = Object.entries(itemStates)
         .filter(([_, s]) => s.selected)
@@ -138,10 +145,12 @@ const InterventionUpdateModal: React.FC<Props> = ({
         setBooklets([]); setAvailableAcqs({});
         setSiteDeployments([]);
         setManualPerson(false); setManualPersonName('');
-        setManualPersonContact(''); setManualPersonPost('');
+        setManualPersonContact(''); setManualPersonPost(''); setManualPersonEmail('');
+        setManualEquipment(false); setManualEquipmentName(''); setManualEquipmentType('');
+        setManualStructure(false); setManualStructureName('');
 
         AppsService.getAllList().then(setApps).catch(console.error);
-        PartnerService.getAllList().then(setPartners).catch(console.error); // ✅ AJOUT
+        PartnerService.getAllList().then(setPartners).catch(console.error);
 
         Promise.all([
             EvaluationService.getAllList(),
@@ -189,7 +198,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 personId:             undefined,
                 bookletId:            intervention.personId    || undefined,
                 enAttenteMaintenance: intervention.enAttenteMaintenance ?? false,
-                partnerId:            (intervention as any).partnerId || 0, // ✅ AJOUT
+                partnerId:            (intervention as any).partnerId || 0,
             });
 
             if (intervention.personId) {
@@ -199,6 +208,20 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 setManualPersonName(intervention.personName.trim());
                 setManualPersonContact(intervention.personContact || '');
                 setManualPersonPost(intervention.personPost || '');
+                setManualPersonEmail((intervention as any).personEmail || '');
+            }
+
+            // ✅ Équipement hors base déjà renseigné sur cette intervention
+            if (!intervention.deploymentId && (intervention as any).manualEquipmentName?.trim()) {
+                setManualEquipment(true);
+                setManualEquipmentName((intervention as any).manualEquipmentName.trim());
+                setManualEquipmentType((intervention as any).manualEquipmentType?.trim() || '');
+            }
+
+            // ✅ Structure hors base déjà renseignée sur cette intervention
+            if (!intervention.healthId && (intervention as any).manualStructureName?.trim()) {
+                setManualStructure(true);
+                setManualStructureName((intervention as any).manualStructureName.trim());
             }
         }).catch(() => setError('Erreur lors du chargement des données'));
     }, [show, intervention, loadSiteItems]);
@@ -209,7 +232,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
             actionInter: typeInter === 'EN_LIGNE' ? 'MAINTENANCE' : 'MAINTENANCE_CURATIVE',
         }));
         setSiteItems([]); setItemStates({}); setAvailableAcqs({});
-        if (form.healthId) await loadSiteItems(form.healthId, typeInter);
+        if (form.healthId && !manualEquipment) await loadSiteItems(form.healthId, typeInter);
     };
 
     const handleRegionChange = async (regionId: number) => {
@@ -240,7 +263,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
             const bkts = await BookletService.getByDistrict(form.districtId);
             setBooklets(Array.isArray(bkts) ? bkts : []);
         } catch { setBooklets([]); }
-        await loadSiteItems(healthId, form.typeInter, undefined, deps.content);
+        if (!manualEquipment) await loadSiteItems(healthId, form.typeInter, undefined, deps.content);
     };
 
     const toggleItemSelected = (itemId: number) => {
@@ -290,17 +313,37 @@ const InterventionUpdateModal: React.FC<Props> = ({
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
+    // ✅ Basculer en mode "assistance technique" (équipement hors base)
+    const handleToggleManualEquipment = async (value: boolean) => {
+        setManualEquipment(value);
+        if (value) {
+            setSiteItems([]); setItemStates({});
+            setForm(prev => ({ ...prev, deploymentId: 0, typesId: 0 }));
+        } else {
+            setManualEquipmentName(''); setManualEquipmentType('');
+            if (form.healthId) await loadSiteItems(form.healthId, form.typeInter, undefined, siteDeployments);
+        }
+    };
+
     const handleSubmit = async () => {
         setError(null);
         if (!intervention) return;
 
-        if (!form.dateInter || !form.regionId || !form.districtId ||
-            !form.healthId || !form.evaluationId ||
+        if (!form.dateInter || !form.evaluationId ||
             !form.durationMinutes || !form.commentInter?.trim()) {
             setError('Veuillez remplir tous les champs obligatoires.'); return;
         }
-        if (selectedItems.length === 0) {
-            setError('Veuillez sélectionner au moins un équipement.'); return;
+        if (!manualStructure && (!form.regionId || !form.districtId || !form.healthId)) {
+            setError('Veuillez sélectionner une région/district/site, ou basculer en saisie manuelle de la structure.'); return;
+        }
+        if (manualStructure && !manualStructureName.trim()) {
+            setError('Veuillez indiquer le nom de la structure.'); return;
+        }
+        if (!manualEquipment && selectedItems.length === 0) {
+            setError('Veuillez sélectionner au moins un équipement, ou basculer en mode assistance technique.'); return;
+        }
+        if (manualEquipment && !manualEquipmentName.trim()) {
+            setError('Veuillez indiquer la désignation de l\'équipement hors base.'); return;
         }
         if (!form.bookletId && !manualPersonName.trim()) {
             setError('Veuillez sélectionner ou saisir la personne assistée.'); return;
@@ -323,18 +366,18 @@ const InterventionUpdateModal: React.FC<Props> = ({
 
             await InterventionService.update(intervention.id, {
                 ...form,
-                regionId:             Number(form.regionId),
-                districtId:           Number(form.districtId),
-                healthId:             Number(form.healthId),
-                deploymentId:         Number(form.deploymentId),
+                regionId:             manualStructure ? 0 : Number(form.regionId),
+                districtId:           manualStructure ? 0 : Number(form.districtId),
+                healthId:             manualStructure ? 0 : Number(form.healthId),
+                deploymentId:         manualEquipment ? 0 : Number(form.deploymentId),
                 evaluationId:         Number(form.evaluationId),
-                typesId:              Number(form.typesId),
+                typesId:              manualEquipment ? 0 : Number(form.typesId),
                 appsId:               Number(form.appsId),
                 durationMinutes:      Number(form.durationMinutes),
-                partnerId:            form.partnerId ? Number(form.partnerId) : undefined, // ✅ AJOUT
+                partnerId:            form.partnerId ? Number(form.partnerId) : undefined,
                 personId:             undefined,
                 bookletId:            form.bookletId ? Number(form.bookletId) : undefined,
-                selectedItemIds:      selectedItems,
+                selectedItemIds:      manualEquipment ? [] : selectedItems,
                 etatsAvant, etatsApres, replacements, maintenanceReussie,
                 enAttenteMaintenance: form.enAttenteMaintenance ?? false,
                 manualPersonName:    manualPerson && manualPersonName.trim()
@@ -343,6 +386,16 @@ const InterventionUpdateModal: React.FC<Props> = ({
                     ? manualPersonContact.trim()  : undefined,
                 manualPersonPost:    manualPerson && manualPersonPost.trim()
                     ? manualPersonPost.trim()     : undefined,
+                manualPersonEmail:   manualPerson && manualPersonEmail.trim()
+                    ? manualPersonEmail.trim()    : undefined,
+                // ✅ Assistance technique — équipement hors base
+                manualEquipmentName: manualEquipment && manualEquipmentName.trim()
+                    ? manualEquipmentName.trim()  : undefined,
+                manualEquipmentType: manualEquipment && manualEquipmentType.trim()
+                    ? manualEquipmentType.trim()  : undefined,
+                // ✅ Structure hors base (région/district/site non renseignés)
+                manualStructureName: manualStructure && manualStructureName.trim()
+                    ? manualStructureName.trim()  : undefined,
             });
 
             onSuccess();
@@ -432,29 +485,66 @@ const InterventionUpdateModal: React.FC<Props> = ({
                     <h6 className="fw-bold text-warning mb-3">
                         <i className="bi bi-geo-alt me-2" />Localisation
                     </h6>
-                    <Row className="g-3">
-                        <Col md={4}>
-                            <Form.Label className="fw-semibold small">Région <span className="text-danger">*</span></Form.Label>
-                            <Form.Select value={form.regionId} onChange={e => handleRegionChange(Number(e.target.value))} className="rounded-3" size="sm">
-                                <option value={0}>-- Région --</option>
-                                {regions.map(r => <option key={r.id} value={r.id}>{r.regionName}</option>)}
-                            </Form.Select>
-                        </Col>
-                        <Col md={4}>
-                            <Form.Label className="fw-semibold small">District <span className="text-danger">*</span></Form.Label>
-                            <Form.Select value={form.districtId} onChange={e => handleDistrictChange(Number(e.target.value))} disabled={!form.regionId} className="rounded-3" size="sm">
-                                <option value={0}>-- District --</option>
-                                {districts.map(d => <option key={d.id} value={d.id}>{d.DistrictName}</option>)}
-                            </Form.Select>
-                        </Col>
-                        <Col md={4}>
-                            <Form.Label className="fw-semibold small">Site <span className="text-danger">*</span></Form.Label>
-                            <Form.Select value={form.healthId} onChange={e => handleHealthChange(Number(e.target.value))} disabled={!form.districtId} className="rounded-3" size="sm">
-                                <option value={0}>-- Site --</option>
-                                {healths.map(h => <option key={h.id} value={h.id}>{h.healthName}</option>)}
-                            </Form.Select>
-                        </Col>
-                    </Row>
+
+                    {/* ✅ Toggle structure connue / hors base */}
+                    <div className="d-flex gap-2 mb-3">
+                        <button type="button"
+                            className={`btn btn-sm rounded-3 ${!manualStructure ? 'btn-warning text-white' : 'btn-outline-warning'}`}
+                            onClick={() => setManualStructure(false)}>
+                            <i className="bi bi-geo-alt-fill me-1" />Structure enregistrée
+                        </button>
+                        <button type="button"
+                            className={`btn btn-sm rounded-3 ${manualStructure ? 'btn-warning text-white' : 'btn-outline-warning'}`}
+                            onClick={() => {
+                                setManualStructure(true);
+                                setForm(prev => ({ ...prev, regionId: 0, districtId: 0, healthId: 0, deploymentId: 0 }));
+                                setDistricts([]); setHealths([]); setSiteDeployments([]); setSiteItems([]); setItemStates({}); setBooklets([]);
+                            }}>
+                            <i className="bi bi-pencil me-1" />Structure non enregistrée (hors base)
+                        </button>
+                    </div>
+
+                    {manualStructure ? (
+                        <Row className="g-3">
+                            <Col md={12}>
+                                <Form.Label className="fw-semibold small">
+                                    Nom de la structure / lieu <span className="text-danger">*</span>
+                                </Form.Label>
+                                <Form.Control type="text"
+                                    placeholder="Ex: Pharmacie de quartier Koumassi Nord"
+                                    value={manualStructureName}
+                                    onChange={e => setManualStructureName(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                                <small className="text-muted">
+                                    Région/district/site inconnus ou non enregistrés dans CATUSNIS.
+                                </small>
+                            </Col>
+                        </Row>
+                    ) : (
+                        <Row className="g-3">
+                            <Col md={4}>
+                                <Form.Label className="fw-semibold small">Région <span className="text-danger">*</span></Form.Label>
+                                <Form.Select value={form.regionId} onChange={e => handleRegionChange(Number(e.target.value))} className="rounded-3" size="sm">
+                                    <option value={0}>-- Région --</option>
+                                    {regions.map(r => <option key={r.id} value={r.id}>{r.regionName}</option>)}
+                                </Form.Select>
+                            </Col>
+                            <Col md={4}>
+                                <Form.Label className="fw-semibold small">District <span className="text-danger">*</span></Form.Label>
+                                <Form.Select value={form.districtId} onChange={e => handleDistrictChange(Number(e.target.value))} disabled={!form.regionId} className="rounded-3" size="sm">
+                                    <option value={0}>-- District --</option>
+                                    {districts.map(d => <option key={d.id} value={d.id}>{d.DistrictName}</option>)}
+                                </Form.Select>
+                            </Col>
+                            <Col md={4}>
+                                <Form.Label className="fw-semibold small">Site <span className="text-danger">*</span></Form.Label>
+                                <Form.Select value={form.healthId} onChange={e => handleHealthChange(Number(e.target.value))} disabled={!form.districtId} className="rounded-3" size="sm">
+                                    <option value={0}>-- Site --</option>
+                                    {healths.map(h => <option key={h.id} value={h.id}>{h.healthName}</option>)}
+                                </Form.Select>
+                            </Col>
+                        </Row>
+                    )}
                 </div>
 
                 {/* ══ Section 2b — Application & Bailleur ══ */}
@@ -490,7 +580,6 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 })()}
                             </div>
                         </Col>
-                        {/* ✅ Bailleur modifiable */}
                         <Col md={6}>
                             <Form.Label className="fw-semibold small">Bailleur / Partenaire</Form.Label>
                             <Form.Select
@@ -514,157 +603,197 @@ const InterventionUpdateModal: React.FC<Props> = ({
                     </Row>
                 </div>
 
-                {/* ══ Section 3 — Déploiement concerné ══ */}
-                {form.healthId > 0 && (
+                {/* ══ Section 3 — Équipement concerné (inventorié ou hors base) ══ */}
+                {(form.healthId > 0 || manualStructure) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-warning mb-3">
-                            <i className="bi bi-truck me-2" />Déploiement concerné <span className="text-danger">*</span>
+                            <i className="bi bi-pc-display-horizontal me-2" />Équipement concerné <span className="text-danger">*</span>
                         </h6>
-                        {siteDeployments.length === 0 ? (
-                            <Alert variant="warning" className="rounded-3 small mb-0">
-                                <i className="bi bi-exclamation-triangle me-2" />Aucun déploiement trouvé pour ce site.
-                            </Alert>
-                        ) : (
-                            <Form.Select name="deploymentId" value={form.deploymentId} onChange={handleChange} className="rounded-3" size="sm">
-                                <option value={0}>-- Sélectionner --</option>
-                                {siteDeployments.map(d => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.codeDep} — {d.appsDeploy} — {d.items?.length || 0} équipement(s)
-                                    </option>
-                                ))}
-                            </Form.Select>
-                        )}
-                    </div>
-                )}
 
-                {/* ══ Section 4 — Équipements ══ */}
-                {form.healthId > 0 && (
-                    <div className="card border-0 bg-light rounded-4 p-3 mb-3">
-                        <h6 className="fw-bold text-warning mb-3">
-                            <i className="bi bi-pc-display-horizontal me-2" />
-                            {form.typeInter === 'EN_LIGNE'
-                                ? 'Équipements du site'
-                                : "Équipements concernés par l'intervention"}
-                            <span className="badge bg-warning bg-opacity-10 text-warning ms-2 small fw-normal">
-                                {siteItems.length} équipement(s)
-                            </span>
-                        </h6>
-                        {siteLoading ? (
-                            <div className="text-center py-3"><Spinner size="sm" className="me-2" />Chargement...</div>
-                        ) : siteItems.length === 0 ? (
-                            <Alert variant="info" className="rounded-3 small mb-0">
-                                <i className="bi bi-info-circle me-2" />Aucun équipement trouvé pour ce site.
-                            </Alert>
+                        {/* ✅ Toggle entre équipement inventorié et assistance technique hors base */}
+                        <div className="d-flex gap-2 mb-3">
+                            <button type="button"
+                                className={`btn btn-sm rounded-3 ${!manualEquipment ? 'btn-warning text-white' : 'btn-outline-warning'}`}
+                                onClick={() => handleToggleManualEquipment(false)}>
+                                <i className="bi bi-hdd-stack me-1" />Équipement inventorié
+                            </button>
+                            <button type="button"
+                                className={`btn btn-sm rounded-3 ${manualEquipment ? 'btn-warning text-white' : 'btn-outline-warning'}`}
+                                onClick={() => handleToggleManualEquipment(true)}>
+                                <i className="bi bi-pencil me-1" />Assistance technique (équipement hors base)
+                            </button>
+                        </div>
+
+                        {manualEquipment ? (
+                            <div className="row g-2">
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">
+                                        Désignation de l'équipement <span className="text-danger">*</span>
+                                    </Form.Label>
+                                    <Form.Control type="text"
+                                        placeholder="Ex: Concentrateur O2 portable"
+                                        value={manualEquipmentName}
+                                        onChange={e => setManualEquipmentName(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Type d'équipement</Form.Label>
+                                    <Form.Control type="text"
+                                        placeholder="Ex: Concentrateur d'oxygène"
+                                        value={manualEquipmentType}
+                                        onChange={e => setManualEquipmentType(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                </div>
+                                <div className="col-12">
+                                    <Alert variant="info" className="rounded-3 small mb-0 mt-1">
+                                        <i className="bi bi-info-circle me-2" />
+                                        Cet équipement sera automatiquement enregistré dans l'inventaire
+                                        (statut « hors base ») pour un suivi ultérieur.
+                                    </Alert>
+                                </div>
+                            </div>
                         ) : (
-                            <Table size="sm" bordered hover className="mb-0">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th style={{ width: '40px' }}>✓</th>
-                                        <th>Tag</th>
-                                        <th>Équipement</th>
-                                        <th>N° Série</th>
-                                        <th>Partenaire</th>
-                                        <th>Statut actuel</th>
-                                        <th>État avant</th>
-                                        <th>État après</th>
-                                        {form.typeInter === 'SUR_SITE' && <th>Résultat</th>}
-                                        {form.typeInter === 'SUR_SITE' && <th>Remplacement</th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {siteItems.map(item => {
-                                        const state = itemStates[item.id] || { selected: false, etatAvant: 'FONCTIONNEL', etatApres: '' };
-                                        const isSelected = state.selected;
-                                        const maintenanceEchouee = state.maintenanceReussie === false;
-                                        const itemDep = siteDeployments.find(d => d.items?.some(it => it.id === item.id));
-                                        return (
-                                            <tr key={item.id} style={{ background: isSelected ? '#fff8f0' : 'white', opacity: !isSelected ? 0.7 : 1 }}>
-                                                <td className="text-center">
-                                                    <Form.Check type="checkbox" checked={isSelected} onChange={() => toggleItemSelected(item.id)} />
-                                                </td>
-                                                <td className="small fw-semibold">{item.tag}</td>
-                                                <td className="small">{item.typeName}</td>
-                                                <td className="small text-muted">{item.serial}</td>
-                                                <td>
-                                                    {itemDep?.partnerName
-                                                        ? <span className="badge bg-warning bg-opacity-10 text-warning"><i className="bi bi-building me-1" />{itemDep.partnerName}</span>
-                                                        : <span className="text-muted small">—</span>}
-                                                </td>
-                                                <td><StatusBadge status={item.status} /></td>
-                                                <td>
-                                                    {isSelected ? (
-                                                        <Form.Select size="sm" value={state.etatAvant}
-                                                            onChange={e => setItemStates(prev => ({ ...prev, [item.id]: { ...prev[item.id], etatAvant: e.target.value } }))}>
-                                                            <option value="FONCTIONNEL">✅ Fonctionnel</option>
-                                                            <option value="DEGRADE">⚠️ Dégradé</option>
-                                                            <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
-                                                        </Form.Select>
-                                                    ) : <span className="text-muted small">—</span>}
-                                                </td>
-                                                <td>
-                                                    {isSelected ? (
-                                                        <Form.Select size="sm" value={state.etatApres}
-                                                            onChange={e => handleEtatApresChange(item.id, e.target.value)}
-                                                            style={{ borderColor: state.etatApres === 'NON_FONCTIONNEL' ? '#dc3545' : state.etatApres === 'DEGRADE' ? '#f59e0b' : undefined }}>
-                                                            <option value="">-- Choisir --</option>
-                                                            <option value="FONCTIONNEL">✅ Fonctionnel</option>
-                                                            <option value="DEGRADE">⚠️ Dégradé</option>
-                                                            <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
-                                                        </Form.Select>
-                                                    ) : <span className="text-muted small">—</span>}
-                                                </td>
-                                                {form.typeInter === 'SUR_SITE' && (
-                                                    <td>
-                                                        {isSelected ? (
-                                                            <div className="d-flex gap-1">
-                                                                <Button size="sm"
-                                                                    variant={state.maintenanceReussie === true ? 'success' : 'outline-success'}
-                                                                    className="rounded-2 py-0"
-                                                                    onClick={() => handleMaintenanceResult(item.id, true, item.typeName)}>✅</Button>
-                                                                <Button size="sm"
-                                                                    variant={state.maintenanceReussie === false ? 'danger' : 'outline-danger'}
-                                                                    className="rounded-2 py-0"
-                                                                    onClick={() => handleMaintenanceResult(item.id, false, item.typeName)}>❌</Button>
-                                                            </div>
-                                                        ) : <span className="text-muted small">—</span>}
-                                                    </td>
-                                                )}
-                                                {form.typeInter === 'SUR_SITE' && (
-                                                    <td>
-                                                        {isSelected && maintenanceEchouee ? (
-                                                            acqLoading[item.id] ? <Spinner size="sm" />
-                                                            : (availableAcqs[item.id] || []).length === 0
-                                                                ? <span className="text-danger small">Aucun disponible</span>
-                                                                : (
-                                                                    <Form.Select size="sm" className="border-danger"
-                                                                        value={state.replacementId || 0}
-                                                                        onChange={e => handleReplacementChange(item.id, Number(e.target.value))}>
-                                                                        <option value={0}>-- Choisir ({(availableAcqs[item.id] || []).length}) --</option>
-                                                                        {(availableAcqs[item.id] || []).map(a => (
-                                                                            <option key={a.id} value={a.id}>🔧 {a.tag} | {a.serial}</option>
-                                                                        ))}
-                                                                    </Form.Select>
-                                                                )
-                                                        ) : <span className="text-muted small">—</span>}
-                                                    </td>
-                                                )}
+                            <>
+                                {siteDeployments.length === 0 ? (
+                                    <Alert variant="warning" className="rounded-3 small mb-3">
+                                        <i className="bi bi-exclamation-triangle me-2" />Aucun déploiement trouvé pour ce site.
+                                    </Alert>
+                                ) : (
+                                    <Form.Select name="deploymentId" value={form.deploymentId} onChange={handleChange} className="rounded-3 mb-3" size="sm">
+                                        <option value={0}>-- Sélectionner --</option>
+                                        {siteDeployments.map(d => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.codeDep} — {d.appsDeploy} — {d.items?.length || 0} équipement(s)
+                                            </option>
+                                        ))}
+                                    </Form.Select>
+                                )}
+
+                                <div className="d-flex align-items-center gap-2 mb-2">
+                                    <span className="fw-semibold small">
+                                        {form.typeInter === 'EN_LIGNE' ? 'Équipements du site' : "Équipements concernés par l'intervention"}
+                                    </span>
+                                    <span className="badge bg-warning bg-opacity-10 text-warning small fw-normal">{siteItems.length} équipement(s)</span>
+                                </div>
+
+                                {siteLoading ? (
+                                    <div className="text-center py-3"><Spinner size="sm" className="me-2" />Chargement...</div>
+                                ) : siteItems.length === 0 ? (
+                                    <Alert variant="info" className="rounded-3 small mb-0">
+                                        <i className="bi bi-info-circle me-2" />Aucun équipement trouvé pour ce site.
+                                    </Alert>
+                                ) : (
+                                    <Table size="sm" bordered hover className="mb-0">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th style={{ width: '40px' }}>✓</th>
+                                                <th>Tag</th>
+                                                <th>Équipement</th>
+                                                <th>N° Série</th>
+                                                <th>Partenaire</th>
+                                                <th>Statut actuel</th>
+                                                <th>État avant</th>
+                                                <th>État après</th>
+                                                {form.typeInter === 'SUR_SITE' && <th>Résultat</th>}
+                                                {form.typeInter === 'SUR_SITE' && <th>Remplacement</th>}
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </Table>
-                        )}
-                        {form.typeInter === 'EN_LIGNE' && Object.values(itemStates).some(s => s.selected && (s.etatApres === 'NON_FONCTIONNEL' || s.etatApres === 'DEGRADE')) && (
-                            <Alert variant="warning" className="rounded-3 mt-2 small mb-0">
-                                <i className="bi bi-exclamation-triangle me-2" />
-                                Les équipements défaillants seront marqués <strong>En attente d'intervention sur site</strong>.
-                            </Alert>
+                                        </thead>
+                                        <tbody>
+                                            {siteItems.map(item => {
+                                                const state = itemStates[item.id] || { selected: false, etatAvant: 'FONCTIONNEL', etatApres: '' };
+                                                const isSelected = state.selected;
+                                                const maintenanceEchouee = state.maintenanceReussie === false;
+                                                const itemDep = siteDeployments.find(d => d.items?.some(it => it.id === item.id));
+                                                return (
+                                                    <tr key={item.id} style={{ background: isSelected ? '#fff8f0' : 'white', opacity: !isSelected ? 0.7 : 1 }}>
+                                                        <td className="text-center">
+                                                            <Form.Check type="checkbox" checked={isSelected} onChange={() => toggleItemSelected(item.id)} />
+                                                        </td>
+                                                        <td className="small fw-semibold">{item.tag}</td>
+                                                        <td className="small">{item.typeName}</td>
+                                                        <td className="small text-muted">{item.serial}</td>
+                                                        <td>
+                                                            {itemDep?.partnerName
+                                                                ? <span className="badge bg-warning bg-opacity-10 text-warning"><i className="bi bi-building me-1" />{itemDep.partnerName}</span>
+                                                                : <span className="text-muted small">—</span>}
+                                                        </td>
+                                                        <td><StatusBadge status={item.status} /></td>
+                                                        <td>
+                                                            {isSelected ? (
+                                                                <Form.Select size="sm" value={state.etatAvant}
+                                                                    onChange={e => setItemStates(prev => ({ ...prev, [item.id]: { ...prev[item.id], etatAvant: e.target.value } }))}>
+                                                                    <option value="FONCTIONNEL">✅ Fonctionnel</option>
+                                                                    <option value="DEGRADE">⚠️ Dégradé</option>
+                                                                    <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
+                                                                </Form.Select>
+                                                            ) : <span className="text-muted small">—</span>}
+                                                        </td>
+                                                        <td>
+                                                            {isSelected ? (
+                                                                <Form.Select size="sm" value={state.etatApres}
+                                                                    onChange={e => handleEtatApresChange(item.id, e.target.value)}
+                                                                    style={{ borderColor: state.etatApres === 'NON_FONCTIONNEL' ? '#dc3545' : state.etatApres === 'DEGRADE' ? '#f59e0b' : undefined }}>
+                                                                    <option value="">-- Choisir --</option>
+                                                                    <option value="FONCTIONNEL">✅ Fonctionnel</option>
+                                                                    <option value="DEGRADE">⚠️ Dégradé</option>
+                                                                    <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
+                                                                </Form.Select>
+                                                            ) : <span className="text-muted small">—</span>}
+                                                        </td>
+                                                        {form.typeInter === 'SUR_SITE' && (
+                                                            <td>
+                                                                {isSelected ? (
+                                                                    <div className="d-flex gap-1">
+                                                                        <Button size="sm"
+                                                                            variant={state.maintenanceReussie === true ? 'success' : 'outline-success'}
+                                                                            className="rounded-2 py-0"
+                                                                            onClick={() => handleMaintenanceResult(item.id, true, item.typeName)}>✅</Button>
+                                                                        <Button size="sm"
+                                                                            variant={state.maintenanceReussie === false ? 'danger' : 'outline-danger'}
+                                                                            className="rounded-2 py-0"
+                                                                            onClick={() => handleMaintenanceResult(item.id, false, item.typeName)}>❌</Button>
+                                                                    </div>
+                                                                ) : <span className="text-muted small">—</span>}
+                                                            </td>
+                                                        )}
+                                                        {form.typeInter === 'SUR_SITE' && (
+                                                            <td>
+                                                                {isSelected && maintenanceEchouee ? (
+                                                                    acqLoading[item.id] ? <Spinner size="sm" />
+                                                                    : (availableAcqs[item.id] || []).length === 0
+                                                                        ? <span className="text-danger small">Aucun disponible</span>
+                                                                        : (
+                                                                            <Form.Select size="sm" className="border-danger"
+                                                                                value={state.replacementId || 0}
+                                                                                onChange={e => handleReplacementChange(item.id, Number(e.target.value))}>
+                                                                                <option value={0}>-- Choisir ({(availableAcqs[item.id] || []).length}) --</option>
+                                                                                {(availableAcqs[item.id] || []).map(a => (
+                                                                                    <option key={a.id} value={a.id}>🔧 {a.tag} | {a.serial}</option>
+                                                                                ))}
+                                                                            </Form.Select>
+                                                                        )
+                                                                ) : <span className="text-muted small">—</span>}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </Table>
+                                )}
+                                {form.typeInter === 'EN_LIGNE' && Object.values(itemStates).some(s => s.selected && (s.etatApres === 'NON_FONCTIONNEL' || s.etatApres === 'DEGRADE')) && (
+                                    <Alert variant="warning" className="rounded-3 mt-2 small mb-0">
+                                        <i className="bi bi-exclamation-triangle me-2" />
+                                        Les équipements défaillants seront marqués <strong>En attente d'intervention sur site</strong>.
+                                    </Alert>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
 
                 {/* ══ Section 5 — Personne assistée ══ */}
-                {(form.healthId > 0 || intervention?.healthId) && (
+                {(form.healthId > 0 || manualStructure || intervention?.healthId) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-warning mb-3">
                             <i className="bi bi-person-fill me-2" />Personne assistée <span className="text-danger">*</span>
@@ -672,7 +801,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                         <div className="d-flex gap-2 mb-3">
                             <button type="button"
                                 className={`btn btn-sm rounded-3 ${!manualPerson ? 'btn-warning text-white' : 'btn-outline-warning'}`}
-                                onClick={() => { setManualPerson(false); setManualPersonName(''); setManualPersonContact(''); setManualPersonPost(''); }}>
+                                onClick={() => { setManualPerson(false); setManualPersonName(''); setManualPersonContact(''); setManualPersonPost(''); setManualPersonEmail(''); }}>
                                 <i className="bi bi-person-lines-fill me-1" />Sélectionner dans la liste
                             </button>
                             <button type="button"
@@ -703,6 +832,13 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                         value={manualPersonPost} onChange={e => setManualPersonPost(e.target.value)}
                                         className="rounded-3" size="sm" />
                                     <small className="text-muted">Ce poste sera créé s'il n'existe pas encore.</small>
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Email</Form.Label>
+                                    <Form.Control type="email" placeholder="Ex: nom@exemple.com"
+                                        value={manualPersonEmail} onChange={e => setManualPersonEmail(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                    <small className="text-muted">Pour l'envoi du rapport d'intervention.</small>
                                 </div>
                                 {manualPersonName.trim() && (
                                     <div className="col-12">
@@ -788,12 +924,12 @@ const InterventionUpdateModal: React.FC<Props> = ({
             <Modal.Footer className="border-0">
                 <Button variant="light" onClick={onHide} className="rounded-3">Annuler</Button>
                 <Button variant="warning" onClick={handleSubmit}
-                    disabled={isLoading || (siteItems.length > 0 && selectedItems.length === 0)}
+                    disabled={isLoading || (!manualEquipment && siteItems.length > 0 && selectedItems.length === 0)}
                     className="rounded-3 text-white">
                     {isLoading
                         ? <><Spinner size="sm" className="me-2" />Modification...</>
                         : <><i className="bi bi-pencil me-2" />Modifier
-                            {selectedItems.length > 0 ? ` (${selectedItems.length} équipement(s))` : ''}
+                            {manualEquipment ? ' (assistance technique)' : selectedItems.length > 0 ? ` (${selectedItems.length} équipement(s))` : ''}
                           </>
                     }
                 </Button>

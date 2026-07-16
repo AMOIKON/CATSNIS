@@ -35,5 +35,14 @@ public class InterventionRequest {
     private String              manualPersonName;
     private String              manualPersonContact;
     private String              manualPersonPost;
+    // ✅ Email pour l'envoi du rapport d'intervention (personne saisie manuellement)
+    private String              manualPersonEmail;
     private Map<Long, Integer>  replacements;
+
+    // ── Équipement hors base ──────────────────────────────────────────────────
+    private String              manualEquipmentName;
+    private String              manualEquipmentType;
+
+    // ── Structure hors base (région/district/site non renseignés) ────────────
+    private String              manualStructureName;
 }

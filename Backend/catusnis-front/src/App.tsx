@@ -27,6 +27,7 @@ import TypesPage               from "./pages/types/TypesPage";
 import AcquisitionsPage        from "./pages/acquisitions/AcquisitionsPage";
 import DeploymentsPage         from "./pages/Deployment/DeploymentsPage";
 import InterventionsPage       from "./pages/interventions/InterventionsPage";
+import InterventionDetailPage  from "./pages/interventions/Interventiondetailpage";
 import ArchivesPage            from "./pages/Archives/Archivespages";
 
 // ── Parc véhicules ────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ import ImagesPage              from "./pages/images/ImagesPage";
 import PermissionsConfigPage   from "./pages/permissions/PermissionsConfigPage";
 import PrintConfigPage         from "./pages/print-config/PrintConfigPage";
 import EvaluationsPage         from "./pages/Evaluation/Evaluationpage";
+import SignatureSettingsPage   from "./pages/print-config/Signaturesettingspage";
 
 // ✅ Documentation / Manuels ───────────────────────────────────────────────────
 import ManualPage              from "./pages/manuals/ManualPage";
@@ -81,6 +83,7 @@ const App: React.FC = () => (
         <Route path="/acquisitions"  element={<P><AcquisitionsPage /></P>} />
         <Route path="/deployments"   element={<P><DeploymentsPage /></P>} />
         <Route path="/interventions" element={<P><InterventionsPage /></P>} />
+        <Route path="/interventions/:id" element={<P><InterventionDetailPage /></P>} />
         <Route path="/archives"      element={<P><ArchivesPage /></P>} />
 
         {/* ── Parc ── */}
@@ -96,6 +99,7 @@ const App: React.FC = () => (
         <Route path="/settings/permissions"  element={<P><PermissionsConfigPage /></P>} />
         <Route path="/settings/print-config" element={<P><PrintConfigPage /></P>} />
         <Route path="/settings/evaluations"  element={<P><EvaluationsPage /></P>} />
+        <Route path="/settings/signature"    element={<P><SignatureSettingsPage /></P>} />
 
         {/* ✅ Documentation ── */}
         <Route path="/manuals" element={<P><ManualPage /></P>} />

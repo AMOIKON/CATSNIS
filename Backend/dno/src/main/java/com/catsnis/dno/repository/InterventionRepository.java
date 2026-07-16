@@ -189,4 +189,40 @@ public interface InterventionRepository extends JpaRepository<Intervention, Inte
 
     @Query("SELECT COALESCE(SUM(i.durationMinutes), 0) FROM Intervention i WHERE i.partner.id = :partnerId")
     Long sumDurationTotalByPartner(@Param("partnerId") Long partnerId);
+
+    // ── Stats — assistances techniques (équipement hors base) ────────────────
+    @Query("""
+    SELECT COUNT(i) FROM Intervention i
+    WHERE i.deployment IS NULL
+      AND i.commentInter LIKE '%[Equipement hors base]%'
+    """)
+    Long countHorsBase();
+
+    @Query("""
+    SELECT COUNT(i) FROM Intervention i
+    WHERE i.deployment IS NULL
+      AND i.commentInter LIKE '%[Equipement hors base]%'
+      AND i.health.id IN :healthIds
+    """)
+    Long countHorsBaseBySites(@Param("healthIds") List<Integer> healthIds);
+
+    @Query("""
+    SELECT COUNT(i) FROM Intervention i
+    WHERE i.deployment IS NULL
+      AND i.commentInter LIKE '%[Equipement hors base]%'
+      AND i.partner IS NULL
+    """)
+    Long countHorsBaseAndPartnerNull();
+
+    @Query("""
+    SELECT COUNT(i) FROM Intervention i
+    WHERE i.deployment IS NULL
+      AND i.commentInter LIKE '%[Equipement hors base]%'
+      AND i.partner.id = :partnerId
+    """)
+    Long countHorsBaseAndPartner(@Param("partnerId") Long partnerId);
+    long countByHealth_Id(Integer healthId);
+
+
+
 }

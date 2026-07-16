@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +37,13 @@ public class InterventionServiceImpl implements InterventionService {
     private final TechnicianSiteRepository  technicianSiteRepository;
     private final SecurityUtils             securityUtils;
     private final BookletService            bookletService;
+    private final AcquisitionQuickCreateService acquisitionService;
     private final PartnerRepository         partnerRepository;
+    private final InterventionPdfService     interventionPdfService;
+
+    private static final String PERSON_TAG    = "[Personne assistee]";
+    private static final String EQUIPMENT_TAG = "[Equipement hors base]";
+    private static final String STRUCTURE_TAG = "[Structure hors base]";
 
     private Date parseDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return new Date();
@@ -124,18 +131,39 @@ public class InterventionServiceImpl implements InterventionService {
                             "Booklet non trouvé : " + request.getBookletId()));
         }
 
-        Region     region     = regionRepository.findById(request.getRegionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Région non trouvée : " + request.getRegionId()));
-        District   district   = districtRepository.findById(request.getDistrictId())
-                .orElseThrow(() -> new ResourceNotFoundException("District non trouvé : " + request.getDistrictId()));
-        Health     health     = healthRepository.findById(request.getHealthId())
-                .orElseThrow(() -> new ResourceNotFoundException("Établissement non trouvé : " + request.getHealthId()));
+        boolean hasManualStructure = request.getManualStructureName() != null
+                && !request.getManualStructureName().isBlank();
+
+        Region region = resolveRegion(request.getRegionId(), hasManualStructure);
+        District district = resolveDistrict(request.getDistrictId(), hasManualStructure);
+        Health health = resolveHealth(request.getHealthId(), hasManualStructure);
+
         Evaluation evaluation = evaluationRepository.findById(request.getEvaluationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId()));
 
-        Deployment deployment = resolveDeployment(request);
-        Types      types      = resolveTypes(request.getTypesId(), deployment);
-        Apps       apps       = resolveApps(request.getAppsId(), deployment);
+        boolean hasManualEquipment = request.getManualEquipmentName() != null
+                && !request.getManualEquipmentName().isBlank();
+
+        Deployment deployment = resolveDeployment(request, hasManualEquipment);
+        Types      types      = resolveTypes(request.getTypesId(), deployment, hasManualEquipment);
+        Apps       apps       = resolveApps(request.getAppsId(), deployment, hasManualEquipment);
+
+        Partner partnerForEquipment = technician.getPartner();
+        if (request.getPartnerId() != null && request.getPartnerId() > 0) {
+            partnerForEquipment = partnerRepository.findById(request.getPartnerId()).orElse(partnerForEquipment);
+        }
+        if (hasManualEquipment && types == null) {
+            try {
+                Acquisition createdAcquisition = acquisitionService.quickCreate(
+                        request.getManualEquipmentName(),
+                        request.getManualEquipmentType(),
+                        partnerForEquipment
+                );
+                types = createdAcquisition.getTypes();
+            } catch (Exception e) {
+                System.err.println("[WARN] Création acquisition hors base échouée : " + e.getMessage());
+            }
+        }
 
         String actionInter = "EN_LIGNE".equals(request.getTypeInter())
                 ? "MAINTENANCE"
@@ -147,20 +175,10 @@ public class InterventionServiceImpl implements InterventionService {
                 && request.getManualPersonName() != null
                 && !request.getManualPersonName().isBlank();
 
-        String commentFinal = request.getCommentInter();
-        if (hasManualPerson) {
-            commentFinal = (commentFinal != null ? commentFinal : "")
-                    + " | [Personne assistee] " + request.getManualPersonName().trim()
-                    + (request.getManualPersonContact() != null
-                    ? " | Tel: " + request.getManualPersonContact() : "")
-                    + (request.getManualPersonPost() != null
-                    ? " | Poste: " + request.getManualPersonPost() : "");
-        }
+        String commentFinal = appendManualTags(request.getCommentInter(), request,
+                hasManualPerson, hasManualEquipment, hasManualStructure);
 
-        Partner partner = technician.getPartner();
-        if (request.getPartnerId() != null && request.getPartnerId() > 0) {
-            partner = partnerRepository.findById(request.getPartnerId()).orElse(partner);
-        }
+        Partner partner = partnerForEquipment;
 
         Intervention intervention = Intervention.builder()
                 .codeInter(codeInter)
@@ -178,13 +196,15 @@ public class InterventionServiceImpl implements InterventionService {
                 .partner(partner)
                 .enAttenteMaintenance(request.getEnAttenteMaintenance() != null
                         ? request.getEnAttenteMaintenance() : false)
-                // ── Géolocalisation ──────────────────────────────────────────
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .build();
 
         Intervention saved = interventionRepository.save(intervention);
-        saveItemStatesByIds(request);
+
+        if (!hasManualEquipment) {
+            saveItemStatesByIds(request);
+        }
 
         if (hasManualPerson) {
             try {
@@ -193,8 +213,8 @@ public class InterventionServiceImpl implements InterventionService {
                         nameParts[0], nameParts[1],
                         request.getManualPersonContact(),
                         request.getManualPersonPost(),
-                        Long.valueOf(request.getRegionId()),
-                        Long.valueOf(request.getDistrictId())
+                        request.getRegionId() != null ? Long.valueOf(request.getRegionId()) : null,
+                        request.getDistrictId() != null ? Long.valueOf(request.getDistrictId()) : null
                 );
             } catch (Exception e) {
                 System.err.println("[WARN] Création booklet automatique échouée : " + e.getMessage());
@@ -217,24 +237,41 @@ public class InterventionServiceImpl implements InterventionService {
                             "Booklet non trouvé : " + request.getBookletId()));
         }
 
-        Region     region     = regionRepository.findById(request.getRegionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Région non trouvée : " + request.getRegionId()));
-        District   district   = districtRepository.findById(request.getDistrictId())
-                .orElseThrow(() -> new ResourceNotFoundException("District non trouvé : " + request.getDistrictId()));
-        Health     health     = healthRepository.findById(request.getHealthId())
-                .orElseThrow(() -> new ResourceNotFoundException("Établissement non trouvé : " + request.getHealthId()));
+        boolean hasManualStructure = request.getManualStructureName() != null
+                && !request.getManualStructureName().isBlank();
+
+        Region region = resolveRegion(request.getRegionId(), hasManualStructure);
+        District district = resolveDistrict(request.getDistrictId(), hasManualStructure);
+        Health health = resolveHealth(request.getHealthId(), hasManualStructure);
+
         Evaluation evaluation = evaluationRepository.findById(request.getEvaluationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId()));
 
-        Deployment deployment = resolveDeployment(request);
-        Types      types      = resolveTypes(request.getTypesId(), deployment);
-        Apps       apps       = resolveApps(request.getAppsId(), deployment);
+        boolean hasManualEquipment = request.getManualEquipmentName() != null
+                && !request.getManualEquipmentName().isBlank();
+
+        Deployment deployment = resolveDeployment(request, hasManualEquipment);
+        Types      types      = resolveTypes(request.getTypesId(), deployment, hasManualEquipment);
+        Apps       apps       = resolveApps(request.getAppsId(), deployment, hasManualEquipment);
 
         Partner partner = intervention.getPartner() != null
                 ? intervention.getPartner()
                 : (intervention.getTechnician() != null ? intervention.getTechnician().getPartner() : null);
         if (request.getPartnerId() != null && request.getPartnerId() > 0) {
             partner = partnerRepository.findById(request.getPartnerId()).orElse(partner);
+        }
+
+        if (hasManualEquipment && types == null) {
+            try {
+                Acquisition createdAcquisition = acquisitionService.quickCreate(
+                        request.getManualEquipmentName(),
+                        request.getManualEquipmentType(),
+                        partner
+                );
+                types = createdAcquisition.getTypes();
+            } catch (Exception e) {
+                System.err.println("[WARN] Création acquisition hors base (update) échouée : " + e.getMessage());
+            }
         }
 
         String actionInter = "EN_LIGNE".equals(request.getTypeInter())
@@ -246,18 +283,17 @@ public class InterventionServiceImpl implements InterventionService {
                 && !request.getManualPersonName().isBlank();
 
         String baseComment = request.getCommentInter() != null ? request.getCommentInter() : "";
-        int oldIdx = baseComment.indexOf(" | [Personne assistee]");
-        if (oldIdx >= 0) baseComment = baseComment.substring(0, oldIdx);
+        int idxPerson    = baseComment.indexOf(" | " + PERSON_TAG);
+        int idxEquipment = baseComment.indexOf(" | " + EQUIPMENT_TAG);
+        int idxStructure = baseComment.indexOf(" | " + STRUCTURE_TAG);
+        int cutIdx = Stream.of(idxPerson, idxEquipment, idxStructure)
+                .filter(i -> i >= 0)
+                .min(Integer::compareTo)
+                .orElse(-1);
+        if (cutIdx >= 0) baseComment = baseComment.substring(0, cutIdx);
 
-        String commentFinal = baseComment;
-        if (hasManualPerson) {
-            commentFinal = baseComment
-                    + " | [Personne assistee] " + request.getManualPersonName().trim()
-                    + (request.getManualPersonContact() != null
-                    ? " | Tel: " + request.getManualPersonContact() : "")
-                    + (request.getManualPersonPost() != null
-                    ? " | Poste: " + request.getManualPersonPost() : "");
-        }
+        String commentFinal = appendManualTags(baseComment, request,
+                hasManualPerson, hasManualEquipment, hasManualStructure);
 
         intervention.setTypeInter(request.getTypeInter());
         intervention.setActionInter(actionInter);
@@ -276,12 +312,14 @@ public class InterventionServiceImpl implements InterventionService {
         intervention.setPartner(partner);
         intervention.setEnAttenteMaintenance(
                 request.getEnAttenteMaintenance() != null ? request.getEnAttenteMaintenance() : false);
-        // ── Géolocalisation ───────────────────────────────────────────────────
         if (request.getLatitude()  != null) intervention.setLatitude(request.getLatitude());
         if (request.getLongitude() != null) intervention.setLongitude(request.getLongitude());
 
         Intervention updated = interventionRepository.save(intervention);
-        saveItemStatesByIds(request);
+
+        if (!hasManualEquipment) {
+            saveItemStatesByIds(request);
+        }
 
         if (hasManualPerson) {
             try {
@@ -290,8 +328,8 @@ public class InterventionServiceImpl implements InterventionService {
                         nameParts[0], nameParts[1],
                         request.getManualPersonContact(),
                         request.getManualPersonPost(),
-                        Long.valueOf(request.getRegionId()),
-                        Long.valueOf(request.getDistrictId())
+                        request.getRegionId() != null ? Long.valueOf(request.getRegionId()) : null,
+                        request.getDistrictId() != null ? Long.valueOf(request.getDistrictId()) : null
                 );
             } catch (Exception e) {
                 System.err.println("[WARN] Création booklet automatique (update) échouée : " + e.getMessage());
@@ -348,9 +386,94 @@ public class InterventionServiceImpl implements InterventionService {
         return interventionRepository.sumDurationTotalByPartner(partnerFilter);
     }
 
+    @Override
+    public Long getTotalHorsBase() {
+        Long partnerFilter = securityUtils.getPartnerIdFilter();
+        if (partnerFilter == null) return interventionRepository.countHorsBase();
+        Person currentUser = securityUtils.getCurrentUser().orElse(null);
+        if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
+            List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
+            return healthIds.isEmpty() ? 0L : interventionRepository.countHorsBaseBySites(healthIds);
+        }
+        if (partnerFilter == -1L) return interventionRepository.countHorsBaseAndPartnerNull();
+        return interventionRepository.countHorsBaseAndPartner(partnerFilter);
+    }
+
+    @Override
+    @Transactional
+    public byte[] generateInterventionPdf(Integer interventionId) {
+        Intervention intervention = interventionRepository.findById(interventionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Intervention non trouvée : " + interventionId));
+
+        Person technician = securityUtils.getCurrentUserOrThrow();
+
+        try {
+            return interventionPdfService.generateInterventionPdf(intervention, technician);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Impossible de générer la fiche PDF de l'intervention : " + e.getMessage(), e);
+        }
+    }
+
     // ── Helpers privés ────────────────────────────────────────────────────────
 
-    private Deployment resolveDeployment(InterventionRequest request) {
+    /** Résout la région ; retourne null si structure manuelle et aucune région fournie. */
+    private Region resolveRegion(Integer regionId, boolean hasManualStructure) {
+        if (regionId != null && regionId > 0) {
+            return regionRepository.findById(regionId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Région non trouvée : " + regionId));
+        }
+        if (hasManualStructure) return null;
+        throw new ResourceNotFoundException("Région non trouvée : " + regionId);
+    }
+
+    private District resolveDistrict(Integer districtId, boolean hasManualStructure) {
+        if (districtId != null && districtId > 0) {
+            return districtRepository.findById(districtId)
+                    .orElseThrow(() -> new ResourceNotFoundException("District non trouvé : " + districtId));
+        }
+        if (hasManualStructure) return null;
+        throw new ResourceNotFoundException("District non trouvé : " + districtId);
+    }
+
+    private Health resolveHealth(Integer healthId, boolean hasManualStructure) {
+        if (healthId != null && healthId > 0) {
+            return healthRepository.findById(healthId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Établissement non trouvé : " + healthId));
+        }
+        if (hasManualStructure) return null;
+        throw new ResourceNotFoundException("Établissement non trouvé : " + healthId);
+    }
+
+    /** Concatène les marqueurs manuels dans le commentaire. */
+    private String appendManualTags(String base, InterventionRequest request,
+                                    boolean hasManualPerson, boolean hasManualEquipment,
+                                    boolean hasManualStructure) {
+        String result = base;
+        if (hasManualPerson) {
+            result = (result != null ? result : "")
+                    + " | " + PERSON_TAG + " " + request.getManualPersonName().trim()
+                    + (request.getManualPersonContact() != null
+                    ? " | Tel: " + request.getManualPersonContact() : "")
+                    + (request.getManualPersonPost() != null
+                    ? " | Poste: " + request.getManualPersonPost() : "")
+                    + (request.getManualPersonEmail() != null && !request.getManualPersonEmail().isBlank()
+                    ? " | Email: " + request.getManualPersonEmail().trim() : "");
+        }
+        if (hasManualEquipment) {
+            result = (result != null ? result : "")
+                    + " | " + EQUIPMENT_TAG + " " + request.getManualEquipmentName().trim()
+                    + (request.getManualEquipmentType() != null && !request.getManualEquipmentType().isBlank()
+                    ? " | Type: " + request.getManualEquipmentType().trim() : "");
+        }
+        if (hasManualStructure) {
+            result = (result != null ? result : "")
+                    + " | " + STRUCTURE_TAG + " " + request.getManualStructureName().trim();
+        }
+        return result;
+    }
+
+    private Deployment resolveDeployment(InterventionRequest request, boolean hasManualEquipment) {
         Deployment deployment = null;
         if (request.getDeploymentId() != null && request.getDeploymentId() > 0)
             deployment = deploymentRepository.findById(request.getDeploymentId()).orElse(null);
@@ -358,26 +481,28 @@ public class InterventionServiceImpl implements InterventionService {
             List<Deployment> deps = deploymentRepository.findByHealthId(request.getHealthId());
             if (!deps.isEmpty()) deployment = deps.get(0);
         }
-        if (deployment == null)
+        if (deployment == null && !hasManualEquipment)
             throw new ResourceNotFoundException("Aucun déploiement trouvé pour ce site");
         return deployment;
     }
 
-    private Types resolveTypes(Integer typesId, Deployment deployment) {
+    private Types resolveTypes(Integer typesId, Deployment deployment, boolean hasManualEquipment) {
         if (typesId != null && typesId > 0)
             return typesRepository.findById(typesId)
                     .orElseThrow(() -> new ResourceNotFoundException("Type non trouvé : " + typesId));
         if (deployment != null && deployment.getItems() != null && !deployment.getItems().isEmpty())
             return deployment.getItems().get(0).getAcquisition().getTypes();
+        if (hasManualEquipment) return null;
         throw new ResourceNotFoundException("Impossible de déterminer le type d'équipement");
     }
 
-    private Apps resolveApps(Integer appsId, Deployment deployment) {
+    private Apps resolveApps(Integer appsId, Deployment deployment, boolean hasManualEquipment) {
         if (appsId != null && appsId > 0)
             return appsRepository.findById(appsId)
                     .orElseThrow(() -> new ResourceNotFoundException("Application non trouvée : " + appsId));
         if (deployment != null && deployment.getApps() != null)
             return deployment.getApps();
+        if (hasManualEquipment) return null;
         throw new ResourceNotFoundException("Impossible de déterminer l'application");
     }
 
@@ -454,29 +579,59 @@ public class InterventionServiceImpl implements InterventionService {
             }).collect(Collectors.toList());
         }
 
-        String personName = null, personContact = null, personPost = null;
+        String personName = null, personContact = null, personPost = null, manualPersonEmail = null;
         Integer personId = null;
+        String manualEquipmentName = null, manualEquipmentType = null, manualStructureName = null;
+
         if (intervention.getBooklet() != null) {
             Booklet b = intervention.getBooklet();
             personName    = b.getLastName() + " " + b.getFirstName();
             personId      = b.getId().intValue();
             personContact = b.getContact();
             personPost    = b.getPost() != null ? b.getPost().getPostName() : null;
+            manualPersonEmail = b.getEmail();
         } else if (intervention.getPerson() != null) {
             Person p = intervention.getPerson();
             personName = p.getFirstName() + " " + p.getLastName();
             personId   = p.getId();
-        } else if (intervention.getCommentInter() != null
-                && intervention.getCommentInter().contains("[Personne assistee]")) {
+        }
+
+        if (intervention.getCommentInter() != null) {
             String comment = intervention.getCommentInter();
-            int startIdx = comment.indexOf("[Personne assistee] ");
-            if (startIdx >= 0) {
-                String rest = comment.substring(startIdx + "[Personne assistee] ".length());
-                String[] parts = rest.split(" \\| ");
-                if (parts.length > 0) personName = parts[0].trim();
-                for (String part : parts) {
-                    if (part.startsWith("Tel: "))   personContact = part.substring(5).trim();
-                    if (part.startsWith("Poste: ")) personPost    = part.substring(7).trim();
+
+            if (personName == null && comment.contains(PERSON_TAG)) {
+                int startIdx = comment.indexOf(PERSON_TAG + " ");
+                if (startIdx >= 0) {
+                    String rest = comment.substring(startIdx + (PERSON_TAG + " ").length());
+                    String[] parts = rest.split(" \\| ");
+                    if (parts.length > 0) personName = parts[0].trim();
+                    for (String part : parts) {
+                        if (part.startsWith("Tel: "))    personContact = part.substring(5).trim();
+                        if (part.startsWith("Poste: "))  personPost    = part.substring(7).trim();
+                        if (part.startsWith("Email: "))  manualPersonEmail = part.substring(7).trim();
+                    }
+                }
+            }
+
+            if (comment.contains(EQUIPMENT_TAG)) {
+                int startIdx = comment.indexOf(EQUIPMENT_TAG + " ");
+                if (startIdx >= 0) {
+                    String rest = comment.substring(startIdx + (EQUIPMENT_TAG + " ").length());
+                    String[] parts = rest.split(" \\| ");
+                    if (parts.length > 0) manualEquipmentName = parts[0].trim();
+                    for (String part : parts) {
+                        if (part.startsWith("Type: ")) manualEquipmentType = part.substring(6).trim();
+                    }
+                }
+            }
+
+            if (comment.contains(STRUCTURE_TAG)) {
+                int startIdx = comment.indexOf(STRUCTURE_TAG + " ");
+                if (startIdx >= 0) {
+                    String rest = comment.substring(startIdx + (STRUCTURE_TAG + " ").length());
+                    // s'arrête au prochain marqueur " | [" s'il y en a un après
+                    int nextTag = rest.indexOf(" | [");
+                    manualStructureName = (nextTag >= 0 ? rest.substring(0, nextTag) : rest).trim();
                 }
             }
         }
@@ -486,10 +641,11 @@ public class InterventionServiceImpl implements InterventionService {
                 .typeInter(intervention.getTypeInter()).actionInter(intervention.getActionInter())
                 .commentInter(intervention.getCommentInter()).dateInter(intervention.getDateInter())
                 .durationMinutes(intervention.getDurationMinutes())
-                .regionName(intervention.getRegion().getRegionName())
-                .districtName(intervention.getDistrict().getDistrictName())
-                .healthName(intervention.getHealth().getHealthName())
-                .typeName(intervention.getTypes().getTypeName())
+                .regionName(intervention.getRegion() != null ? intervention.getRegion().getRegionName() : manualStructureName)
+                .districtName(intervention.getDistrict() != null ? intervention.getDistrict().getDistrictName() : null)
+                .healthName(intervention.getHealth() != null ? intervention.getHealth().getHealthName() : manualStructureName)
+                .typeName(intervention.getTypes() != null
+                        ? intervention.getTypes().getTypeName() : manualEquipmentType)
                 .evlName(intervention.getEvaluation().getEvlName())
                 .regionId(intervention.getRegion()     != null ? intervention.getRegion().getId()     : null)
                 .districtId(intervention.getDistrict() != null ? intervention.getDistrict().getId()   : null)
@@ -514,9 +670,13 @@ public class InterventionServiceImpl implements InterventionService {
                 .personId(personId).personName(personName)
                 .personContact(personContact).personPost(personPost)
                 .enAttenteMaintenance(intervention.getEnAttenteMaintenance())
-                // ── Géolocalisation ──────────────────────────────────────────
                 .latitude(intervention.getLatitude())
                 .longitude(intervention.getLongitude())
+                .manualEquipmentName(manualEquipmentName)
+                .manualEquipmentType(manualEquipmentType)
+                .manualStructureName(manualStructureName)
+                .personEmail(manualPersonEmail)
+                .canSendEmail(manualPersonEmail != null && !manualPersonEmail.isBlank())
                 .build();
     }
 }

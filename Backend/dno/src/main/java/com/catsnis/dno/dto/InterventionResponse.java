@@ -40,10 +40,23 @@ public class InterventionResponse {
     private String                     personName;
     private String                     personContact;
     private String                     personPost;
+    // ✅ Email de la personne assistée (booklet.email, ou saisie manuelle)
+    private String                     personEmail;
     private Boolean                    enAttenteMaintenance;
     private Integer                    partnerId;
 
     // ── Géolocalisation ───────────────────────────────────────────────────────
     private Double                     latitude;
     private Double                     longitude;
+
+    // ── Équipement hors base ──────────────────────────────────────────────────
+    private String                     manualEquipmentName;
+    private String                     manualEquipmentType;
+
+    // ── Structure hors base ───────────────────────────────────────────────────
+    private String                     manualStructureName;
+
+    // ── Suivi de l'envoi email ────────────────────────────────────────────────
+    private Boolean                    emailSent;
+    private Boolean                    canSendEmail;
 }

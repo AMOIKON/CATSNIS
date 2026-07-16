@@ -321,9 +321,10 @@ export interface InterventionResponse {
   personName:           string;
   evlName:              string;
   documentPath:         string;
-  regionId:             number;
-  districtId:           number;
-  healthId:             number;
+  // ✅ nullable en mode "structure hors base" (region/district/site non renseignés)
+  regionId?:            number;
+  districtId?:          number;
+  healthId?:            number;
   deploymentId:         number;
   evaluationId:         number;
   personId?:            number;
@@ -333,10 +334,19 @@ export interface InterventionResponse {
   enAttenteMaintenance?: boolean;
   personContact?: string;
   personPost?:    string;
+  // ✅ Email de la personne assistée (booklet.email, ou saisie manuelle)
+  personEmail?:   string;
   partnerId?:     number;
   // ── Géolocalisation ──────────────────────────────────────────────────────
   latitude?:  number;
   longitude?: number;
+
+  // ── Équipement hors base ──────────────────────────────────────────────────
+  manualEquipmentName?: string;
+  manualEquipmentType?: string;
+
+  // ── Structure hors base ───────────────────────────────────────────────────
+  manualStructureName?: string;
 }
 
 export interface InterventionRequest {
@@ -364,10 +374,19 @@ export interface InterventionRequest {
   manualPersonName?:        string;
   manualPersonContact?:     string;
   manualPersonPost?:        string;
+  // ✅ Email pour l'envoi du rapport d'intervention (personne saisie manuellement)
+  manualPersonEmail?:       string;
   partnerId?:               number;
   // ── Géolocalisation ──────────────────────────────────────────────────────
   latitude?:  number;
   longitude?: number;
+
+  // ── Équipement hors base ──────────────────────────────────────────────────
+  manualEquipmentName?: string;
+  manualEquipmentType?: string;
+
+  // ── Structure hors base (région/district/site non renseignés) ────────────
+  manualStructureName?: string;
 }
 
 // ── Appreciation ──────────────────────────────────────────────────────────────
