@@ -44,7 +44,7 @@ import PermissionsConfigPage   from "./pages/permissions/PermissionsConfigPage";
 import PrintConfigPage         from "./pages/print-config/PrintConfigPage";
 import EvaluationsPage         from "./pages/Evaluation/Evaluationpage";
 import SignatureSettingsPage   from "./pages/signature/SignatureSettingsPage";
-import PublicVerifyPage        from "./pages/interventions/Publicverifypage";
+import PublicVerifyPage        from "./pages/interventions/PublicVerifyPage";
 
 // ✅ Documentation / Manuels ───────────────────────────────────────────────────
 import ManualPage              from "./pages/manuals/ManualPage";

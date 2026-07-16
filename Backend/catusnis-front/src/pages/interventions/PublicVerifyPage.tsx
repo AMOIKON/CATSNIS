@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Spinner, Alert, Badge } from 'react-bootstrap';
-import PublicInterventionService, { PublicInterventionResponse } from '../../services/Publicinterventionservice';
+import publicInterventionService, { PublicInterventionResponse } from '../../services/publicInterventionService';
 
 const InfoRow: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => (
     <div className="d-flex border-bottom py-2">
@@ -21,7 +21,7 @@ const PublicVerifyPage: React.FC = () => {
 
     useEffect(() => {
         if (!id) return;
-        PublicInterventionService.get(Number(id))
+        publicInterventionService.get(Number(id))
             .then(setData)
             .catch(() => setError("Cette intervention n'a pas été trouvée, ou le lien est invalide."))
             .finally(() => setLoading(false));
