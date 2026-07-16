@@ -318,18 +318,21 @@ public class InterventionPdfService {
         sigTable.addCell(buildSignatureCell("Signature Bénéficiaire", null, personName));
         document.add(sigTable);
 
-        // ── QR code — pointe vers l'intervention dans l'application ──────────
+        // ── QR code — pointe vers une page de consultation PUBLIQUE (sans connexion) ──
         // ⚠️ Nécessite la dépendance Maven com.itextpdf:barcodes (à ajouter au
         //    pom.xml si absente — même groupId que itext7-kernel/layout déjà utilisés).
         try {
-            String qrContent = appFrontendUrl + "/interventions/" + intervention.getId();
+            String qrContent = appFrontendUrl + "/verify/" + intervention.getId();
             BarcodeQRCode qrCode = new BarcodeQRCode(qrContent);
             com.itextpdf.layout.element.Image qrImage =
                     new com.itextpdf.layout.element.Image(qrCode.createFormXObject(pdfDoc));
             qrImage.setWidth(60f);
             qrImage.setHeight(60f);
-            qrImage.setFixedPosition(pdfDoc.getDefaultPageSize().getWidth() - 90, 60);
+            qrImage.setFixedPosition(30, 40);
             document.add(qrImage);
+            document.showTextAligned(
+                    new Paragraph("Scanner pour vérifier").setFontSize(6).setFontColor(ColorConstants.GRAY),
+                    60, 32, pdfDoc.getNumberOfPages(), TextAlignment.CENTER, null, 0);
         } catch (Exception e) {
             System.out.println("⚠️ QR code non généré (dépendance barcodes manquante ?) : " + e.getMessage());
         }

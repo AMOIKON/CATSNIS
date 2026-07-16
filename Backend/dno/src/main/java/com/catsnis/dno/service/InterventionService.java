@@ -32,4 +32,7 @@ public interface InterventionService {
 
     // ── Fiche PDF de l'intervention — téléchargement direct, plus d'envoi SMTP
     byte[]                       generateInterventionPdf(Integer id);
+
+    // ── Consultation publique (sans connexion) via QR code ──────────────────
+    com.catsnis.dno.dto.PublicInterventionResponse getPublicSummary(Integer id);
 }

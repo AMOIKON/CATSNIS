@@ -415,6 +415,84 @@ public class InterventionServiceImpl implements InterventionService {
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public com.catsnis.dno.dto.PublicInterventionResponse getPublicSummary(Integer interventionId) {
+        Intervention intervention = interventionRepository.findById(interventionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Intervention non trouvée : " + interventionId));
+
+        String comment = intervention.getCommentInter();
+        boolean isStructureEnregistree = intervention.getRegion() != null
+                && intervention.getDistrict() != null && intervention.getHealth() != null;
+        boolean isEquipmentHorsBase = intervention.getDeployment() == null;
+
+        String personName;
+        if (intervention.getBooklet() != null) {
+            Booklet b = intervention.getBooklet();
+            personName = b.getLastName() + " " + b.getFirstName();
+        } else {
+            personName = extractPublicTag(comment, PERSON_TAG);
+        }
+
+        String structureName = isStructureEnregistree ? null : extractPublicTag(comment, STRUCTURE_TAG);
+        String equipName      = extractPublicTag(comment, EQUIPMENT_TAG);
+        String equipType      = null;
+        if (equipName != null) {
+            String rest = comment.substring(comment.indexOf(EQUIPMENT_TAG + " ") + (EQUIPMENT_TAG + " ").length());
+            for (String part : rest.split(" \\| ")) {
+                if (part.startsWith("Type: ")) equipType = part.substring(6).trim();
+            }
+        }
+
+        java.util.List<com.catsnis.dno.dto.PublicInterventionResponse.PublicDeploymentItem> items =
+                new java.util.ArrayList<>();
+        if (intervention.getDeployment() != null && intervention.getDeployment().getItems() != null) {
+            for (var item : intervention.getDeployment().getItems()) {
+                items.add(com.catsnis.dno.dto.PublicInterventionResponse.PublicDeploymentItem.builder()
+                        .typeName(item.getAcquisition() != null ? item.getAcquisition().getTypes().getTypeName() : null)
+                        .tag(item.getAcquisition() != null ? item.getAcquisition().getTag() : null)
+                        .etatAvant(item.getEtatAvant())
+                        .etatApres(item.getEtatApres())
+                        .build());
+            }
+        }
+
+        return com.catsnis.dno.dto.PublicInterventionResponse.builder()
+                .codeInter(intervention.getCodeInter())
+                .typeInter(intervention.getTypeInter())
+                .actionInter(intervention.getActionInter())
+                .commentInter(sanitizePublicComment(comment))
+                .dateInter(intervention.getDateInter())
+                .durationMinutes(intervention.getDurationMinutes())
+                .regionName(isStructureEnregistree ? intervention.getRegion().getRegionName() : null)
+                .districtName(isStructureEnregistree ? intervention.getDistrict().getDistrictName() : null)
+                .healthName(isStructureEnregistree ? intervention.getHealth().getHealthName() : null)
+                .structureName(structureName)
+                .appName(intervention.getApps() != null ? intervention.getApps().getAppName() : null)
+                .technicianName(intervention.getTechnician().getFirstName() + " " + intervention.getTechnician().getLastName())
+                .personName(personName)
+                .manualEquipmentName(equipName)
+                .manualEquipmentType(equipType)
+                .structureEnregistree(isStructureEnregistree)
+                .equipementHorsBase(isEquipmentHorsBase)
+                .deploymentItems(items)
+                .build();
+    }
+
+    private String extractPublicTag(String comment, String tag) {
+        if (comment == null || !comment.contains(tag)) return null;
+        int startIdx = comment.indexOf(tag + " ");
+        if (startIdx < 0) return null;
+        String rest = comment.substring(startIdx + (tag + " ").length());
+        int nextTag = rest.indexOf(" | [");
+        return (nextTag >= 0 ? rest.substring(0, nextTag) : rest).trim();
+    }
+
+    private String sanitizePublicComment(String comment) {
+        if (comment == null) return "";
+        return comment.replaceAll("\\s*\\|\\s*\\[[^\\]]*\\][^|]*", "").trim();
+    }
+
     // ── Helpers privés ────────────────────────────────────────────────────────
 
     /** Résout la région ; retourne null si structure manuelle et aucune région fournie. */

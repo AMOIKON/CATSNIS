@@ -44,6 +44,7 @@ import PermissionsConfigPage   from "./pages/permissions/PermissionsConfigPage";
 import PrintConfigPage         from "./pages/print-config/PrintConfigPage";
 import EvaluationsPage         from "./pages/Evaluation/Evaluationpage";
 import SignatureSettingsPage   from "./pages/signature/SignatureSettingsPage";
+import PublicVerifyPage        from "./pages/interventions/Publicverifypage";
 
 // ✅ Documentation / Manuels ───────────────────────────────────────────────────
 import ManualPage              from "./pages/manuals/ManualPage";
@@ -58,6 +59,8 @@ const App: React.FC = () => (
       <Routes>
         {/* ── Public ── */}
         <Route path="/login" element={<LoginPage />} />
+        {/* ✅ Consultation publique via QR code — sans connexion */}
+        <Route path="/verify/:id" element={<PublicVerifyPage />} />
 
         {/* ── Dashboards ── */}
         <Route path="/dashboard"             element={<Navigate to="/dashboard-general" replace />} />
