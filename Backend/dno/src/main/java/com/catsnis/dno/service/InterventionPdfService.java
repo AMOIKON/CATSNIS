@@ -128,10 +128,13 @@ public class InterventionPdfService {
         document.add(new LineSeparator(new SolidLine(1f)).setMarginBottom(14f));
     }
 
-    /** Retire les marqueurs internes avant affichage dans le PDF. */
+    /** Retire les marqueurs internes avant affichage — tout ce qui suit le
+     *  premier " | [" est une donnée technique (personne/équipement/structure),
+     *  jamais le vrai commentaire saisi par l'utilisateur. */
     private String sanitizeComment(String comment) {
         if (comment == null) return "";
-        return comment.replaceAll("\\s*\\|\\s*\\[[^\\]]*\\][^|]*", "").trim();
+        int idx = comment.indexOf(" | [");
+        return (idx >= 0 ? comment.substring(0, idx) : comment).trim();
     }
 
     private String extractTag(String comment, String tag) {
@@ -141,6 +144,26 @@ public class InterventionPdfService {
         String rest = comment.substring(startIdx + (tag + " ").length());
         int nextTag = rest.indexOf(" | [");
         return (nextTag >= 0 ? rest.substring(0, nextTag) : rest).trim();
+    }
+
+    /** Extrait séparément nom / téléphone / poste / email du bloc [Personne assistee],
+     *  qui contient plusieurs champs concaténés par " | " (pas juste un nom simple). */
+    private String[] extractPersonDetails(String comment) {
+        String[] result = new String[]{null, null, null, null}; // nom, tel, poste, email
+        if (comment == null || !comment.contains(PERSON_TAG)) return result;
+        int startIdx = comment.indexOf(PERSON_TAG + " ");
+        if (startIdx < 0) return result;
+        String rest = comment.substring(startIdx + (PERSON_TAG + " ").length());
+        int nextTag = rest.indexOf(" | [");
+        String block = (nextTag >= 0 ? rest.substring(0, nextTag) : rest).trim();
+        String[] parts = block.split(" \\| ");
+        if (parts.length > 0) result[0] = parts[0].trim();
+        for (String part : parts) {
+            if (part.startsWith("Tel: "))   result[1] = part.substring(5).trim();
+            if (part.startsWith("Poste: ")) result[2] = part.substring(7).trim();
+            if (part.startsWith("Email: ")) result[3] = part.substring(7).trim();
+        }
+        return result;
     }
 
     private String safe(String value) {
@@ -245,17 +268,32 @@ public class InterventionPdfService {
         addInfoRow(infoTable, "Réalisée par",
                 technician.getFirstName() + " " + technician.getLastName());
 
-        String personName;
+        String personName, personPoste = null, personTel = null, personEmail = null;
         if (intervention.getBooklet() != null) {
             personName = intervention.getBooklet().getLastName() + " " + intervention.getBooklet().getFirstName();
         } else {
-            personName = extractTag(comment, PERSON_TAG);
+            String[] details = extractPersonDetails(comment);
+            personName  = details[0];
+            personTel   = details[1];
+            personPoste = details[2];
+            personEmail = details[3];
         }
         addInfoRow(infoTable, "Personne assistée", personName);
+        if (personPoste != null) addInfoRow(infoTable, "Fonction", personPoste);
+        if (personTel   != null) addInfoRow(infoTable, "Contact", personTel);
+        if (personEmail != null) addInfoRow(infoTable, "Email", personEmail);
 
-        String equipName = extractTag(comment, EQUIPMENT_TAG);
-        if (intervention.getDeployment() == null && equipName != null) {
-            addInfoRow(infoTable, "Équipement (hors base)", equipName);
+        if (intervention.getDeployment() == null && comment != null && comment.contains(EQUIPMENT_TAG)) {
+            int eqStart = comment.indexOf(EQUIPMENT_TAG + " ");
+            String eqRest = comment.substring(eqStart + (EQUIPMENT_TAG + " ").length());
+            int eqNextTag = eqRest.indexOf(" | [");
+            String eqBlock = (eqNextTag >= 0 ? eqRest.substring(0, eqNextTag) : eqRest).trim();
+            String[] eqParts = eqBlock.split(" \\| ");
+            String eqName = eqParts.length > 0 ? eqParts[0].trim() : null;
+            String eqType = null;
+            for (String p : eqParts) if (p.startsWith("Type: ")) eqType = p.substring(6).trim();
+            if (eqName != null) addInfoRow(infoTable, "Équipement (hors base)", eqName);
+            if (eqType != null) addInfoRow(infoTable, "Type d'équipement", eqType);
         }
 
         if (intervention.getPartner() != null) {
