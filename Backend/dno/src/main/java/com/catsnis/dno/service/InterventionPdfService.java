@@ -219,6 +219,28 @@ public class InterventionPdfService {
         addWatermark(document, PageSize.A4, logoBytes);
         addHeader(document, logoBytes);
 
+        // ── QR code — en haut à droite, dans la zone d'en-tête ──────────────
+        // Pointe vers une page de consultation PUBLIQUE (sans connexion).
+        // ⚠️ Nécessite la dépendance Maven com.itextpdf:barcodes (à ajouter au
+        //    pom.xml si absente — même groupId que itext7-kernel/layout déjà utilisés).
+        try {
+            String qrContent = appFrontendUrl + "/verify/" + intervention.getId();
+            BarcodeQRCode qrCode = new BarcodeQRCode(qrContent);
+            com.itextpdf.layout.element.Image qrImage =
+                    new com.itextpdf.layout.element.Image(qrCode.createFormXObject(pdfDoc));
+            qrImage.setWidth(55f);
+            qrImage.setHeight(55f);
+            float pageWidth = PageSize.A4.getWidth();
+            float pageHeight = PageSize.A4.getHeight();
+            qrImage.setFixedPosition(pageWidth - 90, pageHeight - 100);
+            document.add(qrImage);
+            document.showTextAligned(
+                    new Paragraph("Scanner pour vérifier").setFontSize(6).setFontColor(ColorConstants.GRAY),
+                    pageWidth - 62, pageHeight - 105, 1, TextAlignment.CENTER, null, 0);
+        } catch (Exception e) {
+            System.out.println("⚠️ QR code non généré (dépendance barcodes manquante ?) : " + e.getMessage());
+        }
+
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
         String dateStr = intervention.getDateInter() != null
                 ? dateFormat.format(intervention.getDateInter()) : "—";
@@ -356,34 +378,24 @@ public class InterventionPdfService {
         sigTable.addCell(buildSignatureCell("Signature Bénéficiaire", null, personName));
         document.add(sigTable);
 
-        // ── QR code — pointe vers une page de consultation PUBLIQUE (sans connexion) ──
-        // ⚠️ Nécessite la dépendance Maven com.itextpdf:barcodes (à ajouter au
-        //    pom.xml si absente — même groupId que itext7-kernel/layout déjà utilisés).
-        try {
-            String qrContent = appFrontendUrl + "/verify/" + intervention.getId();
-            BarcodeQRCode qrCode = new BarcodeQRCode(qrContent);
-            com.itextpdf.layout.element.Image qrImage =
-                    new com.itextpdf.layout.element.Image(qrCode.createFormXObject(pdfDoc));
-            qrImage.setWidth(60f);
-            qrImage.setHeight(60f);
-            qrImage.setFixedPosition(30, 40);
-            document.add(qrImage);
-            document.showTextAligned(
-                    new Paragraph("Scanner pour vérifier").setFontSize(6).setFontColor(ColorConstants.GRAY),
-                    60, 32, pdfDoc.getNumberOfPages(), TextAlignment.CENTER, null, 0);
-        } catch (Exception e) {
-            System.out.println("⚠️ QR code non généré (dépendance barcodes manquante ?) : " + e.getMessage());
-        }
-
-        document.add(new Paragraph("CATUSNIS — Document généré automatiquement le "
-                + new SimpleDateFormat("dd/MM/yyyy à HH:mm").format(new java.util.Date()))
-                .setFontSize(7).setFontColor(ColorConstants.GRAY)
-                .setTextAlignment(TextAlignment.CENTER).setMarginTop(30f));
-
-        // ── Numérotation de page (le nombre total est connu une fois tout le contenu ajouté) ──
+        // ── Pied de page fixe (identique sur chaque page, en position absolue) ──
+        // Regroupe numérotation + date de génération, toujours collé en bas,
+        // quelle que soit la longueur du contenu au-dessus.
         int totalPages = pdfDoc.getNumberOfPages();
+        String generatedOn = "CATUSNIS — Document généré automatiquement le "
+                + new SimpleDateFormat("dd/MM/yyyy à HH:mm").format(new java.util.Date());
+
         for (int i = 1; i <= totalPages; i++) {
             Rectangle pageSize = pdfDoc.getPage(i).getPageSize();
+
+            document.showTextAligned(
+                    new LineSeparator(new SolidLine(0.5f)).setWidth(pageSize.getWidth() - 80),
+                    40, 34, i, TextAlignment.LEFT, null, 0);
+
+            document.showTextAligned(
+                    new Paragraph(generatedOn).setFontSize(7).setFontColor(ColorConstants.GRAY),
+                    pageSize.getWidth() / 2, 20, i, TextAlignment.CENTER, null, 0);
+
             document.showTextAligned(
                     new Paragraph("Page " + i + "/" + totalPages).setFontSize(7).setFontColor(ColorConstants.GRAY),
                     pageSize.getWidth() - 40, 20, i, TextAlignment.RIGHT, null, 0);
