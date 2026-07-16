@@ -27,7 +27,7 @@ import TypesPage               from "./pages/types/TypesPage";
 import AcquisitionsPage        from "./pages/acquisitions/AcquisitionsPage";
 import DeploymentsPage         from "./pages/Deployment/DeploymentsPage";
 import InterventionsPage       from "./pages/interventions/InterventionsPage";
-import InterventionDetailPage  from "./pages/interventions/Interventiondetailpage";
+import InterventionDetailPage  from "./pages/interventions/InterventionDetailPage";
 import ArchivesPage            from "./pages/Archives/Archivespages";
 
 // ── Parc véhicules ────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ import ImagesPage              from "./pages/images/ImagesPage";
 import PermissionsConfigPage   from "./pages/permissions/PermissionsConfigPage";
 import PrintConfigPage         from "./pages/print-config/PrintConfigPage";
 import EvaluationsPage         from "./pages/Evaluation/Evaluationpage";
-import SignatureSettingsPage   from "./pages/print-config/Signaturesettingspage";
+import SignatureSettingsPage   from "./pages/signature/SignatureSettingsPage";
 
 // ✅ Documentation / Manuels ───────────────────────────────────────────────────
 import ManualPage              from "./pages/manuals/ManualPage";
