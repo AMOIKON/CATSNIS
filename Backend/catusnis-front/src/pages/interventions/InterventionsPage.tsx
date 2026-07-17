@@ -327,7 +327,7 @@ const InterventionsPage: React.FC = () => {
                 return (
                 <div id="print-zone" className="d-none">
                     <style>{`@media print {
-                        @page { margin: 1.5cm; size: A4 portrait; }
+                        @page { margin: 1cm; size: A4 portrait; }
                         ${bgLogo ? `#print-bg-wm { position:fixed!important; top:50%!important; left:50%!important; transform:translate(-50%,-50%)!important; width:400px!important; height:400px!important; opacity:0.07!important; z-index:0!important; pointer-events:none!important; }` : ''}
                         #print-header-logos { display:flex!important; }
                         #print-content { position:relative!important; z-index:1!important; }
@@ -335,18 +335,18 @@ const InterventionsPage: React.FC = () => {
                     <div style={{ fontFamily: 'Arial,sans-serif', fontSize: '12px', color: '#222' }}>
                         {bgLogo && <img id="print-bg-wm" src={bgLogo} alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '400px', height: '400px', objectFit: 'contain', opacity: 0.07, zIndex: 0, pointerEvents: 'none' }} />}
                         <div id="print-content" style={{ position: 'relative', zIndex: 1 }}>
-                            <div id="print-header-logos" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '14px', borderBottom: '2.5px solid #0d6efd' }}>
+                            <div id="print-header-logos" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '2.5px solid #0d6efd' }}>
                                 <div style={{ width: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     {leftSrc ? <img src={leftSrc} alt="logo-g" style={{ maxWidth: '90px', maxHeight: '80px', objectFit: 'contain', display: 'block' }} /> : <div style={{ width: '80px', height: '70px' }} />}
                                 </div>
-                                <div style={{ textAlign: 'center', flex: 1, padding: '0 16px' }}>
-                                    <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#0d6efd', fontWeight: 'bold', textTransform: 'uppercase' }}>FICHE D'INTERVENTION</h2>
+                                <div style={{ textAlign: 'center', flex: 1, padding: '0 12px' }}>
+                                    <h2 style={{ margin: '0 0 3px 0', fontSize: '18px', color: '#0d6efd', fontWeight: 'bold', textTransform: 'uppercase' }}>FICHE D'INTERVENTION</h2>
                                     <p style={{ margin: '0', color: '#555', fontSize: '12px' }}>
                                         {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                         {' — Imprimé à '}
                                         {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                     </p>
-                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '3px' }}>
                                         {printTarget.technicianName && <span style={{ padding: '3px 12px', background: '#f0f0f0', borderRadius: '20px', fontSize: '11px' }}>👤 {printTarget.technicianName}</span>}
                                         {printTarget.enAttenteMaintenance && <span style={{ padding: '3px 12px', background: '#fff3cd', borderRadius: '20px', fontSize: '11px', color: '#856404' }}>⚠️ En attente maintenance</span>}
                                         {!printTarget.deploymentId && printTarget.manualEquipmentName && <span style={{ padding: '3px 12px', background: '#e0e7ff', borderRadius: '20px', fontSize: '11px', color: '#3730a3' }}>🔧 Assistance technique</span>}
@@ -357,7 +357,7 @@ const InterventionsPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <table style={{ width: '100%', marginBottom: '16px', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <table style={{ width: '100%', marginBottom: '8px', borderCollapse: 'collapse', fontSize: '11px' }}>
                                 <tbody>
                                     <tr><td style={{ padding: '5px 8px', width: '50%', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Code :</strong> {printTarget.codeInter}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Date :</strong> {new Date(printTarget.dateInter).toLocaleDateString('fr-FR')}</td></tr>
                                     <tr><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Type :</strong> {printTarget.typeInter === 'EN_LIGNE' ? '📞 En ligne' : '🏥 Sur site'}</td><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Action :</strong> {printTarget.actionInter}</td></tr>
@@ -375,7 +375,7 @@ const InterventionsPage: React.FC = () => {
 
                             {/* ── GPS dans la fiche imprimée ── */}
                             {printTarget.latitude != null && printTarget.longitude != null && (
-                                <div style={{ marginBottom: '14px', padding: '8px 12px', background: '#d1e7dd', borderRadius: '6px', border: '1px solid #a3cfbb', fontSize: '11px', color: '#0a3622', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ marginBottom: '8px', padding: '5px 10px', background: '#d1e7dd', borderRadius: '6px', border: '1px solid #a3cfbb', fontSize: '11px', color: '#0a3622', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span>📍</span>
                                     <div>
                                         <strong>Coordonnées GPS :</strong>{' '}
@@ -390,8 +390,8 @@ const InterventionsPage: React.FC = () => {
                             )}
 
                             {printTarget.deploymentItems?.length > 0 && (<>
-                                <h4 style={{ marginBottom: '10px', fontSize: '14px', borderLeft: '4px solid #0d6efd', paddingLeft: '8px' }}>Équipements concernés</h4>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '16px' }}>
+                                <h4 style={{ marginBottom: '6px', fontSize: '13px', borderLeft: '4px solid #0d6efd', paddingLeft: '8px' }}>Équipements concernés</h4>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', marginBottom: '8px' }}>
                                     <thead><tr style={{ background: '#0d6efd', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                         {['#', 'Type', 'Tag', 'N° Série', 'Statut', 'État avant', 'État après', 'Remplacement'].map(h => <th key={h} style={{ border: '1px solid #0d6efd', padding: '6px 8px' }}>{h}</th>)}
                                     </tr></thead>
@@ -412,12 +412,12 @@ const InterventionsPage: React.FC = () => {
                                 </table>
                             </>)}
 
-                            {printTarget.commentInter && <div style={{ marginBottom: '20px', padding: '10px 12px', background: '#f9f9f9', borderRadius: '6px', border: '1px solid #eee' }}><strong>Commentaire :</strong><p style={{ marginTop: '6px', marginBottom: 0 }}>{printTarget.commentInter}</p></div>}
-                            <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between', gap: '40px' }}>
-                                <div style={{ textAlign: 'center', flex: 1 }}><p style={{ fontWeight: 'bold' }}>Signature Technicien</p><p style={{ color: '#666', fontSize: '11px' }}>{printTarget.technicianName}</p><div style={{ marginTop: '35px', borderTop: '1px solid #333', paddingTop: '4px', fontSize: '10px', color: '#888' }}>Nom & Signature</div></div>
-                                <div style={{ textAlign: 'center', flex: 1 }}><p style={{ fontWeight: 'bold' }}>{printTarget.typeInter === 'EN_LIGNE' ? 'Signature Responsable' : 'Signature Personne sur site'}</p><p style={{ color: '#666', fontSize: '11px' }}>{printTarget.personName?.trim() || printTarget.healthName}</p><div style={{ marginTop: '35px', borderTop: '1px solid #333', paddingTop: '4px', fontSize: '10px', color: '#888' }}>Nom & Signature</div></div>
+                            {printTarget.commentInter && <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#f9f9f9', borderRadius: '6px', border: '1px solid #eee' }}><strong>Commentaire :</strong><p style={{ marginTop: '6px', marginBottom: 0 }}>{printTarget.commentInter}</p></div>}
+                            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', gap: '40px' }}>
+                                <div style={{ textAlign: 'center', flex: 1 }}><p style={{ fontWeight: 'bold' }}>Signature Technicien</p><p style={{ color: '#666', fontSize: '11px' }}>{printTarget.technicianName}</p><div style={{ marginTop: '15px', borderTop: '1px solid #333', paddingTop: '4px', fontSize: '10px', color: '#888' }}>Nom & Signature</div></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}><p style={{ fontWeight: 'bold' }}>{printTarget.typeInter === 'EN_LIGNE' ? 'Signature Responsable' : 'Signature Personne sur site'}</p><p style={{ color: '#666', fontSize: '11px' }}>{printTarget.personName?.trim() || printTarget.healthName}</p><div style={{ marginTop: '15px', borderTop: '1px solid #333', paddingTop: '4px', fontSize: '10px', color: '#888' }}>Nom & Signature</div></div>
                             </div>
-                            <div style={{ marginTop: '30px', paddingTop: '8px', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#aaa' }}>
+                            <div style={{ marginTop: '12px', paddingTop: '6px', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#aaa' }}>
                                 <span>CATUSNIS — Document confidentiel</span>
                                 <span>Généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
