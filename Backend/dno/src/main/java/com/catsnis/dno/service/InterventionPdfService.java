@@ -389,10 +389,6 @@ public class InterventionPdfService {
             Rectangle pageSize = pdfDoc.getPage(i).getPageSize();
 
             document.showTextAligned(
-                    new LineSeparator(new SolidLine(0.5f)).setWidth(pageSize.getWidth() - 80),
-                    40, 34, i, TextAlignment.LEFT, null, 0);
-
-            document.showTextAligned(
                     new Paragraph(generatedOn).setFontSize(7).setFontColor(ColorConstants.GRAY),
                     pageSize.getWidth() / 2, 20, i, TextAlignment.CENTER, null, 0);
 
