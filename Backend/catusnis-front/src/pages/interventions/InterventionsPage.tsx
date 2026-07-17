@@ -341,7 +341,11 @@ const InterventionsPage: React.FC = () => {
                                 </div>
                                 <div style={{ textAlign: 'center', flex: 1, padding: '0 16px' }}>
                                     <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#0d6efd', fontWeight: 'bold', textTransform: 'uppercase' }}>FICHE D'INTERVENTION</h2>
-                                    <p style={{ margin: '0', color: '#555', fontSize: '12px' }}>{new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                    <p style={{ margin: '0', color: '#555', fontSize: '12px' }}>
+                                        {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        {' — Imprimé à '}
+                                        {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
                                         {printTarget.technicianName && <span style={{ padding: '3px 12px', background: '#f0f0f0', borderRadius: '20px', fontSize: '11px' }}>👤 {printTarget.technicianName}</span>}
                                         {printTarget.enAttenteMaintenance && <span style={{ padding: '3px 12px', background: '#fff3cd', borderRadius: '20px', fontSize: '11px', color: '#856404' }}>⚠️ En attente maintenance</span>}
@@ -415,7 +419,7 @@ const InterventionsPage: React.FC = () => {
                             </div>
                             <div style={{ marginTop: '30px', paddingTop: '8px', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#aaa' }}>
                                 <span>CATUSNIS — Document confidentiel</span>
-                                <span>Généré le {new Date().toLocaleDateString('fr-FR')}</span>
+                                <span>Généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                         </div>
                     </div>
