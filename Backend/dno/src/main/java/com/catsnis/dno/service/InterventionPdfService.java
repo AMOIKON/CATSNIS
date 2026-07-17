@@ -378,24 +378,14 @@ public class InterventionPdfService {
         sigTable.addCell(buildSignatureCell("Signature Bénéficiaire", null, personName));
         document.add(sigTable);
 
-        // ── Pied de page fixe (identique sur chaque page, en position absolue) ──
-        // Regroupe numérotation + date de génération, toujours collé en bas,
-        // quelle que soit la longueur du contenu au-dessus.
-        int totalPages = pdfDoc.getNumberOfPages();
+        // ── Pied de page (méthode fiable — ajout au fil du document) ──────────
         String generatedOn = "CATUSNIS — Document généré automatiquement le "
                 + new SimpleDateFormat("dd/MM/yyyy à HH:mm").format(new java.util.Date());
 
-        for (int i = 1; i <= totalPages; i++) {
-            Rectangle pageSize = pdfDoc.getPage(i).getPageSize();
-
-            document.showTextAligned(
-                    new Paragraph(generatedOn).setFontSize(7).setFontColor(ColorConstants.GRAY),
-                    pageSize.getWidth() / 2, 20, i, TextAlignment.CENTER, null, 0);
-
-            document.showTextAligned(
-                    new Paragraph("Page " + i + "/" + totalPages).setFontSize(7).setFontColor(ColorConstants.GRAY),
-                    pageSize.getWidth() - 40, 20, i, TextAlignment.RIGHT, null, 0);
-        }
+        document.add(new LineSeparator(new SolidLine(0.5f)).setMarginTop(30f).setMarginBottom(6f));
+        document.add(new Paragraph(generatedOn)
+                .setFontSize(7).setFontColor(ColorConstants.GRAY)
+                .setTextAlignment(TextAlignment.CENTER));
 
         document.close();
         return baos.toByteArray();
