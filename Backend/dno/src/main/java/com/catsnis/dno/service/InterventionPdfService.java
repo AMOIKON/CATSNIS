@@ -214,6 +214,7 @@ public class InterventionPdfService {
         PdfWriter writer   = new PdfWriter(baos);
         PdfDocument pdfDoc = new PdfDocument(writer);
         Document document  = new Document(pdfDoc, PageSize.A4);
+        document.setMargins(28f, 36f, 24f, 36f); // haut, droite, bas, gauche — réduits pour tenir sur 1 page
 
         byte[] logoBytes = loadLogoBytes();
         addWatermark(document, PageSize.A4, logoBytes);
@@ -363,7 +364,7 @@ public class InterventionPdfService {
         String cleanComment = sanitizeComment(comment);
         if (!cleanComment.isBlank()) {
             document.add(new Paragraph("Commentaire").setBold().setFontSize(11).setMarginBottom(4f));
-            document.add(new Paragraph(cleanComment).setFontSize(9).setMarginBottom(20f));
+            document.add(new Paragraph(cleanComment).setFontSize(9).setMarginBottom(10f));
         }
 
         // ── Signatures ────────────────────────────────────────────────────────
@@ -373,7 +374,7 @@ public class InterventionPdfService {
         String technicianName = technician.getFirstName() + " " + technician.getLastName();
 
         Table sigTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
-                .useAllAvailableWidth().setMarginTop(30f);
+                .useAllAvailableWidth().setMarginTop(18f);
         sigTable.addCell(buildSignatureCell("Signature Technicien", technicianSignature, technicianName));
         sigTable.addCell(buildSignatureCell("Signature Bénéficiaire", null, personName));
         document.add(sigTable);
@@ -382,7 +383,7 @@ public class InterventionPdfService {
         String generatedOn = "CATUSNIS — Document généré automatiquement le "
                 + new SimpleDateFormat("dd/MM/yyyy à HH:mm").format(new java.util.Date());
 
-        document.add(new LineSeparator(new SolidLine(0.5f)).setMarginTop(30f).setMarginBottom(6f));
+        document.add(new LineSeparator(new SolidLine(0.5f)).setMarginTop(15f).setMarginBottom(4f));
         document.add(new Paragraph(generatedOn)
                 .setFontSize(7).setFontColor(ColorConstants.GRAY)
                 .setTextAlignment(TextAlignment.CENTER));
