@@ -66,6 +66,7 @@ const VehiculesPage: React.FC = () => {
   const [activeTab,        setActiveTab]        = useState<Tab>('vehicules');
   const [isPrinting,       setIsPrinting]       = useState(false);
   const [printLoadingId,   setPrintLoadingId]   = useState<number | null>(null);
+  const [pdfLoadingId,     setPdfLoadingId]     = useState<number | null>(null);
   const [activeEnginType,  setActiveEnginType]  = useState<string | undefined>(undefined);
 
   // Véhicules
@@ -170,6 +171,22 @@ const VehiculesPage: React.FC = () => {
     try { const h = await VehiculeService.getHistorique(vehiculeId); printHistorique(h); }
     catch (err) { console.error(err); alert("Erreur lors du chargement de l'historique"); }
     finally { setPrintLoadingId(null); }
+  };
+
+  // ✅ NOUVEAU — Télécharger/afficher la fiche PDF (QR code + archivage auto backend)
+  const handleDownloadPdf = async (vehiculeId: number) => {
+    setPdfLoadingId(vehiculeId);
+    try {
+      const blob = await VehiculeService.downloadPdf(vehiculeId);
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      console.error(err);
+      alert('Erreur lors de la génération du PDF');
+    } finally {
+      setPdfLoadingId(null);
+    }
   };
 
   // ── Helper alerte texte pour impression ──────────────────────────────────
@@ -593,6 +610,15 @@ const VehiculesPage: React.FC = () => {
                             )}
                           </td>
                           <td className="text-end no-print">
+                            <button
+                              className="btn btn-sm btn-outline-success me-1"
+                              onClick={() => handleDownloadPdf(v.id)}
+                              disabled={pdfLoadingId === v.id}
+                              title="Générer la fiche PDF (QR code)">
+                              {pdfLoadingId === v.id
+                                ? <span className="spinner-border spinner-border-sm" />
+                                : <i className="bi bi-file-earmark-pdf" />}
+                            </button>
                             <button className="btn btn-sm btn-outline-secondary me-1" onClick={()=>handlePrintHistorique(v.id)} disabled={printLoadingId===v.id} title="Historique complet">
                               {printLoadingId===v.id?<span className="spinner-border spinner-border-sm"/>:<i className="bi bi-file-earmark-text"/>}
                             </button>

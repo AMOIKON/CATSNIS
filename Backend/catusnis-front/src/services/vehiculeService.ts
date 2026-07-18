@@ -399,6 +399,12 @@ const VehiculeService = {
     (await api.put<ApiResponse<VehiculeAffectationResponse>>(`/api/vehicules/affectations/${id}`, r)).data.data,
   cloturerAffectation: async (vehiculeId: number) =>
     api.put(`/api/vehicules/${vehiculeId}/cloturer-affectation`),
+
+  // ✅ Télécharge la fiche PDF du véhicule (QR code + archivage auto backend)
+  downloadPdf: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/api/vehicules/${id}/pdf`, { responseType: 'blob' });
+    return response.data;
+  },
 };
 
 export default VehiculeService;
