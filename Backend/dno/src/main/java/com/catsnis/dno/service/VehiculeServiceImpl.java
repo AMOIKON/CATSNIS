@@ -28,6 +28,8 @@ public class VehiculeServiceImpl implements VehiculeService {
     private final VehiculeAffectationRepository         affectationRepository;
     private final BookletRepository                     bookletRepository;
     private final VehiculeDocumentHistoriqueRepository  documentHistoriqueRepository;
+    private final VehiculePdfService                     vehiculePdfService;
+    private final ArchiveService                         archiveService;
 
     // ── Véhicules ─────────────────────────────────────────────────────────────
 
@@ -382,6 +384,65 @@ public class VehiculeServiceImpl implements VehiculeService {
         return documentHistoriqueRepository
                 .findByVehiculeIdOrderByDateRenouvellementDesc(vehiculeId)
                 .stream().map(this::mapDocumentHistToResponse).collect(Collectors.toList());
+    }
+
+    // ── Fiche PDF + archivage automatique BLOB ────────────────────────────────
+
+    @Override
+    @Transactional
+    public byte[] generateVehiculePdf(Integer id) {
+        Vehicule v = vehiculeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Engin non trouvé : " + id));
+        try {
+            byte[] pdfBytes = vehiculePdfService.generateVehiculePdf(v);
+
+            // ✅ Archivage automatique BLOB — même mécanisme que pour les
+            //    interventions et déploiements. Dédoublonné par relatedId +
+            //    categorie + type=IMPRIME : un re-téléchargement remplace
+            //    l'archive existante au lieu d'en créer une nouvelle.
+            archiveService.archiverPdfGenere(
+                    pdfBytes,
+                    "Fiche engin - " + v.getImmatriculation(),
+                    Archive.CategorieArchive.VEHICULE,
+                    Long.valueOf(v.getId()),
+                    v.getImmatriculation()
+            );
+
+            return pdfBytes;
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur génération PDF véhicule : " + e.getMessage(), e);
+        }
+    }
+
+    // ── Consultation publique (QR code) ───────────────────────────────────────
+
+    @Override
+    public PublicVehiculeResponse getPublicSummary(Integer id) {
+        Vehicule v = vehiculeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Engin non trouvé : " + id));
+
+        String conducteurNom = null;
+        if (v.getConducteur() != null) {
+            conducteurNom = v.getConducteur().getFirstName() + " " + v.getConducteur().getLastName();
+        } else if (v.getConducteurBooklet() != null) {
+            conducteurNom = v.getConducteurBooklet().getFirstName() + " " + v.getConducteurBooklet().getLastName();
+        }
+
+        return PublicVehiculeResponse.builder()
+                .immatriculation(v.getImmatriculation())
+                .type(v.getType() != null ? v.getType().name() : null)
+                .marque(v.getMarque())
+                .modele(v.getModele())
+                .couleur(v.getCouleur())
+                .statut(v.getStatut() != null ? v.getStatut().name() : null)
+                .kilometrage(v.getKilometrage())
+                .regionName(v.getRegion() != null ? v.getRegion().getRegionName() : null)
+                .districtName(v.getDistrict() != null ? v.getDistrict().getDistrictName() : null)
+                .conducteurNom(conducteurNom)
+                .dateFinAssurance(v.getDateFinAssurance())
+                .dateFinVisiteTechnique(v.getDateFinVisiteTechnique())
+                .dateFinVignette(v.getDateFinVignette())
+                .build();
     }
 
     // ── Helpers privés ────────────────────────────────────────────────────────

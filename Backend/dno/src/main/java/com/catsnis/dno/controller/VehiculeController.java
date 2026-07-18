@@ -213,4 +213,15 @@ public class VehiculeController {
             @PathVariable Integer id) {
         return ResponseEntity.ok(ApiResponse.success(vehiculeService.getDocumentsHistorique(id)));
     }
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable Integer id) {
+        byte[] pdf = vehiculeService.generateVehiculePdf(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=fiche-engin-" + id + ".pdf")
+                .body(pdf);
+    }
+
+
 }

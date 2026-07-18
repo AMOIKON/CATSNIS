@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.List;
 
+
 public interface VehiculeService {
 
     VehiculeResponse              getById(Integer id);
@@ -48,5 +49,9 @@ public interface VehiculeService {
                                                           VehiculeDocumentRenewalRequest request);
 
     List<VehiculeDocumentHistoriqueResponse> getDocumentsHistorique(Integer vehiculeId);
+
+    byte[] generateVehiculePdf(Integer id);
+      PublicVehiculeResponse getPublicSummary(Integer id);
+
 
 }

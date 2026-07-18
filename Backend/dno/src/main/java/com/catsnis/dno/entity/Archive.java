@@ -69,5 +69,5 @@ public class Archive {
     }
 
     public enum TypeArchive     { IMPRIME, SCANNE }
-    public enum CategorieArchive { INTERVENTION, DEPLOIEMENT, ACQUISITION, BOOKLET, AUTRE, ACTIVE }
+    public enum CategorieArchive { INTERVENTION, DEPLOIEMENT, ACQUISITION, BOOKLET,  VEHICULE,  AUTRE, ACTIVE }
 }
