@@ -680,7 +680,7 @@ const InterventionsPage: React.FC = () => {
                                                             title="Télécharger la fiche PDF et ouvrir un email pré-rempli">
                                                             {sendingEmailId === inter.id
                                                                 ? <span className="spinner-border spinner-border-sm" />
-                                                                : <i className="bi bi-envelope" />}
+                                                                : <i className="bi bi-file-earmark-pdf" />}
                                                         </button>
                                                         {canEdit && <button className="btn btn-sm btn-outline-warning me-1" onClick={() => { setSelected(inter); setShowUpdate(true); }}><i className="bi bi-pencil" /></button>}
                                                         {canDelete && <button className="btn btn-sm btn-outline-danger" onClick={() => { setSelectedId(inter.id); setShowConfirm(true); }}><i className="bi bi-trash" /></button>}

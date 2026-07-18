@@ -57,6 +57,12 @@ const DeploymentService = {
         );
         return response.data.data;
     },
+
+    // ✅ Télécharge la fiche PDF du déploiement
+    downloadPdf: async (id: number): Promise<Blob> => {
+        const response = await api.get(`/api/deployments/${id}/pdf`, { responseType: 'blob' });
+        return response.data;
+    },
 };
 
 export default DeploymentService;

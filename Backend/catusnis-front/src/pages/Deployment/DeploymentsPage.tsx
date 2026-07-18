@@ -90,7 +90,7 @@ const ReturnItemModal: React.FC<{
     );
 };
 
-// ── Page principale ───────────────────────────────────────────────────────────
+// ── Page principale ────────────────────────────────────────────────────────────
 const DeploymentsPage: React.FC = () => {
     const { person, isUnrestricted } = useAuth();
     const role      = person?.role;
@@ -130,6 +130,8 @@ const DeploymentsPage: React.FC = () => {
     const [returnTarget,         setReturnTarget]         = useState<DeploymentResponse | null>(null);
     const [returnItem,           setReturnItem]           = useState<{ itemId: number; label: string } | null>(null);
     const [returnLoading,        setReturnLoading]        = useState(false);
+    // ✅ Téléchargement de la fiche PDF
+    const [downloadingId,        setDownloadingId]        = useState<number | null>(null);
 
     useEffect(() => { RegionService.getAllList().then(setRegions); }, []);
 
@@ -147,8 +149,7 @@ const DeploymentsPage: React.FC = () => {
                 filterRegion || undefined, filterDistrict || undefined,
                 undefined, keyword || undefined);
             setDeployments(data.content ?? []);
-            setTotalPages(data.page?.totalPages ?? 0);
-            setTotalElements(data.page?.totalElements ?? 0);
+            setTotalPages(data.page?.totalPages ?? 0); setTotalElements(data.page?.totalElements ?? 0);
         } catch (err: any) {
             setApiError(err?.response?.data?.message || err?.message || 'Erreur de chargement');
         } finally { setIsLoading(false); }
@@ -214,6 +215,26 @@ const DeploymentsPage: React.FC = () => {
         setPrintTarget(d); setPrintModalTarget(d); setShowPrintModal(true);
     };
 
+    // ✅ Téléchargement de la fiche PDF du déploiement
+    const handleDownloadPdf = async (d: DeploymentResponse) => {
+        setDownloadingId(d.id);
+        try {
+            const blob = await DeploymentService.downloadPdf(d.id);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `fiche-deploiement-${d.codeDep}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Erreur téléchargement PDF déploiement:', err);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
     const handlePrintAll = async () => {
         setIsPrinting(true);
         try {
@@ -247,8 +268,7 @@ const DeploymentsPage: React.FC = () => {
 
             const html = `<!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8"/>
+<head><meta charset="UTF-8"/>
     <title>Déploiements — CATUSNIS</title>
     <style>
         @page { margin:1.5cm; size:A4 landscape; }
@@ -293,7 +313,6 @@ const DeploymentsPage: React.FC = () => {
     const sitesCouverts  = new Set(allDeployments.map(d => d.healthDeploy)).size;
     const regionsActives = new Set(allDeployments.map(d => d.regionDeploy)).size;
     const fonctionnels   = allItems.filter(i => i.status === 'FONCTIONNEL').length;
-    const nonFonct       = allItems.filter(i => i.status !== 'FONCTIONNEL').length;
     const tauxFonct      = allItems.length > 0 ? Math.round((fonctionnels / allItems.length) * 100) : 0;
     const geolocCount    = allDeployments.filter(d => d.latitude != null).length;
 
@@ -362,7 +381,6 @@ const DeploymentsPage: React.FC = () => {
                                     {rightSrc ? <img src={rightSrc} alt="logo-droite" style={{ maxWidth:'90px', maxHeight:'80px', objectFit:'contain', display:'block' }} /> : <div style={{ width:'80px', height:'70px' }} />}
                                 </div>
                             </div>
-
                             <table style={{ width:'100%', marginBottom:'16px', borderCollapse:'collapse', fontSize:'12px' }}>
                                 <tbody>
                                     <tr><td style={{ padding:'5px 8px', width:'50%', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Code :</strong> {printTarget.codeDep}</td><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Date :</strong> {new Date(printTarget.dateRecep).toLocaleDateString('fr-FR')}</td></tr>
@@ -370,7 +388,6 @@ const DeploymentsPage: React.FC = () => {
                                     <tr><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Région :</strong> {printTarget.regionDeploy}</td><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Application :</strong> {printTarget.appsDeploy}</td></tr>
                                 </tbody>
                             </table>
-
                             {/* ── GPS dans la fiche imprimée ── */}
                             {printTarget.latitude != null && printTarget.longitude != null && (
                                 <div style={{ marginBottom:'14px', padding:'8px 12px', background:'#d1e7dd', borderRadius:'6px', border:'1px solid #a3cfbb', fontSize:'11px', color:'#0a3622', display:'flex', alignItems:'center', gap:'8px' }}>
@@ -386,7 +403,6 @@ const DeploymentsPage: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-
                             <h4 style={{ marginBottom:'10px', fontSize:'14px', borderLeft:'4px solid #0d6efd', paddingLeft:'8px' }}>Équipements déployés ({printTarget.items?.length || 0})</h4>
                             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'11px' }}>
                                 <thead><tr style={{ background:'#0d6efd', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact' }}>
@@ -476,59 +492,6 @@ const DeploymentsPage: React.FC = () => {
                     </div>
                 ))}
             </div>
-
-            {/* ── Taux fonctionnalité ── */}
-            {allItems.length > 0 && (
-                <div className="card border-0 shadow-sm rounded-4 mb-3">
-                    <div className="card-body p-3">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="fw-semibold small"><i className="bi bi-activity me-2 text-primary" />Taux de fonctionnalité global</span>
-                            <span className={`badge ${tauxFonct >= 80 ? 'bg-success' : tauxFonct >= 50 ? 'bg-warning text-dark' : 'bg-danger'}`}>{tauxFonct}%</span>
-                        </div>
-                        <div className="progress rounded-3" style={{ height:'10px' }}>
-                            <div className={`progress-bar ${tauxFonct >= 80 ? 'bg-success' : tauxFonct >= 50 ? 'bg-warning' : 'bg-danger'}`} style={{ width:`${tauxFonct}%`, transition:'width 0.6s ease' }} />
-                        </div>
-                        <div className="d-flex justify-content-between mt-1">
-                            <small className="text-success"><i className="bi bi-check-circle me-1" />{fonctionnels} fonctionnels</small>
-                            <small className="text-danger"><i className="bi bi-x-circle me-1" />{nonFonct} non fonctionnels</small>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Top régions cliquables ── */}
-            {topRegions.length > 0 && (
-                <div className="row g-2 mb-4">
-                    {topRegions.map((r, i) => {
-                        const isActive = activeRegionFilter === r.id;
-                        const pct = allDeployments.length > 0 ? Math.round((r.count / allDeployments.length) * 100) : 0;
-                        return (
-                            <div key={i} className="col-6 col-md">
-                                <div className={`card rounded-4 h-100 ${isActive ? 'bg-primary shadow' : 'border-0 shadow-sm'}`}
-                                    style={{ cursor:'pointer', transition:'all 0.15s' }}
-                                    onClick={() => { setActiveRegionFilter(isActive ? undefined : r.id); setActiveTab('deployments'); setPage(0); handleRegionFilter(isActive ? 0 : r.id); }}>
-                                    <div className="card-body p-2">
-                                        <div className="d-flex align-items-center gap-2 mb-1">
-                                            <div className={`rounded-3 d-flex align-items-center justify-content-center ${isActive ? 'bg-white bg-opacity-25' : 'bg-primary bg-opacity-10'}`} style={{ width:'32px', height:'32px', minWidth:'32px' }}>
-                                                <i className={`bi bi-geo-alt-fill ${isActive ? 'text-white' : 'text-primary'} small`} />
-                                            </div>
-                                            <div className="flex-grow-1 overflow-hidden">
-                                                <p className="mb-0 text-truncate fw-semibold" style={{ fontSize:'10px', color: isActive ? 'white' : '#333' }}>{r.label}</p>
-                                                <span className={`fw-bold small ${isActive ? 'text-white' : 'text-primary'}`}>{r.count} dép.</span>
-                                            </div>
-                                            {isActive && <i className="bi bi-check-circle-fill text-white small" />}
-                                        </div>
-                                        <div className="progress rounded-3" style={{ height:'4px' }}>
-                                            <div className={`progress-bar ${isActive ? 'bg-white' : 'bg-primary'}`} style={{ width:`${pct}%` }} />
-                                        </div>
-                                        <small style={{ fontSize:'9px', color: isActive ? 'rgba(255,255,255,0.7)' : '#aaa' }}>{pct}% du total</small>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
 
             {/* ── Onglets ── */}
             <ul className="nav nav-tabs mb-4">
@@ -669,6 +632,15 @@ const DeploymentsPage: React.FC = () => {
                                                     <td className="text-end no-print">
                                                         <button className="btn btn-sm btn-outline-primary me-1" onClick={() => handlePrintFiche(d)} title="Imprimer fiche">
                                                             <i className="bi bi-printer" />
+                                                        </button>
+                                                        {/* ✅ Téléchargement de la fiche PDF */}
+                                                        <button className="btn btn-sm btn-outline-success me-1"
+                                                            onClick={() => handleDownloadPdf(d)}
+                                                            disabled={downloadingId === d.id}
+                                                            title="Télécharger la fiche PDF">
+                                                            {downloadingId === d.id
+                                                                ? <span className="spinner-border spinner-border-sm" />
+                                                                : <i className="bi bi-file-earmark-pdf" />}
                                                         </button>
                                                         {canEdit && nbTotal > 0 && (
                                                             <button className="btn btn-sm btn-outline-warning me-1" onClick={() => handleOpenReturnModal(d)}>

@@ -22,4 +22,9 @@ public interface DeploymentService {
     void                         deleteDeployment(Integer id);
     DeploymentResponse           removeItemFromDeployment(Integer deploymentId, Integer itemId);
 
+    // ── Fiche PDF + consultation publique (QR code) ──────────────────────────
+    byte[]                       generateDeploymentPdf(Integer id);
+    com.catsnis.dno.dto.PublicDeploymentResponse getPublicSummary(Integer id);
+
+
 }

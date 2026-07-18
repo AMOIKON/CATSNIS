@@ -7,7 +7,9 @@ import com.catsnis.dno.service.DeploymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -64,5 +66,15 @@ public class DeploymentController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Équipement retiré et remis en stock",
                 deploymentService.removeItemFromDeployment(deploymentId, itemId)));
+    }
+
+    // ✅ Téléchargement de la fiche PDF du déploiement
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable Integer id) {
+        byte[] pdf = deploymentService.generateDeploymentPdf(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=fiche-deploiement-" + id + ".pdf")
+                .body(pdf);
     }
 }
