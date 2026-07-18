@@ -30,6 +30,9 @@ public class Archive {
     @Column(name = "file_name")
     private String fileName;
 
+    // ⚠️ Conservé pour compatibilité/affichage, mais N'EST PLUS utilisé pour
+    //    localiser le fichier réel (le disque Render free tier est éphémère).
+    //    Le contenu réel est maintenant dans `data`.
     @Column(name = "file_path")
     private String filePath;
 
@@ -38,6 +41,13 @@ public class Archive {
 
     @Column(name = "mime_type")
     private String mimeType;
+
+    // ✅ NOUVEAU — contenu binaire du fichier, stocké directement en base
+    //    (MySQL LONGBLOB) pour survivre aux redéploiements sur l'instance
+    //    Render free tier qui ne supporte pas les disques persistants.
+    @Lob
+    @Column(name = "data", columnDefinition = "LONGBLOB")
+    private byte[] data;
 
     private String description;
 

@@ -17,6 +17,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import com.catsnis.dno.entity.Archive.CategorieArchive;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +41,7 @@ public class InterventionServiceImpl implements InterventionService {
     private final AcquisitionQuickCreateService acquisitionService;
     private final PartnerRepository         partnerRepository;
     private final InterventionPdfService     interventionPdfService;
+    private final ArchiveService archiveService;
 
     private static final String PERSON_TAG    = "[Personne assistee]";
     private static final String EQUIPMENT_TAG = "[Equipement hors base]";
@@ -404,11 +406,23 @@ public class InterventionServiceImpl implements InterventionService {
     public byte[] generateInterventionPdf(Integer interventionId) {
         Intervention intervention = interventionRepository.findById(interventionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Intervention non trouvée : " + interventionId));
-
         Person technician = securityUtils.getCurrentUserOrThrow();
-
         try {
-            return interventionPdfService.generateInterventionPdf(intervention, technician);
+            byte[] pdf = interventionPdfService.generateInterventionPdf(intervention, technician);
+
+            // ✅ Archivage automatique (silencieux — ne bloque jamais le téléchargement)
+            try {
+                archiveService.archiverPdfGenere(
+                        pdf,
+                        "Fiche intervention " + intervention.getCodeInter(),
+                        CategorieArchive.INTERVENTION,
+                        interventionId.longValue(),
+                        intervention.getCodeInter());
+            } catch (Exception archiveEx) {
+                System.out.println("⚠️ Archivage PDF intervention échoué : " + archiveEx.getMessage());
+            }
+
+            return pdf;
         } catch (Exception e) {
             throw new IllegalStateException(
                     "Impossible de générer la fiche PDF de l'intervention : " + e.getMessage(), e);

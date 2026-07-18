@@ -10,6 +10,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.catsnis.dno.dto.PublicDeploymentResponse;
+import com.catsnis.dno.entity.Archive.CategorieArchive;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +32,8 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final TechnicianSiteRepository   technicianSiteRepository;
     private final InterventionRepository     interventionRepository;
     private final SecurityUtils              securityUtils;
+    private final DeploymentPdfService deploymentPdfService;
+    private final ArchiveService archiveService;
 
     @Override
     @Transactional
@@ -273,6 +277,68 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         return mapToResponse(deploymentRepository
                 .findByIdWithItems(deploymentId).orElse(deployment));
+    }
+
+    @Override
+    @Transactional
+    public byte[] generateDeploymentPdf(Integer id) {
+        Deployment deployment = deploymentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Deploiement non trouve : " + id));
+        Person technician = securityUtils.getCurrentUserOrThrow();
+        try {
+            byte[] pdf = deploymentPdfService.generateDeploymentPdf(deployment, technician);
+
+            // ✅ Archivage automatique (silencieux — ne bloque jamais le téléchargement)
+            try {
+                archiveService.archiverPdfGenere(
+                        pdf,
+                        "Fiche déploiement " + deployment.getCodeDep(),
+                        CategorieArchive.DEPLOIEMENT,
+                        id.longValue(),
+                        deployment.getCodeDep());
+            } catch (Exception archiveEx) {
+                System.out.println("⚠️ Archivage PDF déploiement échoué : " + archiveEx.getMessage());
+            }
+
+            return pdf;
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Impossible de générer la fiche PDF du déploiement : " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PublicDeploymentResponse getPublicSummary(Integer id) {
+        Deployment deployment = deploymentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Deploiement non trouve : " + id));
+        java.util.List<PublicDeploymentResponse.PublicDeploymentItem> items = new java.util.ArrayList<>();
+        if (deployment.getItems() != null) {
+            for (DeploymentItem item : deployment.getItems()) {
+                items.add(PublicDeploymentResponse.PublicDeploymentItem.builder()
+                        .typeName(item.getAcquisition() != null ? item.getAcquisition().getTypes().getTypeName() : null)
+                        .tag(item.getAcquisition() != null ? item.getAcquisition().getTag() : null)
+                        .status(item.getStatus())
+                        .build());
+            }
+        }
+
+        String techName = deployment.getCreatedBy() != null
+                ? deployment.getCreatedBy().getFirstName() + " " + deployment.getCreatedBy().getLastName()
+                : null;
+
+        return PublicDeploymentResponse.builder()
+                .codeDep(deployment.getCodeDep())
+                .dateRecep(deployment.getDateRecep())
+                .comment(deployment.getComment())
+                .regionDeploy(deployment.getRegion() != null ? deployment.getRegion().getRegionName() : null)
+                .districtDeploy(deployment.getDistrict() != null ? deployment.getDistrict().getDistrictName() : null)
+                .healthDeploy(deployment.getHealth() != null ? deployment.getHealth().getHealthName() : null)
+                .appsDeploy(deployment.getApps() != null ? deployment.getApps().getAppName() : null)
+                .technicianName(techName)
+                .partnerName(deployment.getPartner() != null ? deployment.getPartner().getPartnerName() : null)
+                .items(items)
+                .build();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

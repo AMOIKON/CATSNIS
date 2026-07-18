@@ -7,12 +7,10 @@ import com.catsnis.dno.dto.ArchiveResponse;
 import com.catsnis.dno.entity.Archive;
 import com.catsnis.dno.entity.Archive.TypeArchive;
 import com.catsnis.dno.entity.Archive.CategorieArchive;
-import com.catsnis.dno.entity.Person;
 import com.catsnis.dno.repository.ArchiveRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,10 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.*;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,9 +27,6 @@ public class ArchiveService {
 
     private final ArchiveRepository archiveRepository;
     private final SecurityUtils     securityUtils;   // ✅ injection pour archivedBy auto
-
-    @Value("${app.upload.archives-dir:uploads/archives}")
-    private String uploadDir;
 
     // ── Résoudre le nom complet de l'utilisateur courant ─────────────────────
     private String currentUserFullName() {
@@ -44,20 +36,18 @@ public class ArchiveService {
     }
 
     // ── Upload fichier scanné ─────────────────────────────────────────────────
+    // ✅ Stocké en BDD (BLOB) — le disque Render free tier est éphémère.
     @Transactional
     public ArchiveResponse uploadScanne(MultipartFile file, ArchiveRequest dto) throws IOException {
-        String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path dir = Paths.get(uploadDir);
-        Files.createDirectories(dir);
-        Files.copy(file.getInputStream(), dir.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+        byte[] bytes = file.getBytes();
 
         Archive archive = Archive.builder()
                 .titre(dto.getTitre())
                 .type(TypeArchive.SCANNE)
                 .categorie(dto.getCategorie())
-                .fileName(fileName)
-                .filePath(dir.resolve(fileName).toString())
-                .fileSize(file.getSize())
+                .fileName(file.getOriginalFilename())
+                .data(bytes)
+                .fileSize((long) bytes.length)
                 .mimeType(file.getContentType())
                 .description(dto.getDescription())
                 .archivedBy(currentUserFullName())   // ✅ auto depuis le token JWT
@@ -68,7 +58,7 @@ public class ArchiveService {
         return toResponse(archiveRepository.save(archive));
     }
 
-    // ── Archiver automatiquement un document imprimé ──────────────────────────
+    // ── Archiver automatiquement un document imprimé (sans fichier) ──────────
     @Transactional
     public ArchiveResponse archiverImprime(ArchiveRequest dto) {
         Archive archive = Archive.builder()
@@ -80,6 +70,51 @@ public class ArchiveService {
                 .relatedId(dto.getRelatedId())
                 .relatedCode(dto.getRelatedCode())
                 .build();
+
+        return toResponse(archiveRepository.save(archive));
+    }
+
+    // ── Archiver (ou remplacer) le PDF généré automatiquement ─────────────────
+    //    pour une intervention ou un déploiement. Stocké en BDD (BLOB) —
+    //    survit aux redéploiements, contrairement à un fichier sur disque.
+    //
+    //    Dédoublonnage : si une archive existe déjà pour ce relatedId +
+    //    categorie + type=IMPRIME (le PDF a déjà été généré une première fois),
+    //    on remplace le contenu existant au lieu d'en créer un nouveau —
+    //    important car generateInterventionPdf/generateDeploymentPdf peuvent
+    //    être appelées à chaque téléchargement, pas uniquement à la création.
+    @Transactional
+    public ArchiveResponse archiverPdfGenere(byte[] pdfBytes, String titre,
+                                             CategorieArchive categorie,
+                                             Long relatedId, String relatedCode) {
+        String fileName = titre.replaceAll("[^a-zA-Z0-9-_]", "_") + ".pdf";
+
+        Archive archive = archiveRepository
+                .findFirstByRelatedIdAndCategorieAndType(relatedId, categorie, TypeArchive.IMPRIME)
+                .orElse(null);
+
+        if (archive != null) {
+            archive.setTitre(titre);
+            archive.setFileName(fileName);
+            archive.setData(pdfBytes);
+            archive.setFileSize((long) pdfBytes.length);
+            archive.setMimeType("application/pdf");
+            archive.setArchivedBy(currentUserFullName());
+            archive.setRelatedCode(relatedCode);
+        } else {
+            archive = Archive.builder()
+                    .titre(titre)
+                    .type(TypeArchive.IMPRIME)
+                    .categorie(categorie)
+                    .fileName(fileName)
+                    .data(pdfBytes)
+                    .fileSize((long) pdfBytes.length)
+                    .mimeType("application/pdf")
+                    .archivedBy(currentUserFullName())
+                    .relatedId(relatedId)
+                    .relatedCode(relatedCode)
+                    .build();
+        }
 
         return toResponse(archiveRepository.save(archive));
     }
@@ -119,21 +154,10 @@ public class ArchiveService {
         if (archive.getType() != TypeArchive.SCANNE)
             throw new RuntimeException("Seuls les documents scannés peuvent avoir un fichier.");
 
-        // Supprimer l'ancien fichier
-        if (archive.getFilePath() != null) {
-            try { Files.deleteIfExists(Paths.get(archive.getFilePath())); }
-            catch (IOException ignored) {}
-        }
-
-        // Sauvegarder le nouveau fichier
-        String newFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path   dir         = Paths.get(uploadDir);
-        Files.createDirectories(dir);
-        Files.copy(file.getInputStream(), dir.resolve(newFileName), StandardCopyOption.REPLACE_EXISTING);
-
-        archive.setFileName(newFileName);
-        archive.setFilePath(dir.resolve(newFileName).toString());
-        archive.setFileSize(file.getSize());
+        byte[] bytes = file.getBytes();
+        archive.setFileName(file.getOriginalFilename());
+        archive.setData(bytes);
+        archive.setFileSize((long) bytes.length);
         archive.setMimeType(file.getContentType());
 
         if (dto.getTitre() != null && !dto.getTitre().isBlank())
@@ -168,15 +192,13 @@ public class ArchiveService {
     }
 
     // ── Télécharger un fichier ────────────────────────────────────────────────
-    public Resource download(Long id) throws MalformedURLException {
+    // ✅ Servi directement depuis la BDD (BLOB), plus depuis le disque.
+    public Resource download(Long id) {
         Archive archive = archiveRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Archive introuvable : " + id));
-        if (archive.getFilePath() == null)
+        if (archive.getData() == null)
             throw new RuntimeException("Aucun fichier associé à cette archive");
-        Path path = Paths.get(archive.getFilePath());
-        Resource resource = new UrlResource(path.toUri());
-        if (!resource.exists()) throw new RuntimeException("Fichier introuvable sur disque");
-        return resource;
+        return new ByteArrayResource(archive.getData());
     }
 
     // ── Nom fichier pour l'entête Content-Disposition ─────────────────────────
@@ -189,12 +211,6 @@ public class ArchiveService {
     // ── Supprimer ─────────────────────────────────────────────────────────────
     @Transactional
     public void delete(Long id) {
-        Archive archive = archiveRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Archive introuvable : " + id));
-        if (archive.getFilePath() != null) {
-            try { Files.deleteIfExists(Paths.get(archive.getFilePath())); }
-            catch (IOException ignored) {}
-        }
         archiveRepository.deleteById(id);
     }
 

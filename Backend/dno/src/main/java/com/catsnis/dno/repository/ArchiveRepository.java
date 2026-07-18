@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface ArchiveRepository extends JpaRepository<Archive, Long> {
 
@@ -30,4 +32,11 @@ public interface ArchiveRepository extends JpaRepository<Archive, Long> {
 
     long countByType(TypeArchive type);
     long countByCategorie(CategorieArchive categorie);
+
+    // ✅ NOUVEAU — permet de retrouver l'archive PDF déjà générée pour une
+    //    intervention/déploiement donnée, afin d'éviter les doublons à chaque
+    //    nouveau téléchargement (archiverPdfGenere fait un update au lieu
+    //    d'un insert si une archive existe déjà pour ce relatedId+categorie+type).
+    Optional<Archive> findFirstByRelatedIdAndCategorieAndType(
+            Long relatedId, CategorieArchive categorie, TypeArchive type);
 }
