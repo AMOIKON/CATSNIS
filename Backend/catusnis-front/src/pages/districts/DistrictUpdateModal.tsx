@@ -3,6 +3,7 @@ import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import DistrictService                  from '../../services/districtService';
 import RegionService                    from '../../services/regionService';
 import { DistrictRequest, DistrictResponse, RegionResponse } from '../../types';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -36,10 +37,13 @@ const DistrictUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, distric
         setIsLoading(true);
         try {
             await DistrictService.update(district.id, form);
+            notify.success('District modifié avec succès');
             onSuccess();
             onHide();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la modification.');
+            const msg = err.response?.data?.message || 'Erreur lors de la modification.';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la modification du district');
         } finally {
             setIsLoading(false);
         }

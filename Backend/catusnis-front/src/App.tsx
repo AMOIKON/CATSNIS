@@ -1,5 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider }        from "./context/AuthContext";
 import ProtectedRoute          from "./components/common/ProtectedRoute";
 import LoginPage               from "./pages/auth/LoginPage";
@@ -21,6 +23,8 @@ import HealthPage              from "./pages/health/HealthPage";
 import PartnersPage            from "./pages/partners/PartnersPage";
 import BookletPage             from "./pages/booklet/BookletPage";
 import TechnicianSitePage      from "./pages/technicien-sites/TechnicianSitePage";
+// ✅ NOUVEAU — Structures étatiques
+import StructureEtatiquePage   from "./pages/structure/Structureetatiquepage";
 
 // ── Équipements ───────────────────────────────────────────────────────────────
 import TypesPage               from "./pages/types/TypesPage";
@@ -59,6 +63,7 @@ const P = ({ children }: { children: React.ReactNode }) => (
 const App: React.FC = () => (
   <AuthProvider>
     <Router>
+      <ToastContainer />
       <Routes>
         {/* ── Public ── */}
         <Route path="/login" element={<LoginPage />} />
@@ -85,6 +90,8 @@ const App: React.FC = () => (
         <Route path="/partners"         element={<P><PartnersPage /></P>} />
         <Route path="/booklets"         element={<P><BookletPage /></P>} />
         <Route path="/technician-sites" element={<P><TechnicianSitePage /></P>} />
+        {/* ✅ NOUVEAU — Structures étatiques */}
+        <Route path="/structures-etatiques" element={<P><StructureEtatiquePage /></P>} />
 
         {/* ── Équipements ── */}
         <Route path="/types"         element={<P><TypesPage /></P>} />

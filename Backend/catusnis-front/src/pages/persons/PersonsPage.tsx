@@ -6,6 +6,7 @@ import PersonFormModal     from './PersonFormModal';
 import PersonUpdateModal   from './PersonUpdateModal';
 import PersonService, { PersonResponse, ROLE_LABELS, ROLE_BADGE_CLASSES } from '../../services/personService';
 import useAuth             from '../../hooks/useAuth';
+import notify from '../../services/notify';
 
 const PersonsPage: React.FC = () => {
     const { person: currentUser } = useAuth();
@@ -53,13 +54,18 @@ const PersonsPage: React.FC = () => {
 
     useEffect(() => { loadPersons(); }, [loadPersons]);
 
-    const handleDeleteConfirm = async () => {
-        if (!selectedId) return;
-        setDeleteLoading(true);
-        try { await PersonService.delete(selectedId); loadPersons(); }
-        catch (err) { console.error(err); }
-        finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
-    };
+const handleDeleteConfirm = async () => {
+    if (!selectedId) return;
+    setDeleteLoading(true);
+    try {
+        await PersonService.delete(selectedId);
+        notify.success('Compte supprimé avec succès');
+        loadPersons();
+    } catch (err) {
+        notify.apiError(err, 'Erreur lors de la suppression du compte');
+    }
+    finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
+};
 
     const personsFiltres = filterRole
         ? persons.filter(p => p.role === filterRole)

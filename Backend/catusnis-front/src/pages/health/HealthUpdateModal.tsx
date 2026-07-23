@@ -4,6 +4,7 @@ import HealthService   from '../../services/healthService';
 import RegionService   from '../../services/regionService';
 import DistrictService from '../../services/districtService';
 import { HealthRequest, HealthResponse, RegionResponse, DistrictResponse } from '../../types';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -49,10 +50,13 @@ const HealthUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, health })
         setIsLoading(true);
         try {
             await HealthService.update(health.id, form);
+            notify.success('Site de santé modifié avec succès');
             onSuccess();
             onHide();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la modification.');
+            const msg = err.response?.data?.message || 'Erreur lors de la modification.';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la modification du site de santé');
         } finally {
             setIsLoading(false);
         }

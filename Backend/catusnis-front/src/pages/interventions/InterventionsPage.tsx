@@ -75,6 +75,11 @@ const InterventionsPage: React.FC = () => {
     const canCreate = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'TECHNICIEN';
     const canEdit   = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'TECHNICIEN';
     const canDelete = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'TECHNICIEN';
+    // ✅ NOUVEAU — SUPER_ADMIN/ADMIN voient les filtres région/district globaux ;
+    //    TECHNICIEN/LOGISTICIEN sont déjà restreints à leur périmètre côté backend
+    //    (interventions EN_LIGNE) donc ces filtres n'ont plus d'utilité pour eux.
+    const canSeeGlobalFilters = role === 'SUPER_ADMIN' || role === 'ADMIN';
+    const isPerimeterRestricted = role === 'TECHNICIEN' || role === 'LOGISTICIEN';
 
     const [activeTab,      setActiveTab]      = useState<Tab>('liste');
     const [activeFilter,   setActiveFilter]   = useState<'ALL' | 'EN_LIGNE' | 'SUR_SITE' | 'HORS_BASE'>('ALL');
@@ -103,9 +108,9 @@ const InterventionsPage: React.FC = () => {
     const [stats, setStats]                   = useState({ totalEnLigne: 0, totalSurSite: 0, totalGlobal: 0, totalHorsBase: 0 });
 
     useEffect(() => {
-        RegionService.getAllList().then(setRegions);
+        if (canSeeGlobalFilters) RegionService.getAllList().then(setRegions);
         InterventionService.getStats().then(setStats).catch(console.error);
-    }, []);
+    }, [canSeeGlobalFilters]);
 
     const handleRegionFilter = async (regionId: number) => {
         setFilterRegion(regionId); setFilterDistrict(0); setPage(0);
@@ -439,6 +444,17 @@ const InterventionsPage: React.FC = () => {
                 </div>
             )}
 
+            {/* ✅ NOUVEAU — Bandeau périmètre pour TECHNICIEN/LOGISTICIEN */}
+            {isPerimeterRestricted && (
+                <div className="alert alert-info rounded-3 d-flex align-items-center gap-2 mb-3">
+                    <i className="bi bi-geo-alt-fill" />
+                    <span className="small">
+                        Vous consultez votre périmètre assigné : les interventions <strong>en ligne</strong> sont
+                        limitées à vos sites assignés. Les interventions <strong>sur site</strong> ne sont pas restreintes.
+                    </span>
+                </div>
+            )}
+
             {/* ── Header ── */}
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
@@ -544,7 +560,7 @@ const InterventionsPage: React.FC = () => {
                     <div className="card border-0 shadow-sm rounded-4 mb-4">
                         <div className="card-body p-3">
                             <div className="row g-3 align-items-center">
-                                <div className="col-md-5">
+                                <div className={canSeeGlobalFilters ? 'col-md-5' : 'col-md-11'}>
                                     <div className="input-group">
                                         <span className="input-group-text bg-white border-end-0"><i className="bi bi-search text-muted" /></span>
                                         <input type="text" className="form-control border-start-0"
@@ -553,19 +569,26 @@ const InterventionsPage: React.FC = () => {
                                         {keyword && <button className="btn btn-outline-secondary" onClick={() => setKeyword('')}><i className="bi bi-x" /></button>}
                                     </div>
                                 </div>
-                                <div className="col-md-3">
-                                    <select className="form-select rounded-3" value={filterRegion} onChange={e => handleRegionFilter(Number(e.target.value))}>
-                                        <option value={0}>Toutes les régions</option>
-                                        {regions.map(r => <option key={r.id} value={r.id}>{r.regionName}</option>)}
-                                    </select>
-                                </div>
-                                <div className="col-md-3">
-                                    <select className="form-select rounded-3" value={filterDistrict}
-                                        onChange={e => { setFilterDistrict(Number(e.target.value)); setPage(0); }} disabled={!filterRegion}>
-                                        <option value={0}>Tous les districts</option>
-                                        {districts.map(d => <option key={d.id} value={d.id}>{d.DistrictName}</option>)}
-                                    </select>
-                                </div>
+                                {/* ✅ Filtres région/district réservés à SUPER_ADMIN/ADMIN — un
+                                    TECHNICIEN/LOGISTICIEN est déjà restreint à son périmètre
+                                    assigné côté backend (interventions EN_LIGNE). */}
+                                {canSeeGlobalFilters && (
+                                    <>
+                                        <div className="col-md-3">
+                                            <select className="form-select rounded-3" value={filterRegion} onChange={e => handleRegionFilter(Number(e.target.value))}>
+                                                <option value={0}>Toutes les régions</option>
+                                                {regions.map(r => <option key={r.id} value={r.id}>{r.regionName}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-3">
+                                            <select className="form-select rounded-3" value={filterDistrict}
+                                                onChange={e => { setFilterDistrict(Number(e.target.value)); setPage(0); }} disabled={!filterRegion}>
+                                                <option value={0}>Tous les districts</option>
+                                                {districts.map(d => <option key={d.id} value={d.id}>{d.DistrictName}</option>)}
+                                            </select>
+                                        </div>
+                                    </>
+                                )}
                                 {activeFilter !== 'ALL' && (
                                     <div className="col-md-1">
                                         <button className="btn btn-sm btn-outline-secondary rounded-3 w-100" onClick={() => setActiveFilter('ALL')}>

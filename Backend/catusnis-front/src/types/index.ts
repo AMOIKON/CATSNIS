@@ -347,6 +347,10 @@ export interface InterventionResponse {
 
   // ── Structure hors base ───────────────────────────────────────────────────
   manualStructureName?: string;
+ // ── Structure etatique ───────────────────────────────────────────────────
+structureEtatiqueId?: number;
+structureEtatiqueName?: string;
+
 }
 
 export interface InterventionRequest {
@@ -361,7 +365,7 @@ export interface InterventionRequest {
   typesId:                  number;
   appsId:                   number;
   deploymentId:             number;
-  evaluationId:             number;
+  evaluationId?:             number;
   personId?:                number;
   bookletId?:               number;
   etatsAvant?:              Record<number, string>;
@@ -374,7 +378,7 @@ export interface InterventionRequest {
   manualPersonName?:        string;
   manualPersonContact?:     string;
   manualPersonPost?:        string;
-  // ✅ Email pour l'envoi du rapport d'intervention (personne saisie manuellement)
+  // Email pour l'envoi du rapport d'intervention (personne saisie manuellement)
   manualPersonEmail?:       string;
   partnerId?:               number;
   // ── Géolocalisation ──────────────────────────────────────────────────────
@@ -387,6 +391,10 @@ export interface InterventionRequest {
 
   // ── Structure hors base (région/district/site non renseignés) ────────────
   manualStructureName?: string;
+ // ── Structure etatique ───────────────────────────────────────────────────
+structureEtatiqueId?: number;
+structureEtatiqueNom?: string;
+
 }
 
 // ── Appreciation ──────────────────────────────────────────────────────────────

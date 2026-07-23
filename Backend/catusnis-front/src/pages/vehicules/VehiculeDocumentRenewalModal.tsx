@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
 import { ApiResponse } from '../../types';
+import  notify from '../../services/notify';
 
 interface Props {
   show:       boolean;
@@ -56,12 +57,15 @@ const VehiculeDocumentRenewalModal: React.FC<Props> = ({
         nouvelleDateFin,
         notes: notes || null,
       });
+      notify.success('Document renouvelé avec succès');
       onSuccess(); onHide();
       // Réinitialiser
       setNouvelleDebut(new Date().toISOString().split('T')[0]);
       setNouvelleFin(''); setNotes(''); setTypeDocument('ASSURANCE');
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Erreur lors du renouvellement.');
+      const msg = err?.response?.data?.message || 'Erreur lors du renouvellement.';
+      setError(msg);
+      notify.apiError(err, 'Erreur lors du renouvellement du document');
     } finally { setLoading(false); }
   };
 

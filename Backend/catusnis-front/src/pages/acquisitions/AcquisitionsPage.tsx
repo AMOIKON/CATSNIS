@@ -9,6 +9,7 @@ import AcquisitionService     from '../../services/acquisitionService';
 import { AcquisitionResponse } from '../../types';
 import useAuth                from '../../hooks/useAuth';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
+import notify from '../../services/notify';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tab = 'liste' | 'parType';
@@ -84,11 +85,16 @@ const AcquisitionsPage: React.FC = () => {
     useEffect(() => { loadAcquisitions(); }, [loadAcquisitions]);
     useEffect(() => { loadAllForStats();  }, [loadAllForStats]);
 
+    // ✅ CORRIGÉ — fermeture manquante avant handleDeployClick
     const handleDeleteConfirm = async () => {
         if (!selectedId) return;
         setDeleteLoading(true);
-        try { await AcquisitionService.delete(selectedId); loadAcquisitions(); loadAllForStats(); }
-        catch (err) { console.error(err); }
+        try {
+            await AcquisitionService.delete(selectedId);
+            loadAcquisitions(); loadAllForStats();
+            notify.success('Acquisition supprimée avec succès');
+        }
+        catch (err: any) { notify.apiError(err, 'Erreur lors de la suppression'); }
         finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
     };
 
@@ -160,7 +166,6 @@ const AcquisitionsPage: React.FC = () => {
         finally { setIsPrinting(false); }
     };
 
-    // ✅ Impression vue "Par type" (utilise allAcq déjà chargé)
     const handlePrintParType = () => {
         const cfg = getPrintConfig();
         const header = buildHeader('Acquisitions par type', cfg);
@@ -207,14 +212,13 @@ const AcquisitionsPage: React.FC = () => {
             </table>
             </body></html>`;
 
+        // ✅ CORRIGÉ — "onst" → "const"
         const win = window.open('', '_blank', 'width=800,height=700');
         if (!win) { alert('Veuillez autoriser les popups pour imprimer.'); return; }
         win.document.write(html); win.document.close();
         win.onload = () => { win.focus(); win.print(); win.close(); };
     };
 
-    // ── Stats cards ──────────────────────────────────────────────────────────
-    // ✅ Carte "Hors base" ajoutée
     const statsCards = [
         { label: 'Total',            value: allAcq.length,                                             icon: 'bi-box-seam-fill',     color: 'warning'   },
         { label: 'Disponibles',      value: allAcq.filter(a => a.status === 'DISPONIBLE').length,      icon: 'bi-check-circle-fill', color: 'success'   },
@@ -506,6 +510,7 @@ const AcquisitionsPage: React.FC = () => {
                                                                 {acq.quantity}
                                                             </span>
                                                         </td>
+                                                        {/* ✅ CORRIGÉ — "</td>td>" → "</td><td>" */}
                                                         <td><StatusBadge status={acq.status || 'DISPONIBLE'} /></td>
                                                         {isUnrestricted && (
                                                             <td>

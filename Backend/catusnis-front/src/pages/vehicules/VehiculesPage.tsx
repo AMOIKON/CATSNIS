@@ -6,6 +6,7 @@ import VehiculeFormModal from './vehiculeFormModal';
 import VehiculeIncidentModal from './vehiculeIncidentModal';
 import VehiculeMaintenanceModal from './vehiculeMaintenanceModal';
 import VehiculeAffectationModal from './vehiculeAffectationModal';
+import notify  from '../../services/notify';
 import VehiculeService, {
   VehiculeResponse, VehiculeIncidentResponse,
   VehiculeMaintenanceResponse, VehiculeAlertResponse,
@@ -162,9 +163,51 @@ const VehiculesPage: React.FC = () => {
   useEffect(() => { if (activeTab === 'alertes')      loadAlertes();      }, [loadAlertes,      activeTab]);
   useEffect(() => { if (activeTab === 'affectations') loadAffectations(); }, [loadAffectations, activeTab]);
 
-  const handleDeleteVehicule    = async () => { if (!selectedId) return; setDeleteLoading(true); try { await VehiculeService.delete(selectedId); loadVehicules(); } catch (e) { console.error(e); } finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); } };
-  const handleDeleteIncident    = async () => { if (!incidentDeleteId) return; try { await VehiculeService.deleteIncident(incidentDeleteId); loadIncidents(); } catch (e) { console.error(e); } finally { setShowIncidentConfirm(false); setIncidentDeleteId(null); } };
-  const handleDeleteMaintenance = async () => { if (!maintenanceDeleteId) return; try { await VehiculeService.deleteMaintenance(maintenanceDeleteId); loadMaintenances(); } catch (e) { console.error(e); } finally { setShowMaintenanceConfirm(false); setMaintenanceDeleteId(null); } };
+  // const handleDeleteVehicule    = async () => { if (!selectedId) return; setDeleteLoading(true); try { await VehiculeService.delete(selectedId); loadVehicules(); } catch (e) { console.error(e); } finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); } };
+  // const handleDeleteIncident    = async () => { if (!incidentDeleteId) return; try { await VehiculeService.deleteIncident(incidentDeleteId); loadIncidents(); } catch (e) { console.error(e); } finally { setShowIncidentConfirm(false); setIncidentDeleteId(null); } };
+  // const handleDeleteMaintenance = async () => { if (!maintenanceDeleteId) return; try { await VehiculeService.deleteMaintenance(maintenanceDeleteId); loadMaintenances(); } catch (e) { console.error(e); } finally { setShowMaintenanceConfirm(false); setMaintenanceDeleteId(null); } };
+const handleDeleteVehicule = async () => {
+  if (!selectedId) return;
+  setDeleteLoading(true);
+  try {
+    await VehiculeService.delete(selectedId);
+    notify.success('Véhicule supprimé avec succès');
+    loadVehicules();
+  } catch (e) {
+    notify.apiError(e, 'Erreur lors de la suppression du véhicule');
+  } finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
+};
+
+const handleDeleteIncident = async () => {
+  if (!incidentDeleteId) return;
+  try {
+    await VehiculeService.deleteIncident(incidentDeleteId);
+    notify.success('Incident supprimé avec succès');
+    loadIncidents();
+  } catch (e) {
+    notify.apiError(e, "Erreur lors de la suppression de l'incident");
+  } finally { setShowIncidentConfirm(false); setIncidentDeleteId(null); }
+};
+
+const handleDeleteMaintenance = async () => {
+  if (!maintenanceDeleteId) return;
+  try {
+    await VehiculeService.deleteMaintenance(maintenanceDeleteId);
+    notify.success('Maintenance supprimée avec succès');
+    loadMaintenances();
+  } catch (e) {
+    notify.apiError(e, 'Erreur lors de la suppression de la maintenance');
+  } finally { setShowMaintenanceConfirm(false); setMaintenanceDeleteId(null); }
+};
+
+
+
+
+
+
+
+
+
 
   const handlePrintHistorique = async (vehiculeId: number) => {
     setPrintLoadingId(vehiculeId);

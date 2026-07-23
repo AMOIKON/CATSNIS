@@ -5,6 +5,7 @@ import ReferenceService   from '../../services/referenceService';
 import { AcquisitionRequest, AcquisitionResponse, TypeResponse } from '../../types';
 import { getImageSrc } from '../../utils/imageUtils';
 import useAuth from '../../hooks/useAuth';
+import notify from '../../services/notify';
 
 interface Props {
     show:        boolean;
@@ -29,7 +30,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
         quantity: 1, serial: '', typesId: 0, partnerId: undefined,
     });
 
-    // ── Pré-remplir le formulaire ─────────────────────────────────────────────
     useEffect(() => {
         if (!show || !acquisition) return;
         setError(null);
@@ -41,7 +41,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
             quantity:  acquisition.quantity,
             serial:    acquisition.serial,
             typesId:   acquisition.typesId  || 0,
-            // ✅ Pré-remplir le partnerId depuis l'acquisition existante
             partnerId: acquisition.partnerId ?? undefined,
         });
 
@@ -53,11 +52,10 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
             })
             .catch(() => setError('Erreur lors du chargement des types'));
 
-        // ✅ SUPER_ADMIN/ITECH → charger les partenaires
         if (isUnrestricted) {
             ReferenceService.getPartners()
                 .then(list => setPartners(list.map(p => ({ id: p.id, name: p.name }))))
-                .catch(() => {/* silencieux */});
+                .catch(() => {});
         }
     }, [show, acquisition, isUnrestricted]);
 
@@ -65,30 +63,29 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
         if (!show) setError(null);
     }, [show]);
 
-    // ── Handlers ──────────────────────────────────────────────────────────────
-
-    const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const id   = Number(e.target.value);
-        const type = types.find(t => t.id === id) || null;
-        setSelectedType(type);
-        setForm(prev => ({ ...prev, typesId: id, image: type?.image || '' }));
-    };
-
+    // ✅ AJOUTÉ — manquait dans le fichier d'origine
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
     ) => {
         const { name, value } = e.target;
         setForm(prev => ({
             ...prev,
-            [name]: name === 'quantity'
-                ? Number(value)
-                : name === 'partnerId'
-                    ? (value ? Number(value) : undefined)
+            [name]: name === 'partnerId'
+                ? (value ? Number(value) : undefined)
+                : name === 'quantity'
+                    ? (value ? Number(value) : 1)
                     : value,
         }));
     };
 
-    // ── Soumission ────────────────────────────────────────────────────────────
+    // ✅ AJOUTÉ — manquait dans le fichier d'origine
+    const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id   = Number(e.target.value);
+        const type = types.find(t => t.id === id) || null;
+        setSelectedType(type);
+        setForm(prev => ({ ...prev, typesId: id }));
+    };
+
     const handleSubmit = async () => {
         if (!acquisition) return;
         setError(null);
@@ -101,14 +98,16 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
             await AcquisitionService.update(acquisition.id, form);
             onSuccess();
             onHide();
+            notify.success('Acquisition modifiée avec succès');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la modification.');
+            const msg = err.response?.data?.message || 'Erreur lors de la modification.';
+            setError(msg);
+            notify.error(msg);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // ✅ Partenaire affiché : priorité à l'acquisition, puis à l'utilisateur connecté
     const displayedPartnerName = isUnrestricted
         ? partners.find(p => p.id === form.partnerId)?.name
             ?? acquisition?.partnerName
@@ -136,11 +135,8 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                 {error && <Alert variant="danger" className="rounded-3">{error}</Alert>}
 
                 <div className="row g-4">
-                    {/* ── Colonne gauche ──────────────────────────────── */}
                     <div className="col-md-8">
                         <Form>
-
-                            {/* ✅ Sélecteur partenaire — SUPER_ADMIN/ITECH uniquement */}
                             {isUnrestricted && (
                                 <Form.Group className="mb-3">
                                     <Form.Label className="fw-semibold">
@@ -161,7 +157,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                                 </Form.Group>
                             )}
 
-                            {/* ✅ Partenaire en lecture seule — autres rôles */}
                             {!isUnrestricted && (
                                 <Form.Group className="mb-3">
                                     <Form.Label className="fw-semibold">Partenaire</Form.Label>
@@ -176,7 +171,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                                 </Form.Group>
                             )}
 
-                            {/* Tag */}
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-semibold">
                                     Tag <span className="text-danger">*</span>
@@ -185,7 +179,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                                     onChange={handleChange} className="rounded-3" />
                             </Form.Group>
 
-                            {/* Serial */}
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-semibold">
                                     Numéro de série <span className="text-danger">*</span>
@@ -194,7 +187,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                                     onChange={handleChange} className="rounded-3" />
                             </Form.Group>
 
-                            {/* Type */}
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-semibold">
                                     Type d'équipement <span className="text-danger">*</span>
@@ -209,7 +201,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                                 </Form.Select>
                             </Form.Group>
 
-                            {/* Date + Quantité */}
                             <div className="row">
                                 <div className="col-md-7">
                                     <Form.Group className="mb-3">
@@ -231,7 +222,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                                 </div>
                             </div>
 
-                            {/* Image */}
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-semibold">Image (URL)</Form.Label>
                                 <Form.Control name="image" value={form.image}
@@ -241,10 +231,7 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                         </Form>
                     </div>
 
-                    {/* ── Colonne droite : aperçu ──────────────────────── */}
                     <div className="col-md-4 d-flex flex-column align-items-center justify-content-start pt-2">
-
-                        {/* Aperçu type */}
                         <div className="card border-0 bg-light rounded-4 p-3 text-center w-100">
                             {selectedType ? (
                                 <>
@@ -273,7 +260,6 @@ const AcquisitionUpdateModal: React.FC<Props> = ({
                             )}
                         </div>
 
-                        {/* ✅ Aperçu partenaire — toujours affiché */}
                         <div className={`card border-0 rounded-4 p-3 text-center w-100 mt-3
                             ${displayedPartnerName
                                 ? 'bg-primary bg-opacity-10'

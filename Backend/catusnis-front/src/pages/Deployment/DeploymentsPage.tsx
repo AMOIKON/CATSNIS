@@ -14,6 +14,7 @@ import PrintPreviewModal     from '../../components/common/Printpreviewmodal';
 import useAuth               from '../../hooks/useAuth';
 import { getImageSrc }       from '../../utils/imageUtils';
 import GpsTag                from '../../components/common/GpsTag';
+import notify from '../../services/notify';
 
 type Tab = 'deployments' | 'items' | 'stats';
 
@@ -45,8 +46,7 @@ const ReturnItemModal: React.FC<{
                     <button className={`btn btn-sm rounded-3 ${mode === 'all' ? 'btn-danger' : 'btn-outline-danger'}`} onClick={() => setMode('all')}>
                         <i className="bi bi-arrow-return-left me-1" />Tout retourner ({nbItems})
                     </button>
-                </div>
-                {mode === 'one' ? (
+                </div>{mode === 'one' ? (
                     <>
                         <p className="text-muted small mb-2">Sélectionnez l'équipement à retirer :</p>
                         <div className="d-flex flex-column gap-2">
@@ -66,8 +66,7 @@ const ReturnItemModal: React.FC<{
                             </div>
                         )}
                     </>
-                ) : (
-                    <div className="alert alert-danger rounded-3 py-3 mb-0">
+                ) : (<div className="alert alert-danger rounded-3 py-3 mb-0">
                         <i className="bi bi-exclamation-triangle-fill me-2" />
                         <strong>{nbItems} équipement(s)</strong> seront retirés du déploiement et remis en stock. Le déploiement sera supprimé automatiquement.
                     </div>
@@ -90,7 +89,6 @@ const ReturnItemModal: React.FC<{
     );
 };
 
-// ── Page principale ────────────────────────────────────────────────────────────
 const DeploymentsPage: React.FC = () => {
     const { person, isUnrestricted } = useAuth();
     const role      = person?.role;
@@ -130,7 +128,6 @@ const DeploymentsPage: React.FC = () => {
     const [returnTarget,         setReturnTarget]         = useState<DeploymentResponse | null>(null);
     const [returnItem,           setReturnItem]           = useState<{ itemId: number; label: string } | null>(null);
     const [returnLoading,        setReturnLoading]        = useState(false);
-    // ✅ Téléchargement de la fiche PDF
     const [downloadingId,        setDownloadingId]        = useState<number | null>(null);
 
     useEffect(() => { RegionService.getAllList().then(setRegions); }, []);
@@ -175,7 +172,8 @@ const DeploymentsPage: React.FC = () => {
             await DeploymentService.delete(selectedId);
             loadDeployments(); loadAllForStats();
             setShowConfirm(false); setSelectedId(null);
-        } catch (err: any) { setActionError(extractError(err)); }
+            notify.success('Déploiement supprimé avec succès');
+        } catch (err: any) { setActionError(extractError(err)); notify.error(extractError(err)); }
         finally { setDeleteLoading(false); }
     };
 
@@ -196,7 +194,8 @@ const DeploymentsPage: React.FC = () => {
             await DeploymentService.delete(returnTarget.id);
             loadDeployments(); loadAllForStats();
             setShowReturnAllConfirm(false); setReturnTarget(null);
-        } catch (err: any) { setActionError(extractError(err)); setShowReturnAllConfirm(false); }
+            notify.success('Tous les équipements ont été retournés en stock');
+        } catch (err: any) { setActionError(extractError(err)); setShowReturnAllConfirm(false); notify.error(extractError(err)); }
         finally { setReturnAllLoading(false); }
     };
 
@@ -207,7 +206,8 @@ const DeploymentsPage: React.FC = () => {
             await DeploymentService.removeItem(returnTarget.id, returnItem.itemId);
             loadDeployments(); loadAllForStats();
             setShowReturnConfirm(false); setReturnTarget(null); setReturnItem(null);
-        } catch (err: any) { setActionError(extractError(err)); setShowReturnConfirm(false); }
+            notify.success(`"${returnItem.label}" retourné en stock avec succès`);
+        } catch (err: any) { setActionError(extractError(err)); setShowReturnConfirm(false); notify.error(extractError(err)); }
         finally { setReturnLoading(false); }
     };
 
@@ -215,7 +215,6 @@ const DeploymentsPage: React.FC = () => {
         setPrintTarget(d); setPrintModalTarget(d); setShowPrintModal(true);
     };
 
-    // ✅ Téléchargement de la fiche PDF du déploiement
     const handleDownloadPdf = async (d: DeploymentResponse) => {
         setDownloadingId(d.id);
         try {
@@ -228,8 +227,10 @@ const DeploymentsPage: React.FC = () => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-        } catch (err) {
+            notify.success('Fiche PDF téléchargée avec succès');
+        } catch (err: any) {
             console.error('Erreur téléchargement PDF déploiement:', err);
+            notify.apiError(err, 'Erreur lors du téléchargement du PDF');
         } finally {
             setDownloadingId(null);
         }
@@ -279,8 +280,7 @@ const DeploymentsPage: React.FC = () => {
         td  { border:1px solid #dee2e6; padding:6px 8px; font-size:11px; }
         tr:nth-child(even) { background:#f9f9f9; }
     </style>
-</head>
-<body>
+</head><body>
     ${header}
     <p class="total">${all.length} déploiement(s) — ${all.reduce((s, d) => s + (d.items?.length || 0), 0)} équipements</p>
     <table>
@@ -388,7 +388,6 @@ const DeploymentsPage: React.FC = () => {
                                     <tr><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Région :</strong> {printTarget.regionDeploy}</td><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Application :</strong> {printTarget.appsDeploy}</td></tr>
                                 </tbody>
                             </table>
-                            {/* ── GPS dans la fiche imprimée ── */}
                             {printTarget.latitude != null && printTarget.longitude != null && (
                                 <div style={{ marginBottom:'14px', padding:'8px 12px', background:'#d1e7dd', borderRadius:'6px', border:'1px solid #a3cfbb', fontSize:'11px', color:'#0a3622', display:'flex', alignItems:'center', gap:'8px' }}>
                                     <span>📍</span>
@@ -411,8 +410,7 @@ const DeploymentsPage: React.FC = () => {
                                     <th style={{ border:'1px solid #0d6efd', padding:'7px 8px' }}>N° Tag</th>
                                     <th style={{ border:'1px solid #0d6efd', padding:'7px 8px' }}>N° Série</th>
                                     <th style={{ border:'1px solid #0d6efd', padding:'7px 8px', textAlign:'center' }}>État</th>
-                                </tr></thead>
-                                <tbody>{printTarget.items?.map((item, i) => (
+                                </tr></thead><tbody>{printTarget.items?.map((item, i) => (
                                     <tr key={item.id} style={{ background: i % 2 === 0 ? '#ffffff' : '#f8f9fa' }}>
                                         <td style={{ border:'1px solid #dee2e6', padding:'6px 8px', textAlign:'center', fontWeight:'bold', color:'#0d6efd' }}>{i+1}</td>
                                         <td style={{ border:'1px solid #dee2e6', padding:'6px 8px' }}>{item.typeName}</td>
@@ -625,7 +623,6 @@ const DeploymentsPage: React.FC = () => {
                                                     {isUnrestricted && (
                                                         <td>{d.partnerName ? <span className="badge bg-warning bg-opacity-10 text-warning">{d.partnerName}</span> : <span className="text-muted small">—</span>}</td>
                                                     )}
-                                                    {/* ── Colonne GPS ── */}
                                                     <td>
                                                         <GpsTag latitude={d.latitude} longitude={d.longitude} />
                                                     </td>
@@ -633,7 +630,6 @@ const DeploymentsPage: React.FC = () => {
                                                         <button className="btn btn-sm btn-outline-primary me-1" onClick={() => handlePrintFiche(d)} title="Imprimer fiche">
                                                             <i className="bi bi-printer" />
                                                         </button>
-                                                        {/* ✅ Téléchargement de la fiche PDF */}
                                                         <button className="btn btn-sm btn-outline-success me-1"
                                                             onClick={() => handleDownloadPdf(d)}
                                                             disabled={downloadingId === d.id}
@@ -655,8 +651,7 @@ const DeploymentsPage: React.FC = () => {
                                                         {canDelete && (
                                                             <button className="btn btn-sm btn-outline-danger" onClick={() => { setSelectedId(d.id); setShowConfirm(true); }}>
                                                                 <i className="bi bi-trash" />
-                                                            </button>
-                                                        )}
+                                                            </button>  )}
                                                     </td>
                                                 </tr>
                                                 );

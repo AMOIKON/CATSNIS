@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import RegionService from '../../services/regionService';
 import { RegionRequest } from '../../types';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -23,11 +24,14 @@ const RegionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
         setIsLoading(true);
         try {
             await RegionService.create(form);
+            notify.success('Région créée avec succès');
             onSuccess();
             onHide();
             setForm({ regionName: '' });
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la création.');
+            const msg = err.response?.data?.message || 'Erreur lors de la création.';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la création de la région');
         } finally {
             setIsLoading(false);
         }

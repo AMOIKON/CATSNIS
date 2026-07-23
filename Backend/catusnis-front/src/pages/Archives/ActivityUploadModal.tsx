@@ -4,6 +4,7 @@ import {
   ACCEPT_MIME, MAX_SIZE_MB,
   ACCEPTED_EXTENSIONS, validateFile, getFileIcon,
 } from '../../services/archiveService';
+import notify from '../../services/notify';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface ActivityDoc {
@@ -75,9 +76,12 @@ const ActivityUploadModal: React.FC<Props> = ({ show, docType, onHide, onSuccess
           if (e.total) setProgress(Math.round((e.loaded / e.total) * 100));
         },
       });
+      notify.success(`${docType.label} importé avec succès`);
       reset(); onSuccess(); onHide();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Erreur lors de l'import. Réessayez.");
+      const msg = err?.response?.data?.message || "Erreur lors de l'import. Réessayez.";
+      setError(msg);
+      notify.apiError(err, "Erreur lors de l'import du document");
     } finally { setLoading(false); }
   };
 

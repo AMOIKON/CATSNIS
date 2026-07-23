@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import RegionService from '../../services/regionService';
 import { RegionRequest, RegionResponse } from '../../types';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -31,10 +32,13 @@ const RegionUpdateModal: React.FC<Props> = ({ show, onHide, onSuccess, region })
         setIsLoading(true);
         try {
             await RegionService.update(region.id, form);
+            notify.success('Région modifiée avec succès');
             onSuccess();
             onHide();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la modification.');
+            const msg = err.response?.data?.message || 'Erreur lors de la modification.';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la modification de la région');
         } finally {
             setIsLoading(false);
         }

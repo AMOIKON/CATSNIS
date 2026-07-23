@@ -9,6 +9,7 @@ import ArchiveService, { getFileIcon,
   ArchiveResponse, TypeArchive, CategorieArchive, ArchiveStats,
 } from '../../services/archiveService';
 import useAuth from '../../hooks/useAuth';
+import  notify  from '../../services/notify';
 
 // ── Config catégories ─────────────────────────────────────────────────────────
 const CAT_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
@@ -107,14 +108,16 @@ const ArchivesPage: React.FC = () => {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
-    if (!selectedId) return;
-    setDeleteLoading(true);
-    try {
-      await ArchiveService.delete(selectedId);
-      loadArchives(); loadStats();
-    } catch (err) { console.error(err); }
-    finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
-  };
+  if (!selectedId) return;
+  setDeleteLoading(true);
+  try {
+    await ArchiveService.delete(selectedId);
+    notify.success('Archive supprimée avec succès');
+    loadArchives(); loadStats();
+  } catch (err) {
+    notify.apiError(err, "Erreur lors de la suppression de l'archive");
+  } finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
+};
 
   const handleDownload = async (arch: ArchiveResponse) => {
     if (!arch.downloadUrl) return;

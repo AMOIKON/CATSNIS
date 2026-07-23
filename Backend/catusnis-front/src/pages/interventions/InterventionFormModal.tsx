@@ -12,6 +12,8 @@ import AcquisitionService    from '../../services/acquisitionService';
 import BookletService        from '../../services/bookletService';
 import AppsService           from '../../services/appsService';
 import PartnerService        from '../../services/partnerService';
+import StructureEtatiqueService, { StructureEtatiqueResponse } from '../../services/Structureetatiqueservice';
+import notify from '../../services/notify';
 
 import {
     InterventionRequest, EvaluationResponse,
@@ -22,7 +24,6 @@ import {
 import { Booklet } from '../../types';
 import useAuth from '../../hooks/useAuth';
 
-// ── Badge statut ──────────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     const config: Record<string, { bg: string; label: string }> = {
         FONCTIONNEL:                  { bg: 'success',   label: '✅ Fonctionnel'     },
@@ -79,7 +80,6 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
     const [districts,          setDistricts]          = useState<DistrictResponse[]>([]);
     const [healths,            setHealths]            = useState<HealthResponse[]>([]);
     const [booklets,           setBooklets]           = useState<Booklet[]>([]);
-    // ✅ Déploiements du site pour le select
     const [siteDeployments,    setSiteDeployments]    = useState<DeploymentResponse[]>([]);
     const [siteItems,          setSiteItems]          = useState<DeploymentItemResponse[]>([]);
     const [itemStates,         setItemStates]         = useState<Record<number, ItemState>>({});
@@ -88,21 +88,24 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
     const [allowedHealthIds,   setAllowedHealthIds]   = useState<number[]>([]);
     const [allowedDistrictIds, setAllowedDistrictIds] = useState<number[]>([]);
     const [siteLoading,        setSiteLoading]        = useState(false);
-    // ✅ Saisie manuelle de la personne assistée
     const [manualPerson,       setManualPerson]       = useState(false);
     const [manualPersonName,    setManualPersonName]    = useState('');
     const [manualPersonContact, setManualPersonContact] = useState('');
     const [manualPersonPost,    setManualPersonPost]    = useState('');
     const [manualPersonEmail,   setManualPersonEmail]   = useState('');
-    // ✅ Assistance technique — équipement hors base (non inventorié)
     const [manualEquipment,       setManualEquipment]       = useState(false);
     const [manualStructure,       setManualStructure]       = useState(false);
     const [manualStructureName,   setManualStructureName]   = useState('');
     const [manualEquipmentName,   setManualEquipmentName]   = useState('');
     const [manualEquipmentType,   setManualEquipmentType]   = useState('');
-    // ✅ Application / Partenaire — nécessaires en mode hors base (pas de déploiement à déduire)
     const [apps,                  setApps]                  = useState<AppsResponse[]>([]);
     const [partners,              setPartners]              = useState<PartnerResponse[]>([]);
+    const [isCallOnly,            setIsCallOnly]            = useState(false);
+    // ✅ NOUVEAU — Structure étatique appelante (mode "Appel / Orientation")
+    const [structuresEtatiques,   setStructuresEtatiques]   = useState<StructureEtatiqueResponse[]>([]);
+    const [structureEtatiqueId,   setStructureEtatiqueId]   = useState<number>(0);
+    const [structureEtatiqueNom,  setStructureEtatiqueNom]  = useState('');
+    const [structureEtatiqueMode, setStructureEtatiqueMode] = useState<'select' | 'create'>('select');
 
     const selectedItems = Object.entries(itemStates)
         .filter(([_, s]) => s.selected)
@@ -118,6 +121,9 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
         setManualPerson(false); setManualPersonName(''); setManualPersonContact(''); setManualPersonPost(''); setManualPersonEmail('');
         setManualEquipment(false); setManualEquipmentName(''); setManualEquipmentType('');
         setManualStructure(false); setManualStructureName('');
+        setIsCallOnly(false);
+        setStructureEtatiqueId(0); setStructureEtatiqueNom(''); setStructureEtatiqueMode('select');
+        StructureEtatiqueService.getAllList().then(setStructuresEtatiques).catch(() => setStructuresEtatiques([]));
 
         const load = async () => {
             try {
@@ -149,10 +155,11 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
         setForm(prev => ({
             ...prev,
             typeInter,
-            actionInter: typeInter === 'EN_LIGNE' ? 'MAINTENANCE' : 'MAINTENANCE_CURATIVE',
+            actionInter: (manualEquipment || isCallOnly)
+                ? (prev.actionInter === 'ORIENTATION_TECHNIQUE' ? 'ORIENTATION_TECHNIQUE' : 'ASSISTANCE_TECHNIQUE')
+                : (typeInter === 'EN_LIGNE' ? 'MAINTENANCE' : 'MAINTENANCE_CURATIVE'),
         }));
         setSiteItems([]); setItemStates({});
-        // Recharger les items si site déjà sélectionné
         if (form.healthId) loadSiteItems(form.healthId, typeInter);
     };
 
@@ -177,7 +184,6 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
         }
     };
 
-    // ✅ Site sélectionné → charger déploiements + équipements + booklets
     const handleHealthChange = async (healthId: number) => {
         setForm(prev => ({ ...prev, healthId, deploymentId: 0 }));
         setSiteItems([]); setItemStates({});
@@ -186,22 +192,18 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
 
         setSiteLoading(true);
         try {
-            // ✅ Charger déploiements du site
             const deps = await DeploymentService.getAll(0, 100, undefined, undefined, healthId);
             setSiteDeployments(deps.content || []);
 
-            // ✅ Auto-sélectionner le premier déploiement
             if (deps.content?.length > 0) {
                 setForm(prev => ({ ...prev, healthId, deploymentId: deps.content[0].id }));
             }
 
-            // ✅ Charger booklets par district (pas de health_id dans la table booklet)
             try {
                 const bkts = await BookletService.getByDistrict(form.districtId);
                 setBooklets(Array.isArray(bkts) ? bkts : []);
             } catch { setBooklets([]); }
 
-            // ✅ Charger équipements
             await loadSiteItems(healthId, form.typeInter, deps.content || []);
         } finally {
             setSiteLoading(false);
@@ -282,39 +284,75 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
-    // ✅ Basculer en mode "assistance technique" (équipement hors base)
     const handleToggleManualEquipment = (value: boolean) => {
         setManualEquipment(value);
         if (value) {
-            // On quitte le mode inventorié : on vide la sélection d'équipements/déploiement
             setSiteItems([]); setItemStates({});
-            setForm(prev => ({ ...prev, deploymentId: 0, typesId: 0 }));
+            setForm(prev => ({
+                ...prev,
+                deploymentId: 0,
+                typesId: 0,
+                actionInter: 'ASSISTANCE_TECHNIQUE',
+            }));
         } else {
             setManualEquipmentName(''); setManualEquipmentType('');
+            setForm(prev => ({
+                ...prev,
+                actionInter: prev.typeInter === 'EN_LIGNE' ? 'MAINTENANCE' : 'MAINTENANCE_CURATIVE',
+            }));
             if (form.healthId) loadSiteItems(form.healthId, form.typeInter);
+        }
+    };
+
+    const handleToggleCallOnly = (value: boolean) => {
+        setIsCallOnly(value);
+        if (value) {
+            setManualStructure(false); setManualStructureName('');
+            setManualEquipment(false); setManualEquipmentName(''); setManualEquipmentType('');
+            setManualPerson(false); setManualPersonName(''); setManualPersonContact('');
+            setManualPersonPost(''); setManualPersonEmail('');
+            setSiteItems([]); setItemStates({});
+            setSiteDeployments([]); setBooklets([]);
+            setDistricts([]); setHealths([]);
+            setStructureEtatiqueId(0); setStructureEtatiqueNom(''); setStructureEtatiqueMode('select');
+            setForm(prev => ({
+                ...prev,
+                regionId: 0, districtId: 0, healthId: 0, deploymentId: 0, typesId: 0,
+                evaluationId: 0, bookletId: undefined,
+                actionInter: 'ASSISTANCE_TECHNIQUE',
+            }));
+        } else {
+            setForm(prev => ({
+                ...prev,
+                actionInter: prev.typeInter === 'EN_LIGNE' ? 'MAINTENANCE' : 'MAINTENANCE_CURATIVE',
+            }));
         }
     };
 
     const handleSubmit = async () => {
         setError(null);
-        if (!form.dateInter || !form.evaluationId ||
-            !form.durationMinutes || !form.commentInter.trim()) {
+        if (!form.dateInter || !form.durationMinutes || !form.commentInter.trim()) {
             setError('Veuillez remplir tous les champs obligatoires.'); return;
         }
-        if (!manualStructure && (!form.regionId || !form.districtId || !form.healthId)) {
-            setError('Veuillez sélectionner une région/district/site, ou basculer en saisie manuelle de la structure.'); return;
-        }
-        if (manualStructure && !manualStructureName.trim()) {
-            setError('Veuillez indiquer le nom de la structure.'); return;
-        }
-        if (!manualEquipment && selectedItems.length === 0) {
-            setError('Veuillez sélectionner au moins un équipement, ou basculer en mode assistance technique.'); return;
-        }
-        if (manualEquipment && !manualEquipmentName.trim()) {
-            setError('Veuillez indiquer la désignation de l\'équipement hors base.'); return;
-        }
-        if (!form.bookletId && !manualPersonName.trim()) {
-            setError('Veuillez sélectionner ou saisir la personne assistée.'); return;
+        if (!isCallOnly) {
+            if (!form.evaluationId) {
+                setError('Veuillez remplir tous les champs obligatoires.'); return;
+            }
+            if (!manualStructure && (!form.regionId || !form.districtId || !form.healthId)) {
+                setError('Veuillez sélectionner une région/district/site, ou basculer en saisie manuelle de la structure.'); return;
+            }
+            if (manualStructure && !manualStructureName.trim()) {
+                setError('Veuillez indiquer le nom de la structure.'); return;
+            }
+            if (!manualEquipment && selectedItems.length === 0) {
+                setError('Veuillez sélectionner au moins un équipement, ou basculer en mode assistance technique.'); return;
+            }
+            if (manualEquipment && !manualEquipmentName.trim()) {
+                setError('Veuillez indiquer la désignation de l\'équipement hors base.'); return;
+            }
+            if (!form.bookletId && !manualPersonName.trim()) {
+                setError('Veuillez sélectionner ou saisir la personne assistée.'); return;
+            }
         }
 
         setIsLoading(true);
@@ -334,26 +372,29 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
 
             await InterventionService.create({
                 ...form,
-                regionId:             manualStructure ? 0 : Number(form.regionId),
-                districtId:           manualStructure ? 0 : Number(form.districtId),
-                healthId:             manualStructure ? 0 : Number(form.healthId),
-                deploymentId:         manualEquipment ? 0 : Number(form.deploymentId),
-                evaluationId:         Number(form.evaluationId),
+                regionId:             (manualStructure || isCallOnly) ? 0 : Number(form.regionId),
+                districtId:           (manualStructure || isCallOnly) ? 0 : Number(form.districtId),
+                healthId:             (manualStructure || isCallOnly) ? 0 : Number(form.healthId),
+                deploymentId:         (manualEquipment || isCallOnly) ? 0 : Number(form.deploymentId),
+                evaluationId:         isCallOnly ? undefined : Number(form.evaluationId),
                 durationMinutes:      Number(form.durationMinutes),
                 appsId:               form.appsId ? Number(form.appsId) : 0,
                 partnerId:            form.partnerId ? Number(form.partnerId) : undefined,
                 personId:             undefined,
-                bookletId:            form.bookletId ? Number(form.bookletId) : undefined,
+                bookletId:            isCallOnly ? undefined : (form.bookletId ? Number(form.bookletId) : undefined),
                 manualPersonName:     manualPersonName.trim()    || undefined,
                 manualPersonContact:  manualPersonContact.trim() || undefined,
                 manualPersonPost:     manualPersonPost.trim()    || undefined,
-                manualPersonEmail:    manualPersonEmail.trim()   || undefined,
-                // ✅ Assistance technique — équipement hors base
+                manualPersonEmail:    isCallOnly ? undefined : (manualPersonEmail.trim()   || undefined),
                 manualEquipmentName:  manualEquipment ? manualEquipmentName.trim() || undefined : undefined,
                 manualEquipmentType:  manualEquipment ? manualEquipmentType.trim() || undefined : undefined,
-                // ✅ Structure hors base (région/district/site non renseignés)
                 manualStructureName:  manualStructure ? manualStructureName.trim() || undefined : undefined,
-                selectedItemIds:      manualEquipment ? [] : selectedItems,
+                // ✅ Structure étatique appelante (mode appel)
+                structureEtatiqueId:  isCallOnly && structureEtatiqueMode === 'select' && structureEtatiqueId
+                    ? structureEtatiqueId : undefined,
+                structureEtatiqueNom: isCallOnly && structureEtatiqueMode === 'create' && structureEtatiqueNom.trim()
+                    ? structureEtatiqueNom.trim() : undefined,
+                selectedItemIds:      (manualEquipment || isCallOnly) ? [] : selectedItems,
                 etatsAvant,
                 etatsApres,
                 replacements,
@@ -361,9 +402,7 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                 enAttenteMaintenance: form.enAttenteMaintenance ?? false,
             });
 
-            // ✅ Saisie manuelle → créer/retrouver la personne dans la table booklet
-            // (uniquement si région/district connus — impossible en mode structure hors base)
-            if (manualPerson && manualPersonName.trim() && !manualStructure) {
+            if (manualPerson && manualPersonName.trim() && !manualStructure && !isCallOnly) {
                 const parts = manualPersonName.trim().split(' ');
                 await BookletService.createFromIntervention({
                     lastName:   parts[0],
@@ -375,8 +414,11 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                 });
             }
             onSuccess(); onHide();
+            notify.success(isCallOnly ? 'Appel enregistré avec succès' : 'Intervention créée avec succès');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la création.');
+            const msg = err.response?.data?.message || 'Erreur lors de la création.';
+            setError(msg);
+            notify.error(msg);
         } finally { setIsLoading(false); }
     };
 
@@ -392,7 +434,6 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
             <Modal.Body className="px-4">
                 {error && <Alert variant="danger" className="rounded-3">{error}</Alert>}
 
-                {/* ══ Section 1 — Type + Date + Durée ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-primary mb-3"><i className="bi bi-clipboard-data me-2" />Informations générales</h6>
                     <Row className="g-3">
@@ -408,7 +449,12 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                         </Col>
                         <Col md={3}>
                             <Form.Label className="fw-semibold small">Action</Form.Label>
-                            {form.typeInter === 'EN_LIGNE' ? (
+                            {(manualEquipment || isCallOnly) ? (
+                                <Form.Select name="actionInter" value={form.actionInter} onChange={handleChange} className="rounded-3" size="sm">
+                                    <option value="ASSISTANCE_TECHNIQUE">🛠️ Assistance technique</option>
+                                    <option value="ORIENTATION_TECHNIQUE">🧭 Orientation technique</option>
+                                </Form.Select>
+                            ) : form.typeInter === 'EN_LIGNE' ? (
                                 <div className="p-2 bg-primary bg-opacity-10 rounded-3 text-primary small fw-semibold">🔧 Maintenance (automatique)</div>
                             ) : (
                                 <Form.Select name="actionInter" value={form.actionInter} onChange={handleChange} className="rounded-3" size="sm">
@@ -427,13 +473,108 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                             <Form.Control type="number" name="durationMinutes" min={1} value={form.durationMinutes} onChange={handleChange} placeholder="Ex: 30" className="rounded-3" size="sm" />
                         </Col>
                     </Row>
+
+                    <div className="mt-3 pt-3 border-top">
+                        <Form.Check
+                            type="switch"
+                            id="call-only-switch"
+                            label={
+                                <span className="fw-semibold small">
+                                    📞 C'est un appel / une demande d'orientation — pas de site précis
+                                    <span className="text-muted fw-normal ms-1">
+                                        (structure étatique ou partenaire appelant pour une info, hors périmètre informatique par ex.)
+                                    </span>
+                                </span>
+                            }
+                            checked={isCallOnly}
+                            onChange={e => handleToggleCallOnly(e.target.checked)}
+                        />
+                    </div>
                 </div>
 
-                {/* ══ Section 2 — Localisation ══ */}
+                {isCallOnly && (
+                    <div className="card border-0 bg-light rounded-4 p-3 mb-3">
+                        <h6 className="fw-bold text-primary mb-3"><i className="bi bi-building me-2" />Structure appelante (optionnel)</h6>
+                        <Row className="g-3">
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Structure étatique</Form.Label>
+                                <div className="d-flex gap-2 mb-2">
+                                    <button type="button"
+                                        className={`btn btn-sm rounded-3 ${structureEtatiqueMode === 'select' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                        onClick={() => { setStructureEtatiqueMode('select'); setStructureEtatiqueNom(''); }}>
+                                        Sélectionner
+                                    </button>
+                                    <button type="button"
+                                        className={`btn btn-sm rounded-3 ${structureEtatiqueMode === 'create' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                        onClick={() => { setStructureEtatiqueMode('create'); setStructureEtatiqueId(0); }}>
+                                        <i className="bi bi-plus-circle me-1" />Nouvelle
+                                    </button>
+                                </div>
+                                {structureEtatiqueMode === 'select' ? (
+                                    <Form.Select value={structureEtatiqueId} onChange={e => setStructureEtatiqueId(Number(e.target.value))} className="rounded-3" size="sm">
+                                        <option value={0}>-- Aucune structure --</option>
+                                        {structuresEtatiques.map(s => (
+                                            <option key={s.id} value={s.id}>{s.nom}{s.regionName ? ` (${s.regionName})` : ''}</option>
+                                        ))}
+                                    </Form.Select>
+                                ) : (
+                                    <Form.Control type="text"
+                                        placeholder="Ex: Préfecture de Yamoussoukro"
+                                        value={structureEtatiqueNom}
+                                        onChange={e => setStructureEtatiqueNom(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                )}
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Bailleur / Partenaire</Form.Label>
+                                <Form.Select name="partnerId" value={form.partnerId || 0} onChange={handleChange} className="rounded-3" size="sm">
+                                    <option value={0}>-- Aucun partenaire --</option>
+                                    {partners.map(p => <option key={p.id} value={p.id}>{p.partnerName}</option>)}
+                                </Form.Select>
+                            </Col>
+                        </Row>
+
+                        {/* ✅ NOUVEAU — Personne contactée : nom + poste (facultatif),
+                            comme dans les modes En ligne / Sur site */}
+                        <Row className="g-3 mt-1">
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Nom de la personne contactée</Form.Label>
+                                <Form.Control type="text"
+                                    placeholder="Ex: KOUASSI Jean"
+                                    value={manualPersonName}
+                                    onChange={e => setManualPersonName(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Fonction / Poste</Form.Label>
+                                <Form.Control type="text"
+                                    placeholder="Ex: Directeur des activités pharmaceutiques"
+                                    value={manualPersonPost}
+                                    onChange={e => setManualPersonPost(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Contact / Téléphone</Form.Label>
+                                <Form.Control type="text"
+                                    placeholder="Ex: 07 00 00 00 00"
+                                    value={manualPersonContact}
+                                    onChange={e => setManualPersonContact(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                            </Col>
+                        </Row>
+
+                        <Alert variant="info" className="rounded-3 small mb-0 mt-3">
+                            <i className="bi bi-info-circle me-2" />
+                            Cet appel sera tracé sans site ni équipement précis — utile pour comptabiliser
+                            toute sollicitation, même hors périmètre informatique.
+                        </Alert>
+                    </div>
+                )}
+
+                {!isCallOnly && (
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-primary mb-3"><i className="bi bi-geo-alt me-2" />Localisation</h6>
 
-                    {/* ✅ Toggle structure connue / hors base */}
                     <div className="d-flex gap-2 mb-3">
                         <button type="button"
                             className={`btn btn-sm rounded-3 ${!manualStructure ? 'btn-primary' : 'btn-outline-primary'}`}
@@ -493,15 +634,14 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                         </Row>
                     )}
                 </div>
+                )}
 
-                {/* ══ Section 3 — Équipement concerné (inventorié ou hors base) ══ */}
-                {(form.healthId > 0 || manualStructure) && (
+                {!isCallOnly && (form.healthId > 0 || manualStructure) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-primary mb-3">
                             <i className="bi bi-pc-display-horizontal me-2" />Équipement concerné <span className="text-danger">*</span>
                         </h6>
 
-                        {/* ✅ Toggle entre équipement inventorié et assistance technique hors base */}
                         <div className="d-flex gap-2 mb-3">
                             <button type="button"
                                 className={`btn btn-sm rounded-3 ${!manualEquipment ? 'btn-primary' : 'btn-outline-primary'}`}
@@ -516,7 +656,6 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                         </div>
 
                         {manualEquipment ? (
-                            /* ✅ Saisie manuelle d'un équipement non inventorié */
                             <div className="row g-2">
                                 <div className="col-md-6">
                                     <Form.Label className="fw-semibold small">
@@ -555,12 +694,14 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                                         <i className="bi bi-info-circle me-2" />
                                         Cet équipement sera automatiquement enregistré dans l'inventaire
                                         (statut « hors base ») pour un suivi ultérieur.
+                                        Choisissez ci-dessus si l'action correspond à une
+                                        <strong> assistance technique</strong> (prise en charge complète)
+                                        ou une <strong>orientation technique</strong> (simple conseil/orientation).
                                     </Alert>
                                 </div>
                             </div>
                         ) : (
                             <>
-                                {/* ── Sélecteur de déploiement ── */}
                                 {siteDeployments.length === 0 ? (
                                     <Alert variant="warning" className="rounded-3 small mb-3">
                                         <i className="bi bi-exclamation-triangle me-2" />Aucun déploiement trouvé pour ce site.
@@ -576,7 +717,6 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                                     </Form.Select>
                                 )}
 
-                                {/* ── Table des équipements ── */}
                                 <div className="d-flex align-items-center gap-2 mb-2">
                                     <span className="fw-semibold small">
                                         {form.typeInter === 'EN_LIGNE' ? 'Équipements du site' : "Équipements en attente d'intervention"}
@@ -694,15 +834,13 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                     </div>
                 )}
 
-                {/* ══ Section 5 — Personne assistée ══ */}
-                {(form.healthId > 0 || manualStructure) && (
+                {!isCallOnly && (form.healthId > 0 || manualStructure) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-primary mb-3">
                             <i className="bi bi-person-fill me-2" />
                             Personne assistée <span className="text-danger">*</span>
                         </h6>
 
-                        {/* ✅ Toggle entre sélection booklet et saisie manuelle */}
                         <div className="d-flex gap-2 mb-3">
                             <button type="button"
                                 className={`btn btn-sm rounded-3 ${!manualPerson ? 'btn-primary' : 'btn-outline-primary'}`}
@@ -717,7 +855,6 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                         </div>
 
                         {manualPerson ? (
-                            /* ✅ Saisie manuelle avec contact et fonction */
                             <div className="row g-2">
                                 <div className="col-md-12">
                                     <Form.Label className="fw-semibold small">
@@ -799,21 +936,24 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
                     </div>
                 )}
 
-                {/* ══ Section 6 — Évaluation + Commentaire ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
-                    <h6 className="fw-bold text-primary mb-3"><i className="bi bi-chat-left-text me-2" />Évaluation & Commentaire</h6>
+                    <h6 className="fw-bold text-primary mb-3"><i className="bi bi-chat-left-text me-2" />
+                        {isCallOnly ? 'Commentaire' : 'Évaluation & Commentaire'}
+                    </h6>
                     <Row className="g-3">
-                        <Col md={4}>
-                            <Form.Label className="fw-semibold small">Évaluation <span className="text-danger">*</span></Form.Label>
-                            <Form.Select name="evaluationId" value={form.evaluationId} onChange={handleChange} className="rounded-3" size="sm">
-                                <option value={0}>-- Sélectionner --</option>
-                                {evaluations.map(e => <option key={e.id} value={e.id}>{e.evlName}</option>)}
-                            </Form.Select>
-                        </Col>
-                        <Col md={8}>
+                        {!isCallOnly && (
+                            <Col md={4}>
+                                <Form.Label className="fw-semibold small">Évaluation <span className="text-danger">*</span></Form.Label>
+                                <Form.Select name="evaluationId" value={form.evaluationId} onChange={handleChange} className="rounded-3" size="sm">
+                                    <option value={0}>-- Sélectionner --</option>
+                                    {evaluations.map(e => <option key={e.id} value={e.id}>{e.evlName}</option>)}
+                                </Form.Select>
+                            </Col>
+                        )}
+                        <Col md={isCallOnly ? 12 : 8}>
                             <Form.Label className="fw-semibold small">Commentaire <span className="text-danger">*</span></Form.Label>
                             <Form.Control as="textarea" rows={2} name="commentInter" value={form.commentInter}
-                                onChange={handleChange} placeholder="Décrivez l'intervention..." className="rounded-3" size="sm" />
+                                onChange={handleChange} placeholder="Décrivez l'appel / la demande..." className="rounded-3" size="sm" />
                         </Col>
                     </Row>
                 </div>
@@ -822,12 +962,12 @@ const InterventionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => 
             <Modal.Footer className="border-0">
                 <Button variant="light" onClick={onHide} className="rounded-3">Annuler</Button>
                 <Button variant="primary" onClick={handleSubmit}
-                    disabled={isLoading || (!manualEquipment && selectedItems.length === 0)}
+                    disabled={isLoading || (!isCallOnly && !manualEquipment && selectedItems.length === 0)}
                     className="rounded-3">
                     {isLoading
                         ? <><Spinner size="sm" className="me-2" />Enregistrement...</>
                         : <><i className="bi bi-plus-circle me-2" />Enregistrer
-                            {manualEquipment ? ' (assistance technique)' : ` (${selectedItems.length} équipement(s))`}
+                            {isCallOnly ? ' (appel / orientation)' : manualEquipment ? ' (assistance technique)' : ` (${selectedItems.length} équipement(s))`}
                           </>
                     }
                 </Button>

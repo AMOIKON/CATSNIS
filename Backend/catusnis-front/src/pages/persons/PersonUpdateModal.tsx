@@ -4,6 +4,7 @@ import { UpdatePersonRequest, AppRole } from '../../types';
 import ReferenceService, { ReferenceItem } from '../../services/referenceService';
 import PersonService, { PersonResponse } from '../../services/personService';
 import useAuth from '../../hooks/useAuth';
+import notify from '../../services/notify';
 
 interface PersonUpdateModalProps {
     show:      boolean;
@@ -101,9 +102,12 @@ const PersonUpdateModal: React.FC<PersonUpdateModalProps> = ({
                     ? { plainPassword: newPassword.trim() } : {}),
             };
             await PersonService.update(person!.id, payload);
+            notify.success('Compte modifié avec succès');
             onSuccess(); onHide();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la mise à jour');
+            const msg = err.response?.data?.message || 'Erreur lors de la mise à jour';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la mise à jour du compte');
         } finally { setIsLoading(false); }
     };
 

@@ -5,6 +5,7 @@ import ArchiveService, {
   ACCEPT_MIME, MAX_SIZE_MB,
   ACCEPTED_EXTENSIONS, validateFile, getFileIcon,
 } from '../../services/archiveService';
+import notify  from '../../services/notify';
 
 const CAT_OPTIONS: { value: CategorieArchive; label: string }[] = [
   { value: 'INTERVENTION', label: 'Intervention' },
@@ -62,38 +63,41 @@ const ArchiveUpdateModal: React.FC<Props> = ({ show, archive, onHide, onSuccess 
     }
     setNewFile(f);
   };
+const handleSubmit = async () => {
+  if (!archive) return;
+  if (!titre.trim()) { setError('Le titre est obligatoire.'); return; }
+  if (replaceFile && !newFile) { setError('Veuillez sélectionner un nouveau fichier.'); return; }
 
-  const handleSubmit = async () => {
-    if (!archive) return;
-    if (!titre.trim()) { setError('Le titre est obligatoire.'); return; }
-    if (replaceFile && !newFile) { setError('Veuillez sélectionner un nouveau fichier.'); return; }
+  // Valider relatedId si saisi
+  const relatedIdNum = relatedId.trim() ? Number(relatedId.trim()) : undefined;
+  if (relatedId.trim() && isNaN(relatedIdNum!)) {
+    setError("L'ID de référence doit être un nombre entier."); return;
+  }
 
-    // Valider relatedId si saisi
-    const relatedIdNum = relatedId.trim() ? Number(relatedId.trim()) : undefined;
-    if (relatedId.trim() && isNaN(relatedIdNum!)) {
-      setError("L'ID de référence doit être un nombre entier."); return;
+  setIsLoading(true); setError(null);
+  try {
+    const dto = {
+      titre:       titre.trim(),
+      description: description.trim() || undefined,
+      categorie,
+      relatedCode: relatedCode.trim() || undefined,
+      relatedId:   relatedIdNum,
+      type:        archive.type,
+    };
+    if (replaceFile && newFile) {
+      await ArchiveService.updateWithFile(archive.id, newFile, dto);
+    } else {
+      await ArchiveService.update(archive.id, dto);
     }
-
-    setIsLoading(true); setError(null);
-    try {
-      const dto = {
-        titre:       titre.trim(),
-        description: description.trim() || undefined,
-        categorie,
-        relatedCode: relatedCode.trim() || undefined,
-        relatedId:   relatedIdNum,
-        type:        archive.type,
-      };
-      if (replaceFile && newFile) {
-        await ArchiveService.updateWithFile(archive.id, newFile, dto);
-      } else {
-        await ArchiveService.update(archive.id, dto);
-      }
-      onSuccess(); onHide();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Erreur lors de la modification.');
-    } finally { setIsLoading(false); }
-  };
+    notify.success('Archive modifiée avec succès');
+    onSuccess(); onHide();
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || 'Erreur lors de la modification.';
+    setError(msg);
+    notify.apiError(err, "Erreur lors de la modification de l'archive");
+  } finally { setIsLoading(false); }
+};
+ 
 
   if (!archive) return null;
   const isScanne    = archive.type === 'SCANNE';

@@ -3,6 +3,7 @@ import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import DistrictService from '../../services/districtService';
 import RegionService   from '../../services/regionService';
 import { DistrictRequest, RegionResponse } from '../../types';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -33,11 +34,14 @@ const DistrictFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
         setIsLoading(true);
         try {
             await DistrictService.create(form);
+            notify.success('District créé avec succès');
             onSuccess();
             onHide();
             setForm({ districtName: '', regionId: 0 });
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la création.');
+            const msg = err.response?.data?.message || 'Erreur lors de la création.';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la création du district');
         } finally {
             setIsLoading(false);
         }

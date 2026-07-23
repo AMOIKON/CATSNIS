@@ -5,6 +5,7 @@ import ReferenceService, { ReferenceItem } from '../../services/referenceService
 import api from '../../services/api';
 import { ApiResponse, AuthResponse, AppRole } from '../../types';
 import useAuth from '../../hooks/useAuth';
+import notify from '../../services/notify';
 
 interface PersonFormModalProps {
     show:      boolean;
@@ -74,9 +75,12 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({ show, onHide, onSucce
         setIsLoading(true); setError(null);
         try {
             await api.post<ApiResponse<AuthResponse>>('/api/auth/register', formData);
+            notify.success('Compte créé avec succès');
             setFormData(initialForm); onSuccess(); onHide();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la création du compte');
+            const msg = err.response?.data?.message || 'Erreur lors de la création du compte';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la création du compte');
         } finally { setIsLoading(false); }
     };
 

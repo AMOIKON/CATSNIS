@@ -8,6 +8,7 @@ import RegionService   from '../../services/regionService';
 import DistrictService from '../../services/districtService';
 import BookletService  from '../../services/bookletService';
 import { RegionResponse, DistrictResponse, Booklet } from '../../types';
+import notify from '../../services/notify';
 
 interface Props {
   show:         boolean;
@@ -93,11 +94,18 @@ const VehiculeAffectationModal: React.FC<Props> = ({
     setLoading(true); setError('');
     try {
       const payload = { ...form };
-      if (isEdit && affectation) await VehiculeService.updateAffectation(affectation.id, payload);
-      else                       await VehiculeService.affecter(payload);
+      if (isEdit && affectation) {
+        await VehiculeService.updateAffectation(affectation.id, payload);
+        notify.success('Affectation modifiée avec succès');
+      } else {
+        await VehiculeService.affecter(payload);
+        notify.success('Affectation enregistrée avec succès');
+      }
       onSuccess(); onHide();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Erreur lors de l'affectation.");
+      const msg = err?.response?.data?.message || "Erreur lors de l'affectation.";
+      setError(msg);
+      notify.apiError(err, "Erreur lors de l'affectation");
     } finally { setLoading(false); }
   };
 

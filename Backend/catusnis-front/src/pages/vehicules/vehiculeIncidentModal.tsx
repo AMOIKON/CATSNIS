@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import VehiculeService, {
   VehiculeIncidentRequest, VehiculeIncidentResponse, VehiculeResponse
 } from '../../services/vehiculeService';
+import  notify  from '../../services/notify';
 
 interface Props {
   show: boolean;
@@ -47,11 +48,18 @@ const VehiculeIncidentModal: React.FC<Props> = ({ show, onHide, onSuccess, incid
     }
     setLoading(true); setError('');
     try {
-      if (incident) await VehiculeService.updateIncident(incident.id, form);
-      else          await VehiculeService.saveIncident(form);
+      if (incident) {
+        await VehiculeService.updateIncident(incident.id, form);
+        notify.success('Incident modifié avec succès');
+      } else {
+        await VehiculeService.saveIncident(form);
+        notify.success('Incident signalé avec succès');
+      }
       onSuccess(); onHide();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Erreur');
+      const msg = err?.response?.data?.message || 'Erreur';
+      setError(msg);
+      notify.apiError(err, "Erreur lors de l'enregistrement de l'incident");
     } finally { setLoading(false); }
   };
 

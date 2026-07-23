@@ -14,6 +14,7 @@ import {
 import { getImageSrc } from '../../utils/imageUtils';
 import useAuth from '../../hooks/useAuth';
 import api from '../../services/api';
+import notify from '../../services/notify';
 
 interface PartnerOption { id: number; label: string; }
 
@@ -110,6 +111,7 @@ const DeploymentUpdateModal: React.FC<Props> = ({
                     const healList = await HealthService.getAllList(districtId).catch(() => []);
                     setHealths(healList);
                 }
+
                 setForm({
                     codeDep:    deployment.codeDep,
                     dateRecep:  String(deployment.dateRecep).split('T')[0],
@@ -226,8 +228,11 @@ const DeploymentUpdateModal: React.FC<Props> = ({
             await DeploymentService.update(deployment.id, formToSend);
             onSuccess();
             onHide();
+            notify.success('Déploiement modifié avec succès');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la modification.');
+            const msg = err.response?.data?.message || 'Erreur lors de la modification.';
+            setError(msg);
+            notify.error(msg);
         } finally {
             setIsLoading(false);
         }
@@ -275,7 +280,6 @@ const DeploymentUpdateModal: React.FC<Props> = ({
                                 <option key={p.id} value={p.id}>{p.label}</option>
                             ))}
                         </select>
-                        {/* Debug — affiche la valeur actuelle */}
                         {form.partnerId && (
                             <small className="text-success mt-1 d-block">
                                 <i className="bi bi-check-circle me-1" />

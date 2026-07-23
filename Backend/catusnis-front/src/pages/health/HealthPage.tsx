@@ -9,6 +9,7 @@ import DistrictService   from '../../services/districtService';
 import { HealthResponse, RegionResponse, DistrictResponse } from '../../types';
 import useAuth           from '../../hooks/useAuth';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
+import notify from '../../services/notify';
 
 // ── Pagination intelligente avec ellipses ─────────────────────────────────────
 const SmartPagination: React.FC<{
@@ -138,13 +139,18 @@ const HealthPage: React.FC = () => {
 
     useEffect(() => { loadHealths(); }, [loadHealths]);
 
-    const handleDeleteConfirm = async () => {
-        if (!selectedId) return;
-        setDeleteLoading(true);
-        try { await HealthService.delete(selectedId); loadHealths(); }
-        catch (err) { console.error(err); }
-        finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
-    };
+const handleDeleteConfirm = async () => {
+    if (!selectedId) return;
+    setDeleteLoading(true);
+    try {
+        await HealthService.delete(selectedId);
+        notify.success('Site de santé supprimé avec succès');
+        loadHealths();
+    } catch (err) {
+        notify.apiError(err, 'Erreur lors de la suppression du site de santé');
+    }
+    finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
+};
 
     // ── Imprimer TOUS les sites (filtres région/district/recherche respectés) ─
     const handlePrintAll = async () => {

@@ -8,6 +8,7 @@ import RegionService        from '../../services/regionService';
 import { DistrictResponse, RegionResponse } from '../../types';
 import useAuth              from '../../hooks/useAuth';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
+import notify from '../../services/notify';
 
 const DistrictsPage: React.FC = () => {
     const { person } = useAuth();
@@ -50,14 +51,18 @@ const DistrictsPage: React.FC = () => {
     }, [page, keyword, filterRegion]);
 
     useEffect(() => { loadDistricts(); }, [loadDistricts]);
-
-    const handleDeleteConfirm = async () => {
-        if (!selectedId) return;
-        setDeleteLoading(true);
-        try { await DistrictService.delete(selectedId); loadDistricts(); }
-        catch (err) { console.error(err); }
-        finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
-    };
+const handleDeleteConfirm = async () => {
+    if (!selectedId) return;
+    setDeleteLoading(true);
+    try {
+        await DistrictService.delete(selectedId);
+        notify.success('District supprimé avec succès');
+        loadDistricts();
+    } catch (err) {
+        notify.apiError(err, 'Erreur lors de la suppression du district');
+    }
+    finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
+};
 
     // ── Imprimer TOUS les districts (filtre région respecté) ─────────────────
     const handlePrintAll = async () => {

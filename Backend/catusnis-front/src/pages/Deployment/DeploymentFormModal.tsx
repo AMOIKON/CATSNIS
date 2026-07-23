@@ -14,6 +14,7 @@ import {
 import { getImageSrc } from '../../utils/imageUtils';
 import useAuth from '../../hooks/useAuth';
 import ReferenceService from '../../services/referenceService';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -169,8 +170,11 @@ const DeploymentFormModal: React.FC<Props> = ({
             await DeploymentService.create(formToSend);
             onSuccess();
             onHide();
+            notify.success('Déploiement créé avec succès');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la création.');
+            const msg = err.response?.data?.message || 'Erreur lors de la création.';
+            setError(msg);
+            notify.error(msg);
         } finally {
             setIsLoading(false);
         }
@@ -389,6 +393,7 @@ const DeploymentFormModal: React.FC<Props> = ({
                                             const selOrPre = sel
                                                 || (preselectedAcquisition?.id === Number(item.acquisitionId)
                                                     ? preselectedAcquisition : undefined);
+
                                             return (
                                                 <tr key={i}>
                                                     <td className="text-muted small">{i + 1}</td>

@@ -5,6 +5,7 @@ import ReferenceService   from '../../services/referenceService';
 import { AcquisitionRequest, TypeResponse } from '../../types';
 import { getImageSrc } from '../../utils/imageUtils';
 import useAuth from '../../hooks/useAuth';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -53,8 +54,6 @@ const AcquisitionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             setError(null);
         }
     }, [show]);
-
-    // ── Handlers ──────────────────────────────────────────────────────────────
 
     const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const qty = Math.max(1, parseInt(e.target.value) || 1);
@@ -121,8 +120,15 @@ const AcquisitionFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             }
             onSuccess();
             onHide();
+            notify.success(
+                pairs.length > 1
+                    ? `${pairs.length} acquisitions créées avec succès`
+                    : 'Acquisition créée avec succès'
+            );
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la création.');
+            const msg = err.response?.data?.message || 'Erreur lors de la création.';
+            setError(msg);
+            notify.error(msg);
         } finally {
             setIsLoading(false);
         }

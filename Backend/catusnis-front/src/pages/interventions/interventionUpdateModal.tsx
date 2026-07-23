@@ -20,6 +20,7 @@ import { Booklet } from '../../types';
 import AppsService from '../../services/appsService';
 import { AppsResponse } from '../../types';
 import { getImageSrc } from '../../utils/imageUtils';
+import notify from '../../services/notify';
 
 // ── Badge statut ──────────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -115,9 +116,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                         }
                     }
                 });
-            });
-
-            setSiteItems(allItems);
+            }); setSiteItems(allItems);
 
             const states: Record<number, ItemState> = {};
             allItems.forEach(item => {
@@ -180,9 +179,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                     intervention.deploymentItems,
                     deps.content
                 );
-            }
-
-            setForm({
+            }setForm({
                 typeInter:            intervention.typeInter,
                 actionInter:          intervention.actionInter,
                 commentInter:         intervention.commentInter,
@@ -233,9 +230,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
         }));
         setSiteItems([]); setItemStates({}); setAvailableAcqs({});
         if (form.healthId && !manualEquipment) await loadSiteItems(form.healthId, typeInter);
-    };
-
-    const handleRegionChange = async (regionId: number) => {
+    }; const handleRegionChange = async (regionId: number) => {
         setForm(prev => ({ ...prev, regionId, districtId: 0, healthId: 0, deploymentId: 0 }));
         setDistricts([]); setHealths([]);
         setSiteItems([]); setItemStates({}); setBooklets([]);
@@ -301,9 +296,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 setAcqLoading(prev => ({ ...prev, [itemId]: false }));
             }
         }
-    }, []);
-
-    const handleReplacementChange = (itemId: number, acqId: number) => {
+    }, []);const handleReplacementChange = (itemId: number, acqId: number) => {
         setItemStates(prev => ({ ...prev, [itemId]: { ...prev[itemId], replacementId: acqId } }));
         setForm(prev => ({ ...prev, actionInter: 'REMPLACEMENT' }));
     };
@@ -347,9 +340,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
         }
         if (!form.bookletId && !manualPersonName.trim()) {
             setError('Veuillez sélectionner ou saisir la personne assistée.'); return;
-        }
-
-        setIsLoading(true);
+        }setIsLoading(true);
         try {
             const etatsAvant:         Record<number, string>  = {};
             const etatsApres:         Record<number, string>  = {};
@@ -400,14 +391,15 @@ const InterventionUpdateModal: React.FC<Props> = ({
 
             onSuccess();
             onHide();
+            notify.success('Intervention modifiée avec succès');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la modification.');
+            const msg = err.response?.data?.message || 'Erreur lors de la modification.';
+            setError(msg);
+            notify.error(msg);
         } finally {
             setIsLoading(false);
         }
-    };
-
-    return (
+    };return (
         <Modal show={show} onHide={onHide} centered size="xl">
             <Modal.Header closeButton className="border-0 pb-0">
                 <Modal.Title className="fw-bold">
@@ -436,9 +428,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </span>
                         )}
                     </div>
-                )}
-
-                {/* ══ Section 1 — Type & Dates ══ */}
+                )}{/* ══ Section 1 — Type & Dates ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-warning mb-3">
                         <i className="bi bi-clipboard-data me-2" />Informations de l'intervention
@@ -454,8 +444,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                         onChange={() => handleTypeChange(val)} />
                                 ))}
                             </div>
-                        </Col>
-                        <Col md={3}>
+                        </Col> <Col md={3}>
                             <Form.Label className="fw-semibold small">Action</Form.Label>
                             {form.typeInter === 'EN_LIGNE' ? (
                                 <div className="p-2 bg-warning bg-opacity-10 rounded-3 text-warning small fw-semibold">
@@ -478,9 +467,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             <Form.Control type="number" name="durationMinutes" min={1} value={form.durationMinutes} onChange={handleChange} className="rounded-3" size="sm" />
                         </Col>
                     </Row>
-                </div>
-
-                {/* ══ Section 2 — Localisation ══ */}
+                </div>{/* ══ Section 2 — Localisation ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-warning mb-3">
                         <i className="bi bi-geo-alt me-2" />Localisation
@@ -502,9 +489,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             }}>
                             <i className="bi bi-pencil me-1" />Structure non enregistrée (hors base)
                         </button>
-                    </div>
-
-                    {manualStructure ? (
+                    </div>{manualStructure ? (
                         <Row className="g-3">
                             <Col md={12}>
                                 <Form.Label className="fw-semibold small">
@@ -521,8 +506,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </Col>
                         </Row>
                     ) : (
-                        <Row className="g-3">
-                            <Col md={4}>
+                        <Row className="g-3"> <Col md={4}>
                                 <Form.Label className="fw-semibold small">Région <span className="text-danger">*</span></Form.Label>
                                 <Form.Select value={form.regionId} onChange={e => handleRegionChange(Number(e.target.value))} className="rounded-3" size="sm">
                                     <option value={0}>-- Région --</option>
@@ -535,8 +519,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                     <option value={0}>-- District --</option>
                                     {districts.map(d => <option key={d.id} value={d.id}>{d.DistrictName}</option>)}
                                 </Form.Select>
-                            </Col>
-                            <Col md={4}>
+                            </Col><Col md={4}>
                                 <Form.Label className="fw-semibold small">Site <span className="text-danger">*</span></Form.Label>
                                 <Form.Select value={form.healthId} onChange={e => handleHealthChange(Number(e.target.value))} disabled={!form.districtId} className="rounded-3" size="sm">
                                     <option value={0}>-- Site --</option>
@@ -545,9 +528,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </Col>
                         </Row>
                     )}
-                </div>
-
-                {/* ══ Section 2b — Application & Bailleur ══ */}
+                </div>{/* ══ Section 2b — Application & Bailleur ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-warning mb-3">
                         <i className="bi bi-app-indicator me-2" />Application & Bailleur
@@ -578,8 +559,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                         </div>
                                     ) : null;
                                 })()}
-                            </div>
-                        </Col>
+                            </div></Col>
                         <Col md={6}>
                             <Form.Label className="fw-semibold small">Bailleur / Partenaire</Form.Label>
                             <Form.Select
@@ -601,9 +581,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             )}
                         </Col>
                     </Row>
-                </div>
-
-                {/* ══ Section 3 — Équipement concerné (inventorié ou hors base) ══ */}
+                </div>{/* ══ Section 3 — Équipement concerné (inventorié ou hors base) ══ */}
                 {(form.healthId > 0 || manualStructure) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-warning mb-3">
@@ -616,15 +594,12 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 className={`btn btn-sm rounded-3 ${!manualEquipment ? 'btn-warning text-white' : 'btn-outline-warning'}`}
                                 onClick={() => handleToggleManualEquipment(false)}>
                                 <i className="bi bi-hdd-stack me-1" />Équipement inventorié
-                            </button>
-                            <button type="button"
+                            </button><button type="button"
                                 className={`btn btn-sm rounded-3 ${manualEquipment ? 'btn-warning text-white' : 'btn-outline-warning'}`}
                                 onClick={() => handleToggleManualEquipment(true)}>
                                 <i className="bi bi-pencil me-1" />Assistance technique (équipement hors base)
                             </button>
-                        </div>
-
-                        {manualEquipment ? (
+                        </div>{manualEquipment ? (
                             <div className="row g-2">
                                 <div className="col-md-6">
                                     <Form.Label className="fw-semibold small">
@@ -643,8 +618,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                         value={manualEquipmentType}
                                         onChange={e => setManualEquipmentType(e.target.value)}
                                         className="rounded-3" size="sm" />
-                                </div>
-                                <div className="col-12">
+                                </div><div className="col-12">
                                     <Alert variant="info" className="rounded-3 small mb-0 mt-1">
                                         <i className="bi bi-info-circle me-2" />
                                         Cet équipement sera automatiquement enregistré dans l'inventaire
@@ -653,8 +627,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 </div>
                             </div>
                         ) : (
-                            <>
-                                {siteDeployments.length === 0 ? (
+                            <>{siteDeployments.length === 0 ? (
                                     <Alert variant="warning" className="rounded-3 small mb-3">
                                         <i className="bi bi-exclamation-triangle me-2" />Aucun déploiement trouvé pour ce site.
                                     </Alert>
@@ -667,9 +640,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                             </option>
                                         ))}
                                     </Form.Select>
-                                )}
-
-                                <div className="d-flex align-items-center gap-2 mb-2">
+                                )}<div className="d-flex align-items-center gap-2 mb-2">
                                     <span className="fw-semibold small">
                                         {form.typeInter === 'EN_LIGNE' ? 'Équipements du site' : "Équipements concernés par l'intervention"}
                                     </span>
@@ -681,8 +652,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 ) : siteItems.length === 0 ? (
                                     <Alert variant="info" className="rounded-3 small mb-0">
                                         <i className="bi bi-info-circle me-2" />Aucun équipement trouvé pour ce site.
-                                    </Alert>
-                                ) : (
+                                    </Alert>) : (
                                     <Table size="sm" bordered hover className="mb-0">
                                         <thead className="table-light">
                                             <tr>
@@ -698,8 +668,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                                 {form.typeInter === 'SUR_SITE' && <th>Remplacement</th>}
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            {siteItems.map(item => {
+                                        <tbody>{siteItems.map(item => {
                                                 const state = itemStates[item.id] || { selected: false, etatAvant: 'FONCTIONNEL', etatApres: '' };
                                                 const isSelected = state.selected;
                                                 const maintenanceEchouee = state.maintenanceReussie === false;
@@ -717,8 +686,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                                                 ? <span className="badge bg-warning bg-opacity-10 text-warning"><i className="bi bi-building me-1" />{itemDep.partnerName}</span>
                                                                 : <span className="text-muted small">—</span>}
                                                         </td>
-                                                        <td><StatusBadge status={item.status} /></td>
-                                                        <td>
+                                                        <td><StatusBadge status={item.status} /></td> <td>
                                                             {isSelected ? (
                                                                 <Form.Select size="sm" value={state.etatAvant}
                                                                     onChange={e => setItemStates(prev => ({ ...prev, [item.id]: { ...prev[item.id], etatAvant: e.target.value } }))}>
@@ -727,8 +695,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                                                     <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
                                                                 </Form.Select>
                                                             ) : <span className="text-muted small">—</span>}
-                                                        </td>
-                                                        <td>
+                                                        </td><td>
                                                             {isSelected ? (
                                                                 <Form.Select size="sm" value={state.etatApres}
                                                                     onChange={e => handleEtatApresChange(item.id, e.target.value)}
@@ -739,8 +706,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                                                     <option value="NON_FONCTIONNEL">❌ Non fonctionnel</option>
                                                                 </Form.Select>
                                                             ) : <span className="text-muted small">—</span>}
-                                                        </td>
-                                                        {form.typeInter === 'SUR_SITE' && (
+                                                        </td>{form.typeInter === 'SUR_SITE' && (
                                                             <td>
                                                                 {isSelected ? (
                                                                     <div className="d-flex gap-1">
@@ -755,8 +721,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                                                     </div>
                                                                 ) : <span className="text-muted small">—</span>}
                                                             </td>
-                                                        )}
-                                                        {form.typeInter === 'SUR_SITE' && (
+                                                        )}{form.typeInter === 'SUR_SITE' && (
                                                             <td>
                                                                 {isSelected && maintenanceEchouee ? (
                                                                     acqLoading[item.id] ? <Spinner size="sm" />
@@ -778,8 +743,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                                     </tr>
                                                 );
                                             })}
-                                        </tbody>
-                                    </Table>
+                                        </tbody></Table>
                                 )}
                                 {form.typeInter === 'EN_LIGNE' && Object.values(itemStates).some(s => s.selected && (s.etatApres === 'NON_FONCTIONNEL' || s.etatApres === 'DEGRADE')) && (
                                     <Alert variant="warning" className="rounded-3 mt-2 small mb-0">
@@ -790,9 +754,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </>
                         )}
                     </div>
-                )}
-
-                {/* ══ Section 5 — Personne assistée ══ */}
+                )}{/* ══ Section 5 — Personne assistée ══ */}
                 {(form.healthId > 0 || manualStructure || intervention?.healthId) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                         <h6 className="fw-bold text-warning mb-3">
@@ -809,9 +771,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 onClick={() => { setManualPerson(true); setForm(prev => ({ ...prev, bookletId: undefined })); }}>
                                 <i className="bi bi-pencil me-1" />Saisir manuellement
                             </button>
-                        </div>
-
-                        {manualPerson ? (
+                        </div> {manualPerson ? (
                             <div className="row g-2">
                                 <div className="col-12">
                                     <Form.Label className="fw-semibold small">Nom & Prénom <span className="text-danger">*</span></Form.Label>
@@ -825,8 +785,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                     <Form.Control type="text" placeholder="Ex: 07 00 00 00 00"
                                         value={manualPersonContact} onChange={e => setManualPersonContact(e.target.value)}
                                         className="rounded-3" size="sm" />
-                                </div>
-                                <div className="col-md-6">
+                                </div><div className="col-md-6">
                                     <Form.Label className="fw-semibold small">Fonction / Poste</Form.Label>
                                     <Form.Control type="text" placeholder="Ex: Infirmier chef"
                                         value={manualPersonPost} onChange={e => setManualPersonPost(e.target.value)}
@@ -839,8 +798,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                         value={manualPersonEmail} onChange={e => setManualPersonEmail(e.target.value)}
                                         className="rounded-3" size="sm" />
                                     <small className="text-muted">Pour l'envoi du rapport d'intervention.</small>
-                                </div>
-                                {manualPersonName.trim() && (
+                                </div>{manualPersonName.trim() && (
                                     <div className="col-12">
                                         <div className="p-2 bg-white rounded-3 border d-flex align-items-center gap-3 mt-1">
                                             <div className="rounded-circle bg-warning d-flex align-items-center justify-content-center"
@@ -857,8 +815,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                        ) : booklets.length === 0 ? (
+                            </div>) : booklets.length === 0 ? (
                             <Alert variant="info" className="rounded-3 small mb-0">
                                 <i className="bi bi-info-circle me-2" />
                                 Aucune personne enregistrée pour ce district.{' '}
@@ -867,8 +824,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                 </button>
                             </Alert>
                         ) : (
-                            <>
-                                <Form.Select name="bookletId" value={form.bookletId || 0} onChange={handleChange} className="rounded-3" size="sm">
+                            <><Form.Select name="bookletId" value={form.bookletId || 0} onChange={handleChange} className="rounded-3" size="sm">
                                     <option value={0}>-- Sélectionner --</option>
                                     {booklets.map(b => (
                                         <option key={b.id} value={b.id}>
@@ -877,8 +833,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                             {b.post?.postName ? ` | ${b.post.postName}` : ''}
                                         </option>
                                     ))}
-                                </Form.Select>
-                                {form.bookletId && (() => {
+                                </Form.Select>{form.bookletId && (() => {
                                     const sel = booklets.find(b => b.id === Number(form.bookletId));
                                     return sel ? (
                                         <div className="mt-2 p-2 bg-white rounded-3 small d-flex gap-3">
@@ -896,9 +851,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </>
                         )}
                     </div>
-                )}
-
-                {/* ══ Section 6 — Évaluation & Commentaire ══ */}
+                )}{/* ══ Section 6 — Évaluation & Commentaire ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-warning mb-3">
                         <i className="bi bi-chat-left-text me-2" />Évaluation & Commentaire
@@ -919,9 +872,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                         </Col>
                     </Row>
                 </div>
-            </Modal.Body>
-
-            <Modal.Footer className="border-0">
+            </Modal.Body>            <Modal.Footer className="border-0">
                 <Button variant="light" onClick={onHide} className="rounded-3">Annuler</Button>
                 <Button variant="warning" onClick={handleSubmit}
                     disabled={isLoading || (!manualEquipment && siteItems.length > 0 && selectedItems.length === 0)}

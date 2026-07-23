@@ -36,6 +36,7 @@ export const ALL_MENUS: NavMenu[] = [
       { key:'partners',     label:'Partenaires',             path:'/partners',         icon:'bi-building'          },
       { key:'booklets',     label:'Registre Booklets',       path:'/booklets',         icon:'bi-journal-text'      },
       { key:'tech-sites',   label:'Assignation techniciens', path:'/technician-sites', icon:'bi-person-check-fill' },
+      { key:'structures-etatiques', label:'Structures étatiques', path:'/structures-etatiques', icon:'bi-bank2' },
     ],
   },
   {
@@ -87,14 +88,17 @@ export const ALL_MENUS: NavMenu[] = [
 ];
 
 // ── Filtrage des sous-menus par rôle ─────────────────────────────────────────
+// ✅ MODIFIÉ — 'tech-sites' (Assignation techniciens) retiré de ADMIN et
+// TECHNICIEN : ce menu n'est désormais visible que pour SUPER_ADMIN (via '*').
 const SUBMENU_RULES: Record<string, string[]> = {
   SUPER_ADMIN: ['*'],
   ADMIN: [
     'db-general','db-equip','db-logi',
-    'regions','districts','health-sites','partners','booklets','tech-sites',
+    'regions','districts','health-sites','partners','booklets',
     'acquisitions','deployments','interventions','types','archives',
     'logistique','fournitures',
     'posts','units','apps','states','images','print-config','evaluations','signature',
+    'structures-etatiques',
     // ✅ Documentation
     'manual-user','manual-proc',
   ],
@@ -103,13 +107,15 @@ const SUBMENU_RULES: Record<string, string[]> = {
     'regions','health-sites','booklets',
     'deployments','interventions','archives',
     'logistique','fournitures',
-    'tech-sites','evaluations','signature',
+    'evaluations','signature',
+    'structures-etatiques',
     // ✅ Documentation
     'manual-user','manual-proc',
   ],
   LOGISTICIEN: [
     'db-logi',
     'logistique','fournitures','signature',
+    'structures-etatiques',
     // ✅ Documentation
     'manual-user','manual-proc',
   ],

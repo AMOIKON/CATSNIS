@@ -5,6 +5,7 @@ import ArchiveService, {
   validateFile, getFileIcon,
 } from '../../services/archiveService';
 import useAuth from '../../hooks/useAuth';
+import  notify  from '../../services/notify';
 
 interface Props {
   show:      boolean;
@@ -77,9 +78,12 @@ const ArchiveFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
       } else {
         await ArchiveService.archiverImprime(dto);
       }
+      notify.success('Document archivé avec succès');
       onSuccess(); onHide(); reset();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Erreur lors de l'archivage.");
+      const msg = err?.response?.data?.message || "Erreur lors de l'archivage.";
+      setError(msg);
+      notify.apiError(err, "Erreur lors de l'archivage du document");
     } finally { setLoading(false); }
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import VehiculeService, {
   VehiculeMaintenanceRequest, VehiculeMaintenanceResponse, VehiculeResponse
 } from '../../services/vehiculeService';
+import  notify  from '../../services/notify';
 
 interface Props {
   show: boolean;
@@ -47,11 +48,18 @@ const VehiculeMaintenanceModal: React.FC<Props> = ({ show, onHide, onSuccess, ma
     }
     setLoading(true); setError('');
     try {
-      if (maintenance) await VehiculeService.updateMaintenance(maintenance.id, form);
-      else             await VehiculeService.saveMaintenance(form);
+      if (maintenance) {
+        await VehiculeService.updateMaintenance(maintenance.id, form);
+        notify.success('Maintenance modifiée avec succès');
+      } else {
+        await VehiculeService.saveMaintenance(form);
+        notify.success('Maintenance planifiée avec succès');
+      }
       onSuccess(); onHide();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Erreur');
+      const msg = err?.response?.data?.message || 'Erreur';
+      setError(msg);
+      notify.apiError(err, "Erreur lors de l'enregistrement de la maintenance");
     } finally { setLoading(false); }
   };
 

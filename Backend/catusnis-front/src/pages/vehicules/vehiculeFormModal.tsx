@@ -4,6 +4,7 @@ import RegionService   from '../../services/regionService';
 import DistrictService from '../../services/districtService';
 import BookletService  from '../../services/bookletService';
 import { RegionResponse, DistrictResponse, Booklet } from '../../types';
+import  notify from '../../services/notify';
 
 interface Props {
   show: boolean; onHide: () => void; onSuccess: () => void;
@@ -131,11 +132,18 @@ const VehiculeFormModal: React.FC<Props> = ({ show, onHide, onSuccess, vehicule 
     if (!form.immatriculation.trim()) { setError("L'immatriculation est obligatoire"); return; }
     setLoading(true); setError('');
     try {
-      if (vehicule) await VehiculeService.update(vehicule.id, form);
-      else          await VehiculeService.save(form);
+      if (vehicule) {
+        await VehiculeService.update(vehicule.id, form);
+        notify.success('Véhicule modifié avec succès');
+      } else {
+        await VehiculeService.save(form);
+        notify.success('Véhicule enregistré avec succès');
+      }
       onSuccess(); onHide();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Erreur lors de l'enregistrement");
+      const msg = err?.response?.data?.message || "Erreur lors de l'enregistrement";
+      setError(msg);
+      notify.apiError(err, "Erreur lors de l'enregistrement du véhicule");
     } finally { setLoading(false); }
   };
 

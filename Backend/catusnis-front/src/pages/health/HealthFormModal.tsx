@@ -4,6 +4,7 @@ import HealthService   from '../../services/healthService';
 import RegionService   from '../../services/regionService';
 import DistrictService from '../../services/districtService';
 import { HealthRequest, RegionResponse, DistrictResponse } from '../../types';
+import notify from '../../services/notify';
 
 interface Props {
     show:      boolean;
@@ -45,12 +46,15 @@ const HealthFormModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
         setIsLoading(true);
         try {
             await HealthService.create(form);
+            notify.success('Site de santé créé avec succès');
             onSuccess();
             onHide();
             setForm({ healthName: '', districtId: 0, regionId: 0 });
             setDistricts([]);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erreur lors de la création.');
+            const msg = err.response?.data?.message || 'Erreur lors de la création.';
+            setError(msg);
+            notify.apiError(err, 'Erreur lors de la création du site de santé');
         } finally {
             setIsLoading(false);
         }

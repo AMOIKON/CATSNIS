@@ -7,6 +7,7 @@ import RegionService     from '../../services/regionService';
 import { RegionResponse } from '../../types';
 import useAuth           from '../../hooks/useAuth';
 import { buildHeader, getPrintConfig } from '../../services/globalprintservice';
+import notify from '../../services/notify';
 
 const RegionsPage: React.FC = () => {
     const { person } = useAuth();
@@ -42,13 +43,18 @@ const RegionsPage: React.FC = () => {
 
     useEffect(() => { loadRegions(); }, [loadRegions]);
 
-    const handleDeleteConfirm = async () => {
-        if (!selectedId) return;
-        setDeleteLoading(true);
-        try { await RegionService.delete(selectedId); loadRegions(); }
-        catch (err) { console.error(err); }
-        finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
-    };
+const handleDeleteConfirm = async () => {
+    if (!selectedId) return;
+    setDeleteLoading(true);
+    try {
+        await RegionService.delete(selectedId);
+        notify.success('Région supprimée avec succès');
+        loadRegions();
+    } catch (err) {
+        notify.apiError(err, 'Erreur lors de la suppression de la région');
+    }
+    finally { setDeleteLoading(false); setShowConfirm(false); setSelectedId(null); }
+};
 
     // ── Imprimer TOUTES les régions (pas seulement la page courante) ──────────
     const handlePrintAll = async () => {
