@@ -40,7 +40,7 @@ public class InterventionResponse {
     private String                     personName;
     private String                     personContact;
     private String                     personPost;
-    // ✅ Email de la personne assistée (booklet.email, ou saisie manuelle)
+    // Email de la personne assistée (booklet.email, ou saisie manuelle)
     private String                     personEmail;
     private Boolean                    enAttenteMaintenance;
     private Integer                    partnerId;
@@ -59,4 +59,7 @@ public class InterventionResponse {
     // ── Suivi de l'envoi email ────────────────────────────────────────────────
     private Boolean                    emailSent;
     private Boolean                    canSendEmail;
+    // ── Sutructure étatique ────────────────────────────────────────────────
+    private Long structureEtatiqueId;
+    private String structureEtatiqueName;
 }

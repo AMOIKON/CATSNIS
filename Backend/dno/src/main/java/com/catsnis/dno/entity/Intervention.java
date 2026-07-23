@@ -73,8 +73,12 @@ public class Intervention {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "items", "createdBy"})
     private Deployment deployment;
 
+    // ✅ MODIFIÉ — nullable = false retiré : facultatif en mode "appel/orientation"
+    // (ORIENTATION_TECHNIQUE / ASSISTANCE_TECHNIQUE sans site précis).
+    // ⚠️ Nécessite la migration SQL : ALTER TABLE intervention MODIFY COLUMN
+    // evaluation_id INT NULL; à exécuter AVANT de déployer ce changement.
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "evaluation_id", nullable = false)
+    @JoinColumn(name = "evaluation_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Evaluation evaluation;
 
@@ -106,4 +110,13 @@ public class Intervention {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "partner_id")
     private Partner partner;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "structure_etatique_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "region", "district"})
+    private StructureEtatique structureEtatique;
+
+
+
+
 }

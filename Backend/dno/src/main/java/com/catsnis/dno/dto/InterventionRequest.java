@@ -35,7 +35,7 @@ public class InterventionRequest {
     private String              manualPersonName;
     private String              manualPersonContact;
     private String              manualPersonPost;
-    // ✅ Email pour l'envoi du rapport d'intervention (personne saisie manuellement)
+    // Email pour l'envoi du rapport d'intervention (personne saisie manuellement)
     private String              manualPersonEmail;
     private Map<Long, Integer>  replacements;
 
@@ -45,4 +45,9 @@ public class InterventionRequest {
 
     // ── Structure hors base (région/district/site non renseignés) ────────────
     private String              manualStructureName;
+
+    // Structure étatique appelante (mode "Appel / Orientation")
+    private Long   structureEtatiqueId;      // structure existante sélectionnée
+    private String structureEtatiqueNom;     // OU nom saisi pour créer à la volée
+
 }

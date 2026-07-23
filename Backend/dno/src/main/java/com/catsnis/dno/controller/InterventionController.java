@@ -59,9 +59,9 @@ public class InterventionController {
                 interventionService.getInterventionById(id)));
     }
 
-    // ✅ SUPER_ADMIN ajouté — était exclu → causait le 403
+    // ✅ LOGISTICIEN ajouté — même logique de périmètre géographique que TECHNICIEN
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TECHNICIEN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TECHNICIEN', 'LOGISTICIEN')")
     public ResponseEntity<ApiResponse<InterventionResponse>> save(
             @RequestBody InterventionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -69,9 +69,9 @@ public class InterventionController {
                         interventionService.saveIntervention(request)));
     }
 
-    // ✅ SUPER_ADMIN ajouté
+    // ✅ LOGISTICIEN ajouté
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TECHNICIEN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TECHNICIEN', 'LOGISTICIEN')")
     public ResponseEntity<ApiResponse<InterventionResponse>> update(
             @PathVariable Integer id,
             @RequestBody InterventionRequest request) {
@@ -80,7 +80,7 @@ public class InterventionController {
                 interventionService.updateIntervention(id, request)));
     }
 
-    // ✅ SUPER_ADMIN ajouté
+    // ✅ SUPER_ADMIN / ADMIN uniquement — inchangé
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {

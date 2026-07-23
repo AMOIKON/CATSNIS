@@ -42,10 +42,28 @@ public class InterventionServiceImpl implements InterventionService {
     private final PartnerRepository         partnerRepository;
     private final InterventionPdfService     interventionPdfService;
     private final ArchiveService archiveService;
+    private final StructureEtatiqueService structureEtatiqueService;
+    private final StructureEtatiqueRepository structureEtatiqueRepository;
 
     private static final String PERSON_TAG    = "[Personne assistee]";
     private static final String EQUIPMENT_TAG = "[Equipement hors base]";
     private static final String STRUCTURE_TAG = "[Structure hors base]";
+
+    /**
+     * ✅ NOUVEAU — Mode "appel / orientation" : un appel entrant d'une structure
+     * étatique/partenaire demandant orientation ou assistance, sans lien avec
+     * un site/équipement précis (ex: appel pendant une réunion, demande hors
+     * périmètre informatique). Dans ce mode, région/district/site/évaluation/
+     * équipement/personne sont tous facultatifs — seuls date, durée et
+     * commentaire restent requis (validés côté frontend).
+     */
+    private boolean isCallOnly(InterventionRequest request,
+                               boolean hasManualStructure, boolean hasManualEquipment) {
+        boolean isOrientationOrAssistance = "ORIENTATION_TECHNIQUE".equals(request.getActionInter())
+                || "ASSISTANCE_TECHNIQUE".equals(request.getActionInter());
+        boolean hasNoSite = request.getRegionId() == null || request.getRegionId() <= 0;
+        return isOrientationOrAssistance && hasNoSite && !hasManualStructure && !hasManualEquipment;
+    }
 
     private Date parseDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return new Date();
@@ -92,7 +110,8 @@ public class InterventionServiceImpl implements InterventionService {
                     .map(this::mapToResponse);
         }
 
-        if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
+        if (currentUser != null
+                && (currentUser.getRole() == Role.TECHNICIEN || currentUser.getRole() == Role.LOGISTICIEN)) {
             List<Integer> healthIds = technicianSiteRepository
                     .findHealthIdsByPersonId(currentUser.getId());
             if (healthIds.isEmpty()) return Page.empty(pageable);
@@ -126,6 +145,21 @@ public class InterventionServiceImpl implements InterventionService {
     public InterventionResponse saveIntervention(InterventionRequest request) {
         Person technician = securityUtils.getCurrentUserOrThrow();
 
+        // ✅ NOUVEAU — Restriction périmètre géographique
+        // (EN_LIGNE + TECHNICIEN uniquement — le SUR_SITE et les autres
+        // rôles ne sont jamais restreints par le périmètre assigné).
+        if ("EN_LIGNE".equals(request.getTypeInter())
+                && (technician.getRole() == Role.TECHNICIEN || technician.getRole() == Role.LOGISTICIEN)
+                && request.getHealthId() != null) {
+            List<Integer> allowedHealthIds =
+                    technicianSiteRepository.findHealthIdsByPersonId(technician.getId());
+            if (!allowedHealthIds.isEmpty() && !allowedHealthIds.contains(request.getHealthId())) {
+                throw new IllegalArgumentException(
+                        "Vous n'êtes pas autorisé à créer une intervention en ligne sur ce site. "
+                                + "Il ne fait pas partie de votre périmètre assigné.");
+            }
+        }
+
         Booklet booklet = null;
         if (request.getBookletId() != null) {
             booklet = bookletRepository.findById(Long.valueOf(request.getBookletId()))
@@ -135,20 +169,26 @@ public class InterventionServiceImpl implements InterventionService {
 
         boolean hasManualStructure = request.getManualStructureName() != null
                 && !request.getManualStructureName().isBlank();
-
-        Region region = resolveRegion(request.getRegionId(), hasManualStructure);
-        District district = resolveDistrict(request.getDistrictId(), hasManualStructure);
-        Health health = resolveHealth(request.getHealthId(), hasManualStructure);
-
-        Evaluation evaluation = evaluationRepository.findById(request.getEvaluationId())
-                .orElseThrow(() -> new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId()));
-
         boolean hasManualEquipment = request.getManualEquipmentName() != null
                 && !request.getManualEquipmentName().isBlank();
+        // ✅ NOUVEAU — Mode "appel / orientation" : aucune localisation/équipement requis
+        boolean isCallOnly = isCallOnly(request, hasManualStructure, hasManualEquipment);
 
-        Deployment deployment = resolveDeployment(request, hasManualEquipment);
-        Types      types      = resolveTypes(request.getTypesId(), deployment, hasManualEquipment);
-        Apps       apps       = resolveApps(request.getAppsId(), deployment, hasManualEquipment);
+        Region region = resolveRegion(request.getRegionId(), hasManualStructure || isCallOnly);
+        District district = resolveDistrict(request.getDistrictId(), hasManualStructure || isCallOnly);
+        Health health = resolveHealth(request.getHealthId(), hasManualStructure || isCallOnly);
+
+        Evaluation evaluation = null;
+        if (request.getEvaluationId() != null) {
+            evaluation = evaluationRepository.findById(request.getEvaluationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId()));
+        } else if (!isCallOnly) {
+            throw new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId());
+        }
+
+        Deployment deployment = resolveDeployment(request, hasManualEquipment || isCallOnly);
+        Types      types      = resolveTypes(request.getTypesId(), deployment, hasManualEquipment || isCallOnly);
+        Apps       apps       = resolveApps(request.getAppsId(), deployment, hasManualEquipment || isCallOnly);
 
         Partner partnerForEquipment = technician.getPartner();
         if (request.getPartnerId() != null && request.getPartnerId() > 0) {
@@ -167,9 +207,13 @@ public class InterventionServiceImpl implements InterventionService {
             }
         }
 
-        String actionInter = "EN_LIGNE".equals(request.getTypeInter())
+        String actionInter = (hasManualEquipment || isCallOnly)
+                ? ("ORIENTATION_TECHNIQUE".equals(request.getActionInter())
+                || "ASSISTANCE_TECHNIQUE".equals(request.getActionInter())
+                ? request.getActionInter() : "ASSISTANCE_TECHNIQUE")
+                : ("EN_LIGNE".equals(request.getTypeInter())
                 ? "MAINTENANCE"
-                : (request.getActionInter() != null ? request.getActionInter() : "MAINTENANCE_CURATIVE");
+                : (request.getActionInter() != null ? request.getActionInter() : "MAINTENANCE_CURATIVE"));
 
         String codeInter = "INT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -181,6 +225,16 @@ public class InterventionServiceImpl implements InterventionService {
                 hasManualPerson, hasManualEquipment, hasManualStructure);
 
         Partner partner = partnerForEquipment;
+
+        // ✅ NOUVEAU — Structure étatique appelante (mode "Appel / Orientation")
+        StructureEtatique structureEtatique = null;
+        if (request.getStructureEtatiqueId() != null) {
+            structureEtatique = structureEtatiqueRepository.findById(request.getStructureEtatiqueId())
+                    .orElse(null);
+        } else if (request.getStructureEtatiqueNom() != null && !request.getStructureEtatiqueNom().isBlank()) {
+            structureEtatique = structureEtatiqueService.findOrCreate(
+                    request.getStructureEtatiqueNom(), request.getRegionId(), request.getDistrictId(), null);
+        }
 
         Intervention intervention = Intervention.builder()
                 .codeInter(codeInter)
@@ -196,6 +250,7 @@ public class InterventionServiceImpl implements InterventionService {
                 .person(null)
                 .booklet(booklet)
                 .partner(partner)
+                .structureEtatique(structureEtatique)
                 .enAttenteMaintenance(request.getEnAttenteMaintenance() != null
                         ? request.getEnAttenteMaintenance() : false)
                 .latitude(request.getLatitude())
@@ -232,6 +287,21 @@ public class InterventionServiceImpl implements InterventionService {
         Intervention intervention = interventionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Intervention non trouvée : " + id));
 
+        // ✅ NOUVEAU — Restriction périmètre géographique (EN_LIGNE + TECHNICIEN/LOGISTICIEN)
+        Person currentUserForCheck = securityUtils.getCurrentUser().orElse(null);
+        if ("EN_LIGNE".equals(request.getTypeInter())
+                && currentUserForCheck != null
+                && (currentUserForCheck.getRole() == Role.TECHNICIEN || currentUserForCheck.getRole() == Role.LOGISTICIEN)
+                && request.getHealthId() != null) {
+            List<Integer> allowedHealthIds =
+                    technicianSiteRepository.findHealthIdsByPersonId(currentUserForCheck.getId());
+            if (!allowedHealthIds.isEmpty() && !allowedHealthIds.contains(request.getHealthId())) {
+                throw new IllegalArgumentException(
+                        "Vous n'êtes pas autorisé à modifier cette intervention en ligne vers ce site. "
+                                + "Il ne fait pas partie de votre périmètre assigné.");
+            }
+        }
+
         Booklet booklet = null;
         if (request.getBookletId() != null) {
             booklet = bookletRepository.findById(Long.valueOf(request.getBookletId()))
@@ -241,20 +311,26 @@ public class InterventionServiceImpl implements InterventionService {
 
         boolean hasManualStructure = request.getManualStructureName() != null
                 && !request.getManualStructureName().isBlank();
-
-        Region region = resolveRegion(request.getRegionId(), hasManualStructure);
-        District district = resolveDistrict(request.getDistrictId(), hasManualStructure);
-        Health health = resolveHealth(request.getHealthId(), hasManualStructure);
-
-        Evaluation evaluation = evaluationRepository.findById(request.getEvaluationId())
-                .orElseThrow(() -> new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId()));
-
         boolean hasManualEquipment = request.getManualEquipmentName() != null
                 && !request.getManualEquipmentName().isBlank();
+        // ✅ NOUVEAU — Mode "appel / orientation"
+        boolean isCallOnly = isCallOnly(request, hasManualStructure, hasManualEquipment);
 
-        Deployment deployment = resolveDeployment(request, hasManualEquipment);
-        Types      types      = resolveTypes(request.getTypesId(), deployment, hasManualEquipment);
-        Apps       apps       = resolveApps(request.getAppsId(), deployment, hasManualEquipment);
+        Region region = resolveRegion(request.getRegionId(), hasManualStructure || isCallOnly);
+        District district = resolveDistrict(request.getDistrictId(), hasManualStructure || isCallOnly);
+        Health health = resolveHealth(request.getHealthId(), hasManualStructure || isCallOnly);
+
+        Evaluation evaluation = null;
+        if (request.getEvaluationId() != null) {
+            evaluation = evaluationRepository.findById(request.getEvaluationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId()));
+        } else if (!isCallOnly) {
+            throw new ResourceNotFoundException("Évaluation non trouvée : " + request.getEvaluationId());
+        }
+
+        Deployment deployment = resolveDeployment(request, hasManualEquipment || isCallOnly);
+        Types      types      = resolveTypes(request.getTypesId(), deployment, hasManualEquipment || isCallOnly);
+        Apps       apps       = resolveApps(request.getAppsId(), deployment, hasManualEquipment || isCallOnly);
 
         Partner partner = intervention.getPartner() != null
                 ? intervention.getPartner()
@@ -276,9 +352,13 @@ public class InterventionServiceImpl implements InterventionService {
             }
         }
 
-        String actionInter = "EN_LIGNE".equals(request.getTypeInter())
+        String actionInter = (hasManualEquipment || isCallOnly)
+                ? ("ORIENTATION_TECHNIQUE".equals(request.getActionInter())
+                || "ASSISTANCE_TECHNIQUE".equals(request.getActionInter())
+                ? request.getActionInter() : "ASSISTANCE_TECHNIQUE")
+                : ("EN_LIGNE".equals(request.getTypeInter())
                 ? "MAINTENANCE"
-                : (request.getActionInter() != null ? request.getActionInter() : "MAINTENANCE_CURATIVE");
+                : (request.getActionInter() != null ? request.getActionInter() : "MAINTENANCE_CURATIVE"));
 
         boolean hasManualPerson = booklet == null
                 && request.getManualPersonName() != null
@@ -312,6 +392,14 @@ public class InterventionServiceImpl implements InterventionService {
         intervention.setPerson(null);
         intervention.setBooklet(booklet);
         intervention.setPartner(partner);
+        // ✅ NOUVEAU — Structure étatique appelante (mode "Appel / Orientation")
+        if (request.getStructureEtatiqueId() != null) {
+            structureEtatiqueRepository.findById(request.getStructureEtatiqueId())
+                    .ifPresent(intervention::setStructureEtatique);
+        } else if (request.getStructureEtatiqueNom() != null && !request.getStructureEtatiqueNom().isBlank()) {
+            intervention.setStructureEtatique(structureEtatiqueService.findOrCreate(
+                    request.getStructureEtatiqueNom(), request.getRegionId(), request.getDistrictId(), null));
+        }
         intervention.setEnAttenteMaintenance(
                 request.getEnAttenteMaintenance() != null ? request.getEnAttenteMaintenance() : false);
         if (request.getLatitude()  != null) intervention.setLatitude(request.getLatitude());
@@ -354,7 +442,8 @@ public class InterventionServiceImpl implements InterventionService {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
         if (partnerFilter == null) return interventionRepository.sumDurationByType("EN_LIGNE");
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
-        if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
+        if (currentUser != null
+                && (currentUser.getRole() == Role.TECHNICIEN || currentUser.getRole() == Role.LOGISTICIEN)) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
             return healthIds.isEmpty() ? 0L : interventionRepository.sumDurationByTypeAndSites("EN_LIGNE", healthIds);
         }
@@ -366,11 +455,8 @@ public class InterventionServiceImpl implements InterventionService {
     public Long getTotalMinutesSurSite() {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
         if (partnerFilter == null) return interventionRepository.sumDurationByType("SUR_SITE");
-        Person currentUser = securityUtils.getCurrentUser().orElse(null);
-        if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
-            List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
-            return healthIds.isEmpty() ? 0L : interventionRepository.sumDurationByTypeAndSites("SUR_SITE", healthIds);
-        }
+        // ✅ SUR_SITE : pas de restriction périmètre, même pour un technicien —
+        // seul EN_LIGNE est concerné par le filtrage géographique.
         if (partnerFilter == -1L) return interventionRepository.sumDurationByTypeAndPartnerNull("SUR_SITE");
         return interventionRepository.sumDurationByTypeAndPartner("SUR_SITE", partnerFilter);
     }
@@ -380,7 +466,8 @@ public class InterventionServiceImpl implements InterventionService {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
         if (partnerFilter == null) return interventionRepository.sumDurationTotal();
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
-        if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
+        if (currentUser != null
+                && (currentUser.getRole() == Role.TECHNICIEN || currentUser.getRole() == Role.LOGISTICIEN)) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
             return healthIds.isEmpty() ? 0L : interventionRepository.sumDurationTotalBySites(healthIds);
         }
@@ -393,7 +480,8 @@ public class InterventionServiceImpl implements InterventionService {
         Long partnerFilter = securityUtils.getPartnerIdFilter();
         if (partnerFilter == null) return interventionRepository.countHorsBase();
         Person currentUser = securityUtils.getCurrentUser().orElse(null);
-        if (currentUser != null && currentUser.getRole() == Role.TECHNICIEN) {
+        if (currentUser != null
+                && (currentUser.getRole() == Role.TECHNICIEN || currentUser.getRole() == Role.LOGISTICIEN)) {
             List<Integer> healthIds = technicianSiteRepository.findHealthIdsByPersonId(currentUser.getId());
             return healthIds.isEmpty() ? 0L : interventionRepository.countHorsBaseBySites(healthIds);
         }
@@ -509,31 +597,31 @@ public class InterventionServiceImpl implements InterventionService {
 
     // ── Helpers privés ────────────────────────────────────────────────────────
 
-    /** Résout la région ; retourne null si structure manuelle et aucune région fournie. */
-    private Region resolveRegion(Integer regionId, boolean hasManualStructure) {
+    /** Résout la région ; retourne null si structure manuelle/appel et aucune région fournie. */
+    private Region resolveRegion(Integer regionId, boolean optional) {
         if (regionId != null && regionId > 0) {
             return regionRepository.findById(regionId)
                     .orElseThrow(() -> new ResourceNotFoundException("Région non trouvée : " + regionId));
         }
-        if (hasManualStructure) return null;
+        if (optional) return null;
         throw new ResourceNotFoundException("Région non trouvée : " + regionId);
     }
 
-    private District resolveDistrict(Integer districtId, boolean hasManualStructure) {
+    private District resolveDistrict(Integer districtId, boolean optional) {
         if (districtId != null && districtId > 0) {
             return districtRepository.findById(districtId)
                     .orElseThrow(() -> new ResourceNotFoundException("District non trouvé : " + districtId));
         }
-        if (hasManualStructure) return null;
+        if (optional) return null;
         throw new ResourceNotFoundException("District non trouvé : " + districtId);
     }
 
-    private Health resolveHealth(Integer healthId, boolean hasManualStructure) {
+    private Health resolveHealth(Integer healthId, boolean optional) {
         if (healthId != null && healthId > 0) {
             return healthRepository.findById(healthId)
                     .orElseThrow(() -> new ResourceNotFoundException("Établissement non trouvé : " + healthId));
         }
-        if (hasManualStructure) return null;
+        if (optional) return null;
         throw new ResourceNotFoundException("Établissement non trouvé : " + healthId);
     }
 
@@ -768,6 +856,8 @@ public class InterventionServiceImpl implements InterventionService {
                 .manualEquipmentType(manualEquipmentType)
                 .manualStructureName(manualStructureName)
                 .personEmail(manualPersonEmail)
+                .structureEtatiqueId(intervention.getStructureEtatique() != null ? intervention.getStructureEtatique().getId() : null)
+                .structureEtatiqueName(intervention.getStructureEtatique() != null ? intervention.getStructureEtatique().getNom() : null)
                 .canSendEmail(manualPersonEmail != null && !manualPersonEmail.isBlank())
                 .build();
     }

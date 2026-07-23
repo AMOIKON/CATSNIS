@@ -91,10 +91,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/deployments/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
 
                         // ── Interventions ─────────────────────────────────────
+                        // ✅ LOGISTICIEN ajouté sur POST/PUT — même logique de
+                        //    périmètre géographique que TECHNICIEN (filtrage EN_LIGNE
+                        //    appliqué côté service InterventionServiceImpl).
                         .requestMatchers(HttpMethod.GET,    "/api/interventions/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.PUT,    "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
+                        .requestMatchers(HttpMethod.POST,   "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN","LOGISTICIEN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN","LOGISTICIEN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/interventions/**").hasAnyRole("SUPER_ADMIN","ADMIN")
 
                         // ── Persons ───────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/persons/**").authenticated()
@@ -179,6 +182,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,   "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.PUT,    "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN")
                         .requestMatchers(HttpMethod.DELETE, "/api/booklets/**").hasAnyRole("SUPER_ADMIN","ADMIN")
+                        // ── Structure Etatiques ──────────────────────────────────────────
+                        .requestMatchers(HttpMethod.GET,  "/api/structures-etatiques/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/structures-etatiques/**").hasAnyRole("SUPER_ADMIN","ADMIN","TECHNICIEN","LOGISTICIEN")
+
 
                         // ── Archives ──────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET,    "/api/archives/**").authenticated()
