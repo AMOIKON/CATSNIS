@@ -35,4 +35,10 @@ public class DeploymentResponse {
     // ── Géolocalisation ───────────────────────────────────────────────────────
     private Double                       latitude;
     private Double                       longitude;
+
+    // ── Personne réceptionnaire ─────────────────────────────────────────────
+    private Integer                      receivedByBookletId;
+    private String                       receivedByName;
+    private String                       receivedByContact;
+    private String                       receivedByPost;
 }

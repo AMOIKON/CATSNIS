@@ -17,7 +17,8 @@ public class DeploymentRequest {
     private Integer                     regionId;
     @NotNull
     private Integer                     districtId;
-    @NotNull
+    // ✅ MODIFIÉ — @NotNull retiré : facultatif si receivedByPost = "Convoyeur"
+    // (contrôle déplacé dans DeploymentServiceImpl)
     private Integer                     healthId;
     private Integer                     appsId;
     private List<DeploymentItemRequest> items;
@@ -26,4 +27,10 @@ public class DeploymentRequest {
     // ── Géolocalisation ───────────────────────────────────────────────────────
     private Double                      latitude;
     private Double                      longitude;
+
+    // ── Personne réceptionnaire ─────────────────────────────────────────────
+    private Integer                     receivedByBookletId;
+    private String                      receivedByName;
+    private String                      receivedByContact;
+    private String                      receivedByPost;
 }

@@ -42,6 +42,8 @@ public class Deployment {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "region"})
     private District district;
 
+    // ✅ MODIFIÉ — nullable en base (health_id BIGINT NULL) : facultatif
+    // quand la personne réceptionnaire a le poste "Convoyeur"
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "health_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "district", "region"})
@@ -70,4 +72,19 @@ public class Deployment {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "partner_id")
     private Partner partner;
+
+    // ── Personne réceptionnaire ──────────────────────────────────────────────
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "received_by_booklet_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "region", "district", "post", "status"})
+    private Booklet receivedByBooklet;
+
+    @Column(name = "received_by_name")
+    private String receivedByName;
+
+    @Column(name = "received_by_contact")
+    private String receivedByContact;
+
+    @Column(name = "received_by_post")
+    private String receivedByPost;
 }

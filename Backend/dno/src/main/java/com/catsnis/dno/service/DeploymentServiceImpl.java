@@ -20,6 +20,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DeploymentServiceImpl implements DeploymentService {
 
+    // Poste identifiant un convoyeur — rend le site facultatif
+    private static final String CONVOYEUR_POST = "Convoyeur";
+
     private final DeploymentRepository       deploymentRepository;
     private final RegionRepository           regionRepository;
     private final DistrictRepository         districtRepository;
@@ -31,6 +34,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final PartnerRepository          partnerRepository;
     private final TechnicianSiteRepository   technicianSiteRepository;
     private final InterventionRepository     interventionRepository;
+    private final BookletRepository          bookletRepository;
     private final SecurityUtils              securityUtils;
     private final DeploymentPdfService deploymentPdfService;
     private final ArchiveService archiveService;
@@ -94,6 +98,12 @@ public class DeploymentServiceImpl implements DeploymentService {
     public DeploymentResponse saveDeployment(DeploymentRequest request) {
         Person technician = securityUtils.getCurrentUserOrThrow();
 
+        boolean isConvoyeur = isConvoyeur(request.getReceivedByPost());
+        if (!isConvoyeur && (request.getHealthId() == null || request.getHealthId() == 0)) {
+            throw new IllegalArgumentException(
+                    "Le site de santé est obligatoire, sauf si la personne réceptionnaire est un Convoyeur.");
+        }
+
         Partner deployPartner = null;
         if (request.getPartnerId() != null && request.getPartnerId() > 0) {
             deployPartner = partnerRepository.findById(request.getPartnerId()).orElse(null);
@@ -108,13 +118,18 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .comment(request.getComment())
                 .region(findRegion(request.getRegionId()))
                 .district(findDistrict(request.getDistrictId()))
-                .health(findHealth(request.getHealthId()))
+                .health(isConvoyeur ? findHealthOptional(request.getHealthId()) : findHealth(request.getHealthId()))
                 .apps(findApps(request.getAppsId()))
                 .createdBy(technician)
                 .partner(deployPartner)
                 // ── Géolocalisation ──────────────────────────────────────────
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
+                // ── Personne réceptionnaire ──────────────────────────────────
+                .receivedByBooklet(findBookletOptional(request.getReceivedByBookletId()))
+                .receivedByName(request.getReceivedByName())
+                .receivedByContact(request.getReceivedByContact())
+                .receivedByPost(request.getReceivedByPost())
                 .build();
 
         Deployment saved = deploymentRepository.saveAndFlush(deployment);
@@ -158,6 +173,12 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Deploiement non trouve : " + id));
 
+        boolean isConvoyeur = isConvoyeur(request.getReceivedByPost());
+        if (!isConvoyeur && (request.getHealthId() == null || request.getHealthId() == 0)) {
+            throw new IllegalArgumentException(
+                    "Le site de santé est obligatoire, sauf si la personne réceptionnaire est un Convoyeur.");
+        }
+
         List<DeploymentItem> oldItems = new java.util.ArrayList<>(deployment.getItems());
         for (DeploymentItem oldItem : oldItems) {
             Acquisition acq = acquisitionRepository
@@ -178,11 +199,17 @@ public class DeploymentServiceImpl implements DeploymentService {
         deployment.setComment(request.getComment());
         deployment.setRegion(findRegion(request.getRegionId()));
         deployment.setDistrict(findDistrict(request.getDistrictId()));
-        deployment.setHealth(findHealth(request.getHealthId()));
+        deployment.setHealth(isConvoyeur ? findHealthOptional(request.getHealthId()) : findHealth(request.getHealthId()));
         deployment.setApps(findApps(request.getAppsId()));
         // ── Géolocalisation ───────────────────────────────────────────────────
         if (request.getLatitude()  != null) deployment.setLatitude(request.getLatitude());
         if (request.getLongitude() != null) deployment.setLongitude(request.getLongitude());
+
+        // ── Personne réceptionnaire ─────────────────────────────────────────
+        deployment.setReceivedByBooklet(findBookletOptional(request.getReceivedByBookletId()));
+        deployment.setReceivedByName(request.getReceivedByName());
+        deployment.setReceivedByContact(request.getReceivedByContact());
+        deployment.setReceivedByPost(request.getReceivedByPost());
 
         if (request.getPartnerId() != null && request.getPartnerId() > 0) {
             partnerRepository.findById(request.getPartnerId())
@@ -343,6 +370,10 @@ public class DeploymentServiceImpl implements DeploymentService {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    private boolean isConvoyeur(String receivedByPost) {
+        return receivedByPost != null && CONVOYEUR_POST.equalsIgnoreCase(receivedByPost.trim());
+    }
+
     private Region findRegion(Integer id) {
         return regionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Region : " + id));
@@ -356,6 +387,18 @@ public class DeploymentServiceImpl implements DeploymentService {
     private Health findHealth(Integer id) {
         return healthRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Health : " + id));
+    }
+
+    // ✅ NOUVEAU — variante nullable, utilisée quand receivedByPost = "Convoyeur"
+    private Health findHealthOptional(Integer id) {
+        if (id == null || id == 0) return null;
+        return healthRepository.findById(id).orElse(null);
+    }
+
+    // ✅ NOUVEAU
+    private Booklet findBookletOptional(Integer id) {
+        if (id == null || id == 0) return null;
+        return bookletRepository.findById(Long.valueOf(id)).orElse(null);
     }
 
     private Apps findApps(Integer id) {
@@ -413,14 +456,22 @@ public class DeploymentServiceImpl implements DeploymentService {
         Integer partId = deployment.getPartner() != null
                 ? deployment.getPartner().getId() : null;
 
+        // ✅ NOUVEAU — personne réceptionnaire
+        String receivedByBookletName = null;
+        if (deployment.getReceivedByBooklet() != null) {
+            receivedByBookletName = deployment.getReceivedByBooklet().getLastName()
+                    + " " + deployment.getReceivedByBooklet().getFirstName();
+        }
+
         return DeploymentResponse.builder()
                 .id(deployment.getId())
                 .codeDep(deployment.getCodeDep())
                 .dateRecep(deployment.getDateRecep())
                 .comment(deployment.getComment())
-                .regionDeploy(deployment.getRegion().getRegionName())
-                .districtDeploy(deployment.getDistrict().getDistrictName())
-                .healthDeploy(deployment.getHealth().getHealthName())
+                .regionDeploy(deployment.getRegion() != null ? deployment.getRegion().getRegionName() : null)
+                // ✅ MODIFIÉ — health désormais nullable (cas Convoyeur)
+                .districtDeploy(deployment.getDistrict() != null ? deployment.getDistrict().getDistrictName() : null)
+                .healthDeploy(deployment.getHealth() != null ? deployment.getHealth().getHealthName() : null)
                 .appsDeploy(appsName)
                 .appsIcon(appsIcon)
                 .appsColor(appsColor)
@@ -439,6 +490,11 @@ public class DeploymentServiceImpl implements DeploymentService {
                 // ── Géolocalisation ──────────────────────────────────────────
                 .latitude(deployment.getLatitude())
                 .longitude(deployment.getLongitude())
+                // ── Personne réceptionnaire ───────────────────────────────────
+                .receivedByBookletId(deployment.getReceivedByBooklet() != null ? deployment.getReceivedByBooklet().getId().intValue() : null)
+                .receivedByName(deployment.getReceivedByName() != null ? deployment.getReceivedByName() : receivedByBookletName)
+                .receivedByContact(deployment.getReceivedByContact())
+                .receivedByPost(deployment.getReceivedByPost())
                 .build();
     }
 }

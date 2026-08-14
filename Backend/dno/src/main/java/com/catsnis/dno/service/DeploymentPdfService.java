@@ -189,12 +189,32 @@ public class DeploymentPdfService {
         addInfoRow(infoTable, "Date de réception", dateStr);
         addInfoRow(infoTable, "Région", deployment.getRegion() != null ? deployment.getRegion().getRegionName() : null);
         addInfoRow(infoTable, "District", deployment.getDistrict() != null ? deployment.getDistrict().getDistrictName() : null);
-        addInfoRow(infoTable, "Site", deployment.getHealth() != null ? deployment.getHealth().getHealthName() : null);
+        // ✅ MODIFIÉ — Site peut être null (déploiement remis à un Convoyeur, sans site précis)
+        addInfoRow(infoTable, "Site", deployment.getHealth() != null
+                ? deployment.getHealth().getHealthName() : "Non renseigné (convoyage)");
         addInfoRow(infoTable, "Application", deployment.getApps() != null ? deployment.getApps().getAppName() : null);
         addInfoRow(infoTable, "Réalisé par", technician.getFirstName() + " " + technician.getLastName());
         if (deployment.getPartner() != null) {
             addInfoRow(infoTable, "Bailleur / Partenaire", deployment.getPartner().getPartnerName());
         }
+
+        // ✅ NOUVEAU — Personne réceptionnaire (booklet sélectionné OU saisie manuelle)
+        String receivedByDisplayName = deployment.getReceivedByName();
+        if ((receivedByDisplayName == null || receivedByDisplayName.isBlank())
+                && deployment.getReceivedByBooklet() != null) {
+            receivedByDisplayName = deployment.getReceivedByBooklet().getLastName()
+                    + " " + deployment.getReceivedByBooklet().getFirstName();
+        }
+        if (receivedByDisplayName != null && !receivedByDisplayName.isBlank()) {
+            addInfoRow(infoTable, "Personne réceptionnaire", receivedByDisplayName);
+        }
+        if (deployment.getReceivedByPost() != null && !deployment.getReceivedByPost().isBlank()) {
+            addInfoRow(infoTable, "Poste réceptionnaire", deployment.getReceivedByPost());
+        }
+        if (deployment.getReceivedByContact() != null && !deployment.getReceivedByContact().isBlank()) {
+            addInfoRow(infoTable, "Contact réceptionnaire", deployment.getReceivedByContact());
+        }
+
         if (deployment.getLatitude() != null && deployment.getLongitude() != null) {
             addInfoRow(infoTable, "Coordonnées GPS",
                     String.format("%.6f, %.6f", deployment.getLatitude(), deployment.getLongitude()));
