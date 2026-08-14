@@ -253,18 +253,26 @@ export interface DeploymentItemResponse {
 
 // ── Déploiements ──────────────────────────────────────────────────────────────
 export interface DeploymentRequest {
-  codeDep:    string;
-  dateRecep:  string;
-  comment:    string;
-  regionId:   number;
-  districtId: number;
-  healthId:   number;
-  appsId:     number;
-  items:      DeploymentItemRequest[];
-  partnerId?: number;
-  // ── Géolocalisation ──────────────────────────────────────────────────────
-  latitude?:  number;
-  longitude?: number;
+    codeDep: string;
+    dateRecep: string;
+    comment?: string;
+    regionId: number;
+    districtId: number;
+    // ✅ MODIFIÉ — optionnel : facultatif si receivedByPost = "Convoyeur"
+    healthId?: number;
+    appsId: number;
+    items: DeploymentItemRequest[];
+    partnerId?: number;
+
+    // ── Géolocalisation ──────────────────────────────────
+    latitude?: number;
+    longitude?: number;
+
+    // ── Personne réceptionnaire ──────────────────────────
+    receivedByBookletId?: number;
+    receivedByName?: string;
+    receivedByContact?: string;
+    receivedByPost?: string;
 }
 
 export interface DeploymentResponse {
@@ -293,6 +301,11 @@ export interface DeploymentResponse {
   // ── Géolocalisation ──────────────────────────────────────────────────────
   latitude?:  number;
   longitude?: number;
+  // ── Personne réceptionnaire ──────────────────────────
+    receivedByBookletId?: number;
+    receivedByName?: string;
+    receivedByContact?: string;
+    receivedByPost?: string;
 }
 
 // ── Interventions ─────────────────────────────────────────────────────────────

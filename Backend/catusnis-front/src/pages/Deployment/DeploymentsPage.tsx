@@ -264,6 +264,7 @@ const DeploymentsPage: React.FC = () => {
                     <td style="text-align:center;font-weight:bold;">${d.items?.length || 0}</td>
                     <td style="font-size:10px;color:${d.appsColor || '#616161'};font-weight:500;">${d.appsDeploy || '—'}</td>
                     <td style="font-size:10px;">${d.partnerName || '—'}</td>
+                    <td style="font-size:10px;">${d.receivedByName || '—'}</td>
                     <td style="font-size:10px;color:#198754;">${d.latitude != null ? `${d.latitude.toFixed(4)}, ${d.longitude?.toFixed(4)}` : '—'}</td>
                 </tr>`).join('');
 
@@ -287,7 +288,7 @@ const DeploymentsPage: React.FC = () => {
         <thead>
             <tr>
                 <th>#</th><th>Code</th><th>Date</th><th>Site</th><th>District</th>
-                <th>Région</th><th style="text-align:center">Équip.</th><th>Application</th><th>Partenaire</th><th>GPS</th>
+                <th>Région</th><th style="text-align:center">Équip.</th><th>Application</th><th>Partenaire</th><th>Reçu par</th><th>GPS</th>
             </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -384,10 +385,18 @@ const DeploymentsPage: React.FC = () => {
                             <table style={{ width:'100%', marginBottom:'16px', borderCollapse:'collapse', fontSize:'12px' }}>
                                 <tbody>
                                     <tr><td style={{ padding:'5px 8px', width:'50%', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Code :</strong> {printTarget.codeDep}</td><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Date :</strong> {new Date(printTarget.dateRecep).toLocaleDateString('fr-FR')}</td></tr>
-                                    <tr><td style={{ padding:'5px 8px', border:'1px solid #e9ecef' }}><strong>Site :</strong> {printTarget.healthDeploy}</td><td style={{ padding:'5px 8px', border:'1px solid #e9ecef' }}><strong>District :</strong> {printTarget.districtDeploy}</td></tr>
+                                    <tr><td style={{ padding:'5px 8px', border:'1px solid #e9ecef' }}><strong>Site :</strong> {printTarget.healthDeploy || 'Non renseigné (convoyage)'}</td><td style={{ padding:'5px 8px', border:'1px solid #e9ecef' }}><strong>District :</strong> {printTarget.districtDeploy}</td></tr>
                                     <tr><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Région :</strong> {printTarget.regionDeploy}</td><td style={{ padding:'5px 8px', background:'#f8f9fa', border:'1px solid #e9ecef' }}><strong>Application :</strong> {printTarget.appsDeploy}</td></tr>
                                 </tbody>
                             </table>
+                            {/* ✅ NOUVEAU — Personne réceptionnaire */}
+                            {(printTarget.receivedByName || printTarget.receivedByBookletId) && (
+                                <div style={{ marginBottom:'14px', padding:'8px 12px', background:'#f0f0f0', borderRadius:'6px', border:'1px solid #ddd', fontSize:'11px', color:'#333' }}>
+                                    <strong>Personne réceptionnaire :</strong> {printTarget.receivedByName}
+                                    {printTarget.receivedByPost && ` — ${printTarget.receivedByPost}`}
+                                    {printTarget.receivedByContact && ` — 📞 ${printTarget.receivedByContact}`}
+                                </div>
+                            )}
                             {printTarget.latitude != null && printTarget.longitude != null && (
                                 <div style={{ marginBottom:'14px', padding:'8px 12px', background:'#d1e7dd', borderRadius:'6px', border:'1px solid #a3cfbb', fontSize:'11px', color:'#0a3622', display:'flex', alignItems:'center', gap:'8px' }}>
                                     <span>📍</span>
@@ -566,6 +575,7 @@ const DeploymentsPage: React.FC = () => {
                                             <tr>
                                                 <th>#</th><th>Code & Date</th><th>Localisation</th>
                                                 <th>Équipements</th><th>Application</th>
+                                                <th>Reçu par</th>
                                                 {isUnrestricted && <th>Partenaire</th>}
                                                 <th>GPS</th>
                                                 <th className="text-end no-print">Actions</th>
@@ -591,7 +601,7 @@ const DeploymentsPage: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td>
-                                                        <span className="badge bg-danger bg-opacity-10 text-danger d-block mb-1">{d.healthDeploy}</span>
+                                                        <span className="badge bg-danger bg-opacity-10 text-danger d-block mb-1">{d.healthDeploy || 'Non renseigné'}</span>
                                                         <span className="badge bg-info bg-opacity-10 text-info d-block mb-1">{d.districtDeploy}</span>
                                                         <span className="badge bg-success bg-opacity-10 text-success d-block">{d.regionDeploy}</span>
                                                     </td>
@@ -620,6 +630,31 @@ const DeploymentsPage: React.FC = () => {
                                                             <span className="fw-semibold small" style={{ color: d.appsColor || '#616161' }}>{d.appsDeploy}</span>
                                                         </div>
                                                     </td>
+                                                    {/* ✅ NOUVEAU — Reçu par */}
+<td>
+    {(d.receivedByName || d.receivedByBookletId) ? (
+        <div>
+            <span className="fw-semibold small d-block">
+                <i className="bi bi-person-check-fill text-success me-1" />
+                {d.receivedByName || '—'}
+            </span>
+            <div className="d-flex flex-wrap gap-1 mt-1">
+                {d.receivedByPost && (
+                    <span className="badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize: '10px' }}>
+                        {d.receivedByPost}
+                    </span>
+                )}
+                {d.receivedByContact && (
+                    <span className="badge bg-info bg-opacity-10 text-info" style={{ fontSize: '10px' }}>
+                        <i className="bi bi-telephone-fill me-1" />{d.receivedByContact}
+                    </span>
+                )}
+            </div>
+        </div>
+    ) : (
+        <span className="text-muted small">—</span>
+    )}
+</td>
                                                     {isUnrestricted && (
                                                         <td>{d.partnerName ? <span className="badge bg-warning bg-opacity-10 text-warning">{d.partnerName}</span> : <span className="text-muted small">—</span>}</td>
                                                     )}

@@ -6,11 +6,13 @@ import DistrictService    from '../../services/districtService';
 import HealthService      from '../../services/healthService';
 import AppsService        from '../../services/appsService';
 import AcquisitionService from '../../services/acquisitionService';
+import BookletService     from '../../services/bookletService';
 import {
     DeploymentRequest, DeploymentItemRequest,
     RegionResponse, DistrictResponse, HealthResponse,
     AppsResponse, AcquisitionResponse
 } from '../../types';
+import { Booklet } from '../../types';
 import { getImageSrc } from '../../utils/imageUtils';
 import useAuth from '../../hooks/useAuth';
 import ReferenceService from '../../services/referenceService';
@@ -24,11 +26,19 @@ interface Props {
     preselectedAcquisition?: AcquisitionResponse | null;
 }
 
+// Poste identifiant un convoyeur — rend le site facultatif (doit matcher
+// la constante CONVOYEUR_POST côté DeploymentServiceImpl.java)
+const CONVOYEUR_POST = 'Convoyeur';
+
 const initialForm: DeploymentRequest = {
     codeDep: '', dateRecep: '', comment: '',
     regionId: 0, districtId: 0, healthId: 0,
     appsId: 0, items: [] as DeploymentItemRequest[],
     partnerId: undefined,
+    receivedByBookletId: undefined,
+    receivedByName: '',
+    receivedByContact: '',
+    receivedByPost: '',
 };
 
 const DeploymentFormModal: React.FC<Props> = ({
@@ -45,6 +55,15 @@ const DeploymentFormModal: React.FC<Props> = ({
     const [acquisitions, setAcquisitions] = useState<AcquisitionResponse[]>([]);
     const [partners,     setPartners]     = useState<{ id: number; name: string }[]>([]);
     const [form,         setForm]         = useState<DeploymentRequest>(initialForm);
+
+    // ── Personne réceptionnaire ─────────────────────────────────────────────
+    const [booklets,             setBooklets]             = useState<Booklet[]>([]);
+    const [manualReceivedBy,     setManualReceivedBy]     = useState(false);
+    const [receivedByName,       setReceivedByName]       = useState('');
+    const [receivedByContact,    setReceivedByContact]    = useState('');
+    const [receivedByPost,       setReceivedByPost]       = useState('');
+
+    const isConvoyeur = receivedByPost.trim().toLowerCase() === CONVOYEUR_POST.toLowerCase();
 
     useEffect(() => {
         if (!show) return;
@@ -79,6 +98,11 @@ const DeploymentFormModal: React.FC<Props> = ({
             setDistricts([]);
             setHealths([]);
             setError(null);
+            setBooklets([]);
+            setManualReceivedBy(false);
+            setReceivedByName('');
+            setReceivedByContact('');
+            setReceivedByPost('');
         }
     }, [show]);
 
@@ -86,6 +110,7 @@ const DeploymentFormModal: React.FC<Props> = ({
         const regionId = Number(e.target.value);
         setForm(prev => ({ ...prev, regionId, districtId: 0, healthId: 0 }));
         setHealths([]);
+        setBooklets([]);
         if (regionId) {
             const data = await DistrictService.getAllList(regionId);
             setDistricts(data);
@@ -95,9 +120,15 @@ const DeploymentFormModal: React.FC<Props> = ({
     const handleDistrictChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const districtId = Number(e.target.value);
         setForm(prev => ({ ...prev, districtId, healthId: 0 }));
+        setBooklets([]);
         if (districtId) {
             const data = await HealthService.getAllList(districtId);
             setHealths(data);
+            // ✅ Booklets du district — pour la sélection de la personne réceptionnaire
+            try {
+                const bkts = await BookletService.getByDistrict(districtId);
+                setBooklets(Array.isArray(bkts) ? bkts : []);
+            } catch { setBooklets([]); }
         } else setHealths([]);
     };
 
@@ -110,6 +141,25 @@ const DeploymentFormModal: React.FC<Props> = ({
             [name]: ['healthId', 'appsId', 'partnerId'].includes(name)
                 ? (value ? Number(value) : 0) : value,
         }));
+    };
+
+    // ✅ NOUVEAU — bascule du poste de la personne réceptionnaire ; si
+    // "Convoyeur", le site devient facultatif (region/district restent utiles
+    // pour situer géographiquement le convoyage, mais ne bloquent plus la soumission)
+    const handleReceivedByPostChange = (value: string) => {
+        setReceivedByPost(value);
+        if (value.trim().toLowerCase() === CONVOYEUR_POST.toLowerCase()) {
+            setForm(prev => ({ ...prev, healthId: 0 }));
+        }
+    };
+
+    const handleToggleManualReceivedBy = (value: boolean) => {
+        setManualReceivedBy(value);
+        if (value) {
+            setForm(prev => ({ ...prev, receivedByBookletId: undefined }));
+        } else {
+            setReceivedByName(''); setReceivedByContact(''); setReceivedByPost('');
+        }
     };
 
     const handleAddItem = () =>
@@ -153,10 +203,14 @@ const DeploymentFormModal: React.FC<Props> = ({
         if (!form.dateRecep)      { setError('La date est obligatoire.'); return; }
         if (!form.regionId)       { setError('La région est obligatoire.'); return; }
         if (!form.districtId)     { setError('Le district est obligatoire.'); return; }
-        if (!form.healthId)       { setError('Le site de santé est obligatoire.'); return; }
+        // ✅ MODIFIÉ — site facultatif si la personne réceptionnaire est un Convoyeur
+        if (!isConvoyeur && !form.healthId) { setError('Le site de santé est obligatoire (sauf si la personne réceptionnaire est un Convoyeur).'); return; }
         if (!form.appsId)         { setError("L'application est obligatoire."); return; }
         if (form.items.length === 0) { setError('Ajoutez au moins un équipement.'); return; }
         if (form.items.some(i => !i.acquisitionId)) { setError('Veuillez sélectionner tous les équipements.'); return; }
+        if (!form.receivedByBookletId && !receivedByName.trim()) {
+            setError('Veuillez sélectionner ou saisir la personne réceptionnaire.'); return;
+        }
 
         setIsLoading(true);
         try {
@@ -166,6 +220,10 @@ const DeploymentFormModal: React.FC<Props> = ({
                 dateRecep: form.dateRecep && !form.dateRecep.includes('T')
                     ? `${form.dateRecep}T00:00:00`
                     : form.dateRecep,
+                healthId: isConvoyeur ? undefined : form.healthId,
+                receivedByName:    manualReceivedBy ? receivedByName.trim()    || undefined : undefined,
+                receivedByContact: manualReceivedBy ? receivedByContact.trim() || undefined : undefined,
+                receivedByPost:    receivedByPost.trim() || undefined,
             };
             await DeploymentService.create(formToSend);
             onSuccess();
@@ -280,7 +338,10 @@ const DeploymentFormModal: React.FC<Props> = ({
                         <div className="col-md-4">
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-semibold">
-                                    Site de santé <span className="text-danger">*</span>
+                                    Site de santé {!isConvoyeur && <span className="text-danger">*</span>}
+                                    {isConvoyeur && (
+                                        <small className="text-muted fw-normal ms-1">(facultatif — Convoyeur)</small>
+                                    )}
                                 </Form.Label>
                                 <Form.Select name="healthId" value={form.healthId}
                                     onChange={handleChange} className="rounded-3" disabled={!form.districtId}>
@@ -346,6 +407,88 @@ const DeploymentFormModal: React.FC<Props> = ({
                             </Form.Select>
                         </Form.Group>
                     )}
+
+                    {/* ── Personne réceptionnaire ──────────────────── */}
+                    <div className="card border-0 bg-light rounded-4 p-3 mb-3">
+                        <h6 className="fw-bold text-primary mb-3">
+                            <i className="bi bi-person-fill me-2" />
+                            Personne réceptionnaire <span className="text-danger">*</span>
+                        </h6>
+
+                        <div className="d-flex gap-2 mb-3">
+                            <button type="button"
+                                className={`btn btn-sm rounded-3 ${!manualReceivedBy ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => handleToggleManualReceivedBy(false)}>
+                                <i className="bi bi-person-lines-fill me-1" />Sélectionner dans la liste
+                            </button>
+                            <button type="button"
+                                className={`btn btn-sm rounded-3 ${manualReceivedBy ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => handleToggleManualReceivedBy(true)}>
+                                <i className="bi bi-pencil me-1" />Saisir manuellement
+                            </button>
+                        </div>
+
+                        {manualReceivedBy ? (
+                            <div className="row g-2">
+                                <div className="col-md-12">
+                                    <Form.Label className="fw-semibold small">
+                                        Nom & Prénom <span className="text-danger">*</span>
+                                    </Form.Label>
+                                    <Form.Control type="text"
+                                        placeholder="Ex: KOUASSI Jean"
+                                        value={receivedByName}
+                                        onChange={e => setReceivedByName(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Contact / Téléphone</Form.Label>
+                                    <Form.Control type="text"
+                                        placeholder="Ex: 07 00 00 00 00"
+                                        value={receivedByContact}
+                                        onChange={e => setReceivedByContact(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Label className="fw-semibold small">Fonction / Poste</Form.Label>
+                                    <Form.Control type="text"
+                                        placeholder="Ex: Infirmier chef, Convoyeur..."
+                                        value={receivedByPost}
+                                        onChange={e => handleReceivedByPostChange(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                </div>
+                                {isConvoyeur && (
+                                    <div className="col-12">
+                                        <Alert variant="info" className="rounded-3 small mb-0 mt-1">
+                                            <i className="bi bi-info-circle me-2" />
+                                            Poste "Convoyeur" détecté — le site de santé devient facultatif
+                                            pour ce déploiement.
+                                        </Alert>
+                                    </div>
+                                )}
+                            </div>
+                        ) : booklets.length === 0 ? (
+                            <Alert variant="info" className="rounded-3 small mb-0">
+                                <i className="bi bi-info-circle me-2" />
+                                Aucune personne enregistrée pour ce district.{' '}
+                                <button type="button" className="btn btn-link btn-sm p-0"
+                                    onClick={() => handleToggleManualReceivedBy(true)}>
+                                    Saisir manuellement →
+                                </button>
+                            </Alert>
+                        ) : (
+                            <Form.Select name="receivedByBookletId" value={form.receivedByBookletId || 0}
+                                onChange={handleChange} className="rounded-3" size="sm">
+                                <option value={0}>-- Sélectionner --</option>
+                                {booklets.map(b => (
+                                    <option key={b.id} value={b.id}>
+                                        {b.lastName} {b.firstName}
+                                        {b.contact        ? ` | 📞 ${b.contact}`   : ''}
+                                        {b.post?.postName ? ` | ${b.post.postName}` : ''}
+                                    </option>
+                                ))}
+                            </Form.Select>
+                        )}
+                    </div>
 
                     {/* ── Équipements ──────────────────────────────── */}
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
