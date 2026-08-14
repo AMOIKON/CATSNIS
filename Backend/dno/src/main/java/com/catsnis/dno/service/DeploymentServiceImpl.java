@@ -389,13 +389,12 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Health : " + id));
     }
 
-    // ✅ NOUVEAU — variante nullable, utilisée quand receivedByPost = "Convoyeur"
+    // Variante nullable, utilisée quand receivedByPost = "Convoyeur"
     private Health findHealthOptional(Integer id) {
         if (id == null || id == 0) return null;
         return healthRepository.findById(id).orElse(null);
     }
 
-    // ✅ NOUVEAU
     private Booklet findBookletOptional(Integer id) {
         if (id == null || id == 0) return null;
         return bookletRepository.findById(Long.valueOf(id)).orElse(null);
@@ -456,11 +455,16 @@ public class DeploymentServiceImpl implements DeploymentService {
         Integer partId = deployment.getPartner() != null
                 ? deployment.getPartner().getId() : null;
 
-        // ✅ NOUVEAU — personne réceptionnaire
-        String receivedByBookletName = null;
+        // ✅ CORRIGÉ — personne réceptionnaire : fallback complet (nom + contact + poste)
+        // depuis le booklet sélectionné quand la saisie manuelle est vide, pas seulement le nom
+        String receivedByBookletName    = null;
+        String receivedByBookletContact = null;
+        String receivedByBookletPost    = null;
         if (deployment.getReceivedByBooklet() != null) {
-            receivedByBookletName = deployment.getReceivedByBooklet().getLastName()
-                    + " " + deployment.getReceivedByBooklet().getFirstName();
+            Booklet b = deployment.getReceivedByBooklet();
+            receivedByBookletName    = b.getLastName() + " " + b.getFirstName();
+            receivedByBookletContact = b.getContact();
+            receivedByBookletPost    = b.getPost() != null ? b.getPost().getPostName() : null;
         }
 
         return DeploymentResponse.builder()
@@ -469,7 +473,6 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .dateRecep(deployment.getDateRecep())
                 .comment(deployment.getComment())
                 .regionDeploy(deployment.getRegion() != null ? deployment.getRegion().getRegionName() : null)
-                // ✅ MODIFIÉ — health désormais nullable (cas Convoyeur)
                 .districtDeploy(deployment.getDistrict() != null ? deployment.getDistrict().getDistrictName() : null)
                 .healthDeploy(deployment.getHealth() != null ? deployment.getHealth().getHealthName() : null)
                 .appsDeploy(appsName)
@@ -493,8 +496,8 @@ public class DeploymentServiceImpl implements DeploymentService {
                 // ── Personne réceptionnaire ───────────────────────────────────
                 .receivedByBookletId(deployment.getReceivedByBooklet() != null ? deployment.getReceivedByBooklet().getId().intValue() : null)
                 .receivedByName(deployment.getReceivedByName() != null ? deployment.getReceivedByName() : receivedByBookletName)
-                .receivedByContact(deployment.getReceivedByContact())
-                .receivedByPost(deployment.getReceivedByPost())
+                .receivedByContact(deployment.getReceivedByContact() != null ? deployment.getReceivedByContact() : receivedByBookletContact)
+                .receivedByPost(deployment.getReceivedByPost() != null ? deployment.getReceivedByPost() : receivedByBookletPost)
                 .build();
     }
 }
