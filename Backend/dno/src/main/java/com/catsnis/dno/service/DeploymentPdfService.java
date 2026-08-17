@@ -126,7 +126,8 @@ public class DeploymentPdfService {
         table.addCell(new Cell().add(new Paragraph(safe(value)).setFontSize(9)).setPadding(5));
     }
 
-    private Cell buildSignatureCell(String label, byte[] signatureBytes, String printedName) {
+    // ✅ MODIFIÉ — accepte maintenant un contact optionnel affiché sous le nom
+    private Cell buildSignatureCell(String label, byte[] signatureBytes, String printedName, String contact) {
         Cell cell = new Cell().setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.CENTER);
         cell.add(new Paragraph(label).setBold().setFontSize(9));
         if (signatureBytes != null) {
@@ -146,6 +147,11 @@ public class DeploymentPdfService {
         cell.add(new LineSeparator(new SolidLine(0.5f)).setWidth(160f));
         cell.add(new Paragraph(printedName != null ? printedName : "—")
                 .setFontSize(8).setFontColor(ColorConstants.GRAY).setMarginTop(3f));
+        // ✅ NOUVEAU — contact affiché sous le nom, si disponible
+        if (contact != null && !contact.isBlank()) {
+            cell.add(new Paragraph(contact)
+                    .setFontSize(7).setFontColor(ColorConstants.GRAY));
+        }
         return cell;
     }
 
@@ -189,31 +195,45 @@ public class DeploymentPdfService {
         addInfoRow(infoTable, "Date de réception", dateStr);
         addInfoRow(infoTable, "Région", deployment.getRegion() != null ? deployment.getRegion().getRegionName() : null);
         addInfoRow(infoTable, "District", deployment.getDistrict() != null ? deployment.getDistrict().getDistrictName() : null);
-        // ✅ MODIFIÉ — Site peut être null (déploiement remis à un Convoyeur, sans site précis)
+        // ✅ Site peut être null (déploiement remis à un Convoyeur, sans site précis)
         addInfoRow(infoTable, "Site", deployment.getHealth() != null
                 ? deployment.getHealth().getHealthName() : "Non renseigné (convoyage)");
         addInfoRow(infoTable, "Application", deployment.getApps() != null ? deployment.getApps().getAppName() : null);
         addInfoRow(infoTable, "Réalisé par", technician.getFirstName() + " " + technician.getLastName());
+        // ✅ NOUVEAU — Contact du technicien
+        if (technician.getContact() != null && !technician.getContact().isBlank()) {
+            addInfoRow(infoTable, "Contact technicien", technician.getContact());
+        }
         if (deployment.getPartner() != null) {
             addInfoRow(infoTable, "Bailleur / Partenaire", deployment.getPartner().getPartnerName());
         }
 
-        // ✅ NOUVEAU — Personne réceptionnaire (booklet sélectionné OU saisie manuelle)
+        // ── Personne réceptionnaire (booklet sélectionné OU saisie manuelle) ──
         String receivedByDisplayName = deployment.getReceivedByName();
         if ((receivedByDisplayName == null || receivedByDisplayName.isBlank())
                 && deployment.getReceivedByBooklet() != null) {
             receivedByDisplayName = deployment.getReceivedByBooklet().getLastName()
                     + " " + deployment.getReceivedByBooklet().getFirstName();
         }
+
+// ✅ MODIFIÉ — nom et contact réunis sur la même ligne
+        String receivedByContactForInfo = deployment.getReceivedByContact();
+        if ((receivedByContactForInfo == null || receivedByContactForInfo.isBlank())
+                && deployment.getReceivedByBooklet() != null) {
+            receivedByContactForInfo = deployment.getReceivedByBooklet().getContact();
+        }
         if (receivedByDisplayName != null && !receivedByDisplayName.isBlank()) {
-            addInfoRow(infoTable, "Personne réceptionnaire", receivedByDisplayName);
+            String receptionnaireLigne = receivedByDisplayName;
+            if (receivedByContactForInfo != null && !receivedByContactForInfo.isBlank()) {
+                receptionnaireLigne += " — " + receivedByContactForInfo;
+            }
+            addInfoRow(infoTable, "Personne réceptionnaire", receptionnaireLigne);
         }
         if (deployment.getReceivedByPost() != null && !deployment.getReceivedByPost().isBlank()) {
             addInfoRow(infoTable, "Poste réceptionnaire", deployment.getReceivedByPost());
         }
-        if (deployment.getReceivedByContact() != null && !deployment.getReceivedByContact().isBlank()) {
-            addInfoRow(infoTable, "Contact réceptionnaire", deployment.getReceivedByContact());
-        }
+
+
 
         if (deployment.getLatitude() != null && deployment.getLongitude() != null) {
             addInfoRow(infoTable, "Coordonnées GPS",
@@ -252,12 +272,28 @@ public class DeploymentPdfService {
             document.add(new Paragraph(deployment.getComment()).setFontSize(9).setMarginBottom(10f));
         }
 
+        // ✅ MODIFIÉ — zone signature enrichie :
+        // gauche = Technicien (nom + contact) ; droite = Personne réceptionnaire
+        // (nom + contact) au lieu du générique "Signature Responsable du site"
         Table sigTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
                 .useAllAvailableWidth().setMarginTop(18f);
         byte[] technicianSignature = decodeSignature(technician.getSignatureBase64());
-        sigTable.addCell(buildSignatureCell("Signature Technicien", technicianSignature,
-                technician.getFirstName() + " " + technician.getLastName()));
-        sigTable.addCell(buildSignatureCell("Signature Responsable du site", null, null));
+        sigTable.addCell(buildSignatureCell(
+                "Signature Technicien",
+                technicianSignature,
+                technician.getFirstName() + " " + technician.getLastName(),
+                technician.getContact()));
+
+        String receivedBySignatureContact = deployment.getReceivedByContact();
+        if ((receivedBySignatureContact == null || receivedBySignatureContact.isBlank())
+                && deployment.getReceivedByBooklet() != null) {
+            receivedBySignatureContact = deployment.getReceivedByBooklet().getContact();
+        }
+        sigTable.addCell(buildSignatureCell(
+                "Signature Personne réceptionnaire",
+                null,
+                (receivedByDisplayName != null && !receivedByDisplayName.isBlank()) ? receivedByDisplayName : null,
+                receivedBySignatureContact));
         document.add(sigTable);
 
         String generatedOn = "CATUSNIS — Document généré automatiquement le "
