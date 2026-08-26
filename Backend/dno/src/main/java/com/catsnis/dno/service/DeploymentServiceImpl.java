@@ -35,6 +35,12 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final TechnicianSiteRepository   technicianSiteRepository;
     private final InterventionRepository     interventionRepository;
     private final BookletRepository          bookletRepository;
+    // ✅ NOUVEAU — necessaire pour resolveReceivedByBooklet() : cree automatiquement
+    // un Booklet quand la personne receptionnaire est saisie manuellement, au lieu
+    // de la laisser invisible partout ailleurs dans l'application (bug corrige le
+    // 26/08/2026 : cas ULRICH MARCEL ZAHINNE, invisible dans la liste "Personne
+    // assistee" du formulaire d'intervention car jamais cree comme Booklet).
+    private final BookletService             bookletService;
     private final SecurityUtils              securityUtils;
     private final DeploymentPdfService deploymentPdfService;
     private final ArchiveService archiveService;
@@ -126,7 +132,11 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 // ── Personne réceptionnaire ──────────────────────────────────
-                .receivedByBooklet(findBookletOptional(request.getReceivedByBookletId()))
+                // ✅ CORRIGÉ — resolveReceivedByBooklet() cree automatiquement le
+                // Booklet si la saisie est manuelle (voir commentaire sur le champ
+                // bookletService plus haut), au lieu de findBookletOptional() qui
+                // retournait null quand aucun bookletId n'etait fourni.
+                .receivedByBooklet(resolveReceivedByBooklet(request))
                 .receivedByName(request.getReceivedByName())
                 .receivedByContact(request.getReceivedByContact())
                 .receivedByPost(request.getReceivedByPost())
@@ -206,7 +216,8 @@ public class DeploymentServiceImpl implements DeploymentService {
         if (request.getLongitude() != null) deployment.setLongitude(request.getLongitude());
 
         // ── Personne réceptionnaire ─────────────────────────────────────────
-        deployment.setReceivedByBooklet(findBookletOptional(request.getReceivedByBookletId()));
+        // ✅ CORRIGÉ — meme logique que saveDeployment (voir plus haut)
+        deployment.setReceivedByBooklet(resolveReceivedByBooklet(request));
         deployment.setReceivedByName(request.getReceivedByName());
         deployment.setReceivedByContact(request.getReceivedByContact());
         deployment.setReceivedByPost(request.getReceivedByPost());
@@ -372,6 +383,52 @@ public class DeploymentServiceImpl implements DeploymentService {
 
     private boolean isConvoyeur(String receivedByPost) {
         return receivedByPost != null && CONVOYEUR_POST.equalsIgnoreCase(receivedByPost.trim());
+    }
+
+    /**
+     * NOUVEAU (26/08/2026) — resout le Booklet lie a la personne receptionnaire :
+     *   1. Si un receivedByBookletId est fourni (personne selectionnee dans la
+     *      liste), on l'utilise tel quel — comportement inchange.
+     *   2. Sinon, si un receivedByName est fourni (saisie manuelle), on cree
+     *      automatiquement un Booklet via BookletService.quickCreate() — qui gere
+     *      deja l'anti-doublon par nom+district et la creation du Post si besoin
+     *      (voir BookletService, meme mecanisme que cote intervention).
+     *   3. Sinon (aucune information) : retourne null, comportement inchange.
+     *
+     * Corrige le bug ou une personne saisie manuellement (ex. ULRICH MARCEL
+     * ZAHINNE) restait invisible partout ailleurs dans l'application — elle
+     * n'existait qu'en texte libre dans deployment.received_by_name, jamais
+     * comme un vrai Booklet.
+     *
+     * Convention de decoupage du nom : le premier mot saisi est traite comme
+     * nom de famille (lastName), le reste comme prenom (firstName) — c'est la
+     * meme convention que celle deja utilisee par
+     * BookletService.createFromIntervention() cote intervention, pour rester
+     * coherent dans toute l'application.
+     */
+    private Booklet resolveReceivedByBooklet(DeploymentRequest request) {
+        Booklet existing = findBookletOptional(request.getReceivedByBookletId());
+        if (existing != null) return existing;
+
+        if (request.getReceivedByName() == null || request.getReceivedByName().isBlank()) {
+            return null;
+        }
+
+        String[] parts = request.getReceivedByName().trim().split("\\s+", 2);
+        String lastName  = parts[0];
+        String firstName = parts.length > 1 ? parts[1] : "";
+
+        Long regionId   = request.getRegionId()   != null ? request.getRegionId().longValue()   : null;
+        Long districtId = request.getDistrictId() != null ? request.getDistrictId().longValue() : null;
+
+        return bookletService.quickCreate(
+                lastName,
+                firstName,
+                request.getReceivedByContact(),
+                request.getReceivedByPost(),
+                regionId,
+                districtId
+        );
     }
 
     private Region findRegion(Integer id) {
