@@ -70,11 +70,14 @@ export const ALL_MENUS: NavMenu[] = [
       { key:'signature',    label:'Ma signature',      path:'/settings/signature',    icon:'bi-pen-fill'       },
     ],
   },
+  // ✅ MODIFIÉ (27/08/2026) — ajout de "Verrouillage système" (SUPER_ADMIN
+  // uniquement via '*' dans SUBMENU_RULES, non ajouté aux autres rôles).
   {
     key:'administration', label:'Administration', icon:'bi-shield-shaded', color:'danger',
     children:[
-      { key:'persons',     label:'Gestion des accès', path:'/persons',              icon:'bi-people-fill'   },
-      { key:'permissions', label:'Permissions',        path:'/settings/permissions', icon:'bi-shield-shaded' },
+      { key:'persons',      label:'Gestion des accès',    path:'/persons',              icon:'bi-people-fill'   },
+      { key:'permissions',  label:'Permissions',           path:'/settings/permissions', icon:'bi-shield-shaded' },
+      { key:'system-lock',  label:'Verrouillage système',  path:'/admin/system-lock',    icon:'bi-lock-fill'     },
     ],
   },
   // ✅ Documentation — visible par tous les rôles authentifiés

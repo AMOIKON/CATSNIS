@@ -55,6 +55,7 @@ import PublicVerifyVehiculePage from "./pages/vehicules/Publicverifyvehiculepage
 
 // ✅ Documentation / Manuels ───────────────────────────────────────────────────
 import ManualPage              from "./pages/manuals/ManualPage";
+import SystemLockPage from "./pages/SystemLockPage";
 
 const P = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>{children}</ProtectedRoute>
@@ -115,6 +116,7 @@ const App: React.FC = () => (
         <Route path="/settings/print-config" element={<P><PrintConfigPage /></P>} />
         <Route path="/settings/evaluations"  element={<P><EvaluationsPage /></P>} />
         <Route path="/settings/signature"    element={<P><SignatureSettingsPage /></P>} />
+        <Route path="/admin/system-lock" element={<P><SystemLockPage /></P>} />
 
         {/* ✅ Documentation ── */}
         <Route path="/manuals" element={<P><ManualPage /></P>} />
