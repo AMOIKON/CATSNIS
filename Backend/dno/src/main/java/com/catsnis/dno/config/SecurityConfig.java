@@ -1,6 +1,7 @@
 package com.catsnis.dno.config;
 
 import com.catsnis.dno.security.JwtAuthenticationFilter;
+import com.catsnis.dno.security.SystemLockFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +35,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService      userDetailsService;
+    // ✅ NOUVEAU (27/08/2026) — voir addFilterAfter() plus bas
+    private final SystemLockFilter        systemLockFilter;
 
     // ── Chain prioritaire pour Actuator ───────────────────────────────────────
     @Bean
@@ -68,6 +71,12 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api/public/**"
                         ).permitAll()
+
+                        // ✅ NOUVEAU (27/08/2026) — consultable même sans être
+                        // connecté, pour que le frontend puisse afficher l'écran
+                        // de verrouillage avant même la tentative de login.
+                        .requestMatchers(HttpMethod.GET, "/api/system/status").permitAll()
+                        .requestMatchers("/api/system/lock", "/api/system/unlock").hasRole("SUPER_ADMIN")
 
                         // ── Images publiques — DOIT être avant /api/images/** ─
                         // FIX: la règle GET /api/images/** authenticated() ci-dessous
@@ -203,6 +212,10 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // ✅ NOUVEAU (27/08/2026) — s'execute APRES l'authentification JWT,
+                // pour que le role de l'utilisateur soit deja connu au moment de
+                // decider si la requete doit etre bloquee (verrouillage global).
+                .addFilterAfter(systemLockFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 

@@ -108,6 +108,9 @@ app:
   #    de vérification (QR code des fiches PDF, etc.)
   frontend:
     url: ${APP_FRONTEND_URL:http://localhost:3001}
+  # ✅ MODIFIÉ (27/08/2026) — email aligné sur le compte superadmin renommé
+  # en base (id=2), pour que DataInitializer ne recree pas un compte avec
+  # l'ancien email au prochain demarrage.
   admin:
-    email:    ${APP_ADMIN_EMAIL:superadmin@catusnis.ci}
+    email:    ${APP_ADMIN_EMAIL:amoikonlouisfranck@gmail.com}
     password: ${APP_ADMIN_PASSWORD:SuperAdmin@2024}
