@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Button, Alert, Spinner, Badge, Form } from 'react-bootstrap';
+import { Card, Button, Alert, Spinner, Badge, Form, Table } from 'react-bootstrap';
 import MainLayout from '../components/common/MainLayout';
-import systemStateService from '../services/systemStateService';
+import systemStateService, { SystemLockHistoryEntry } from '../services/systemStateService';
 
 /**
  * NOUVEAU (27/08/2026) — écran réservé au SUPER_ADMIN pour verrouiller ou
@@ -14,9 +14,13 @@ const SystemLockPage: React.FC = () => {
     const [locked,   setLocked]   = useState(false);
     const [reason,   setReason]   = useState('');
     const [newReason, setNewReason] = useState('');
+    // ✅ NOUVEAU — observation optionnelle lors du déverrouillage
+    const [unlockObservation, setUnlockObservation] = useState('');
     const [busy,     setBusy]     = useState(false);
     const [error,    setError]    = useState<string | null>(null);
     const [success,  setSuccess]  = useState<string | null>(null);
+    // ✅ NOUVEAU (27/08/2026)
+    const [history,  setHistory]  = useState<SystemLockHistoryEntry[]>([]);
 
     const load = () => {
         setLoading(true);
@@ -24,6 +28,11 @@ const SystemLockPage: React.FC = () => {
             .then(data => { setLocked(data.locked); setReason(data.reason); })
             .catch(() => setError('Impossible de charger le statut.'))
             .finally(() => setLoading(false));
+        // ✅ NOUVEAU — charge l'historique en parallele, silencieusement
+        // (une erreur ici n'empeche pas la page principale de fonctionner)
+        systemStateService.history()
+            .then(setHistory)
+            .catch(() => {});
     };
 
     useEffect(() => { load(); }, []);
@@ -49,8 +58,9 @@ const SystemLockPage: React.FC = () => {
     const handleUnlock = async () => {
         setError(null); setSuccess(null); setBusy(true);
         try {
-            await systemStateService.unlock();
+            await systemStateService.unlock(unlockObservation.trim());
             setSuccess('Application déverrouillée.');
+            setUnlockObservation('');
             load();
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erreur lors du déverrouillage.');
@@ -101,11 +111,26 @@ const SystemLockPage: React.FC = () => {
                                     )}
 
                                     {locked ? (
-                                        <Button variant="success" className="rounded-3" onClick={handleUnlock} disabled={busy}>
-                                            {busy
-                                                ? <><Spinner size="sm" className="me-2" />Déverrouillage...</>
-                                                : <><i className="bi bi-unlock me-2" />Déverrouiller l'application</>}
-                                        </Button>
+                                        <>
+                                            <Form.Group className="mb-3">
+                                                <Form.Label className="fw-semibold small">
+                                                    Observation (optionnel)
+                                                </Form.Label>
+                                                <Form.Control
+                                                    as="textarea"
+                                                    rows={2}
+                                                    placeholder="Ex : Paiement reçu le 27/08/2026"
+                                                    value={unlockObservation}
+                                                    onChange={e => setUnlockObservation(e.target.value)}
+                                                    className="rounded-3"
+                                                />
+                                            </Form.Group>
+                                            <Button variant="success" className="rounded-3" onClick={handleUnlock} disabled={busy}>
+                                                {busy
+                                                    ? <><Spinner size="sm" className="me-2" />Déverrouillage...</>
+                                                    : <><i className="bi bi-unlock me-2" />Déverrouiller l'application</>}
+                                            </Button>
+                                        </>
                                     ) : (
                                         <>
                                             <Form.Group className="mb-3">
@@ -132,6 +157,48 @@ const SystemLockPage: React.FC = () => {
                             )}
                         </Card.Body>
                     </Card>
+
+                    {/* ✅ NOUVEAU — historique des verrouillages/deverrouillages */}
+                    {history.length > 0 && (
+                        <Card className="border-0 shadow-sm rounded-4 mt-4">
+                            <Card.Body className="p-4">
+                                <h6 className="fw-bold mb-3">
+                                    <i className="bi bi-clock-history text-secondary me-2" />
+                                    Historique
+                                </h6>
+                                <Table size="sm" responsive className="mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Action</th>
+                                            <th>Date</th>
+                                            <th>Par</th>
+                                            <th>Observation</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {history.map(entry => (
+                                            <tr key={entry.id}>
+                                                <td>
+                                                    {entry.action === 'LOCK' ? (
+                                                        <Badge bg="danger">Verrouillage</Badge>
+                                                    ) : (
+                                                        <Badge bg="success">Déverrouillage</Badge>
+                                                    )}
+                                                </td>
+                                                <td className="small">{new Date(entry.occurredAt).toLocaleString('fr-FR')}</td>
+                                                <td className="small">{entry.actorEmail}</td>
+                                                <td className="small text-muted">
+                                                    {entry.reason
+                                                        ? entry.reason
+                                                        : <span className="fst-italic">Aucune observation renseignée</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            </Card.Body>
+                        </Card>
+                    )}
                 </div>
             </div>
         </MainLayout>

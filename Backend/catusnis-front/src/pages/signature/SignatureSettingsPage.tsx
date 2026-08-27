@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Alert, Spinner, Badge } from 'react-bootstrap';
 import MainLayout from '../../components/common/MainLayout';
 import signatureService from '../../services/signatureService';
+// ✅ NOUVEAU (27/08/2026)
+import SignatureImportButton from '../../components/common/SignatureImportButton';
 
 const SignatureSettingsPage: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -14,6 +16,9 @@ const SignatureSettingsPage: React.FC = () => {
     const [success,    setSuccess]    = useState(false);
     const [configured, setConfigured] = useState(false);
     const [existing,   setExisting]   = useState<string | null>(null);
+    // ✅ NOUVEAU — signature importée (photo/PDF), en attente d'enregistrement,
+    // distincte du dessin sur le canvas mais traitée de la même façon à la sauvegarde
+    const [imported,   setImported]   = useState<string | null>(null);
 
     useEffect(() => {
         signatureService.get()
@@ -51,6 +56,7 @@ const SignatureSettingsPage: React.FC = () => {
         if (!ctx) return;
         isDrawing.current = true;
         hasDrawn.current = true;
+        setImported(null); // dessiner annule un import en attente
         const { x, y } = getPos(e, canvas);
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -78,19 +84,43 @@ const SignatureSettingsPage: React.FC = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         hasDrawn.current = false;
         setExisting(null);
+        setImported(null);
+    };
+
+    // ✅ NOUVEAU — appelé quand SignatureImportButton a fini de convertir le fichier
+    const handleImported = (base64: string) => {
+        setError(null);
+        hasDrawn.current = false; // l'import remplace le dessin, pas l'inverse
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        setImported(base64);
     };
 
     const handleSave = async () => {
         const canvas = canvasRef.current;
-        if (!canvas || !hasDrawn.current) {
-            setError('Veuillez tracer votre signature avant d\'enregistrer.'); return;
+
+        // ✅ MODIFIÉ — priorité à l'import s'il existe, sinon le dessin du canvas
+        let base64: string | null = null;
+        if (imported) {
+            base64 = imported;
+        } else if (canvas && hasDrawn.current) {
+            base64 = canvas.toDataURL('image/png');
         }
+
+        if (!base64) {
+            setError('Veuillez tracer votre signature ou en importer une avant d\'enregistrer.');
+            return;
+        }
+
         setError(null); setSuccess(false); setSaving(true);
         try {
-            const base64 = canvas.toDataURL('image/png');
             await signatureService.update({ signatureBase64: base64 });
             setConfigured(true);
             setSuccess(true);
+            setImported(null);
         } catch (err: any) {
             setError(err.response?.data?.message || "Erreur lors de l'enregistrement.");
         } finally {
@@ -137,7 +167,7 @@ const SignatureSettingsPage: React.FC = () => {
                                         </Alert>
                                     )}
 
-                                    {existing && !hasDrawn.current && (
+                                    {existing && !hasDrawn.current && !imported && (
                                         <div className="mb-3">
                                             <p className="fw-semibold small mb-1">Signature actuelle :</p>
                                             <div className="border rounded-3 p-2 bg-light d-inline-block">
@@ -146,8 +176,18 @@ const SignatureSettingsPage: React.FC = () => {
                                         </div>
                                     )}
 
+                                    {/* ✅ NOUVEAU — aperçu de la signature importée, avant enregistrement */}
+                                    {imported && (
+                                        <div className="mb-3">
+                                            <p className="fw-semibold small mb-1">Signature importée (aperçu) :</p>
+                                            <div className="border rounded-3 p-2 bg-light d-inline-block">
+                                                <img src={imported} alt="Signature importée" style={{ maxHeight: '80px' }} />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <p className="fw-semibold small mb-1">
-                                        {existing ? 'Redessiner une nouvelle signature :' : 'Tracez votre signature ci-dessous :'}
+                                        {existing || imported ? 'Redessiner une nouvelle signature :' : 'Tracez votre signature ci-dessous :'}
                                     </p>
                                     <div className="border rounded-3 mb-2" style={{ background: '#fafafa' }}>
                                         <canvas
@@ -165,10 +205,18 @@ const SignatureSettingsPage: React.FC = () => {
                                         />
                                     </div>
 
-                                    <div className="d-flex justify-content-between">
-                                        <Button variant="outline-secondary" size="sm" className="rounded-3" onClick={clearCanvas}>
-                                            <i className="bi bi-eraser me-1" />Effacer
-                                        </Button>
+                                    {/* ✅ NOUVEAU — alternative à côté du "Effacer" */}
+                                    <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <div className="d-flex gap-2">
+                                            <Button variant="outline-secondary" size="sm" className="rounded-3" onClick={clearCanvas}>
+                                                <i className="bi bi-eraser me-1" />Effacer
+                                            </Button>
+                                            <SignatureImportButton
+                                                onImported={handleImported}
+                                                onError={(msg) => setError(msg)}
+                                                disabled={saving}
+                                            />
+                                        </div>
                                         <Button variant="primary" className="rounded-3" onClick={handleSave} disabled={saving}>
                                             {saving
                                                 ? <><Spinner size="sm" className="me-2" />Enregistrement...</>
