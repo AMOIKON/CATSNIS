@@ -80,7 +80,10 @@ public class InterventionPdfService {
         return null;
     }
 
-    /** Décode une signature base64 (avec ou sans préfixe data:image/...;base64,) en bytes. */
+    /** Décode une signature base64 (avec ou sans préfixe data:image/...;base64,) en bytes.
+     *  Fonctionne indifféremment pour une signature dessinée à l'écran ou
+     *  importée (photo/PDF) via SignatureUploadService — les deux sont
+     *  stockées dans le même format (PNG en Base64). */
     private byte[] decodeSignature(String signatureBase64) {
         if (signatureBase64 == null || signatureBase64.isBlank()) return null;
         try {
@@ -368,15 +371,22 @@ public class InterventionPdfService {
         }
 
         // ── Signatures ────────────────────────────────────────────────────────
-        // Image si le technicien a enregistré une signature numérique dans son
-        // profil, sinon ligne blanche + nom imprimé (signature manuscrite).
+        // Technicien : image si signature enregistree dans son profil (dessinee
+        // ou importee via SignatureUploadService), sinon ligne blanche + nom.
+        // ✅ MODIFIÉ (26/08/2026) — Bénéficiaire : idem, si le booklet associe a
+        // une signature enregistree (import photo/PDF le plus souvent, puisque
+        // le beneficiaire ne dessine generalement pas sur l'ecran du technicien).
         byte[] technicianSignature = decodeSignature(technician.getSignatureBase64());
         String technicianName = technician.getFirstName() + " " + technician.getLastName();
+
+        byte[] beneficiarySignature = intervention.getBooklet() != null
+                ? decodeSignature(intervention.getBooklet().getSignatureBase64())
+                : null;
 
         Table sigTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
                 .useAllAvailableWidth().setMarginTop(18f);
         sigTable.addCell(buildSignatureCell("Signature Technicien", technicianSignature, technicianName));
-        sigTable.addCell(buildSignatureCell("Signature Bénéficiaire", null, personName));
+        sigTable.addCell(buildSignatureCell("Signature Bénéficiaire", beneficiarySignature, personName));
         document.add(sigTable);
 
         // ── Pied de page (méthode fiable — ajout au fil du document) ──────────

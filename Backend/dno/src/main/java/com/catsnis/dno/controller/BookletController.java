@@ -166,7 +166,24 @@ public class BookletController {
         }
     }
 
-
-
-
+    // ✅ NOUVEAU (26/08/2026) — enregistrer la signature de ce booklet (dessinee
+    // OU importee — image/PDF converti en image cote frontend avant envoi, voir
+    // signatureFileToBase64.ts). Meme pattern JSON que PersonService pour
+    // /api/persons/me/signature — le backend ne fait que stocker le Base64 tel
+    // quel, toute la conversion de format se fait deja cote navigateur.
+    // Elle apparaitra ensuite automatiquement sur les fiches PDF (intervention,
+    // deploiement) partout ou ce booklet est la personne assistee / receptionnaire.
+    @PutMapping("/{id}/signature")
+    public ResponseEntity<?> updateSignature(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String signatureBase64 = body.get("signatureBase64");
+        if (signatureBase64 == null || signatureBase64.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("signatureBase64 est requis."));
+        }
+        Booklet booklet = bookletService.getById(id);
+        booklet.setSignatureBase64(signatureBase64);
+        bookletRepository.save(booklet);
+        return ResponseEntity.ok(ApiResponse.success("Signature enregistrée"));
+    }
 }

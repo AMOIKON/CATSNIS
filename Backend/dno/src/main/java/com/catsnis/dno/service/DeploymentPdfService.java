@@ -72,6 +72,8 @@ public class DeploymentPdfService {
         return null;
     }
 
+    /** Fonctionne indifféremment pour une signature dessinée à l'écran ou
+     *  importée (photo/PDF) via SignatureUploadService — même format stocké. */
     private byte[] decodeSignature(String signatureBase64) {
         if (signatureBase64 == null || signatureBase64.isBlank()) return null;
         try {
@@ -126,7 +128,6 @@ public class DeploymentPdfService {
         table.addCell(new Cell().add(new Paragraph(safe(value)).setFontSize(9)).setPadding(5));
     }
 
-    // ✅ MODIFIÉ — accepte maintenant un contact optionnel affiché sous le nom
     private Cell buildSignatureCell(String label, byte[] signatureBytes, String printedName, String contact) {
         Cell cell = new Cell().setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.CENTER);
         cell.add(new Paragraph(label).setBold().setFontSize(9));
@@ -147,7 +148,6 @@ public class DeploymentPdfService {
         cell.add(new LineSeparator(new SolidLine(0.5f)).setWidth(160f));
         cell.add(new Paragraph(printedName != null ? printedName : "—")
                 .setFontSize(8).setFontColor(ColorConstants.GRAY).setMarginTop(3f));
-        // ✅ NOUVEAU — contact affiché sous le nom, si disponible
         if (contact != null && !contact.isBlank()) {
             cell.add(new Paragraph(contact)
                     .setFontSize(7).setFontColor(ColorConstants.GRAY));
@@ -272,9 +272,10 @@ public class DeploymentPdfService {
             document.add(new Paragraph(deployment.getComment()).setFontSize(9).setMarginBottom(10f));
         }
 
-        // ✅ MODIFIÉ — zone signature enrichie :
-        // gauche = Technicien (nom + contact) ; droite = Personne réceptionnaire
-        // (nom + contact) au lieu du générique "Signature Responsable du site"
+        // ✅ MODIFIÉ (26/08/2026) — signature du receptionnaire desormais reelle
+        // (image) quand le booklet associe possede une signature enregistree
+        // (dessinee ou importee via SignatureUploadService), au lieu de
+        // toujours forcer null / ligne blanche a signer a la main.
         Table sigTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
                 .useAllAvailableWidth().setMarginTop(18f);
         byte[] technicianSignature = decodeSignature(technician.getSignatureBase64());
@@ -289,9 +290,12 @@ public class DeploymentPdfService {
                 && deployment.getReceivedByBooklet() != null) {
             receivedBySignatureContact = deployment.getReceivedByBooklet().getContact();
         }
+        byte[] receivedBySignature = deployment.getReceivedByBooklet() != null
+                ? decodeSignature(deployment.getReceivedByBooklet().getSignatureBase64())
+                : null;
         sigTable.addCell(buildSignatureCell(
                 "Signature Personne réceptionnaire",
-                null,
+                receivedBySignature,
                 (receivedByDisplayName != null && !receivedByDisplayName.isBlank()) ? receivedByDisplayName : null,
                 receivedBySignatureContact));
         document.add(sigTable);
