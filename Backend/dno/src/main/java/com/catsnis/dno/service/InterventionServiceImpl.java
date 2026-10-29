@@ -65,6 +65,16 @@ public class InterventionServiceImpl implements InterventionService {
         return isOrientationOrAssistance && hasNoSite && !hasManualStructure && !hasManualEquipment;
     }
 
+    /**
+     * ✅ CORRECTIF — Le frontend envoie 0 (et non null) quand aucune région/district/site
+     * n'est choisi (mode appel, structure hors base). 0 n'est jamais un identifiant
+     * valide : on le ramène à null avant de le transmettre à un autre service,
+     * qui chercherait sinon « la région 0 » et échouerait.
+     */
+    private Integer positiveOrNull(Integer id) {
+        return (id != null && id > 0) ? id : null;
+    }
+
     private Date parseDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return new Date();
         String[] formats = {
@@ -150,7 +160,7 @@ public class InterventionServiceImpl implements InterventionService {
         // rôles ne sont jamais restreints par le périmètre assigné).
         if ("EN_LIGNE".equals(request.getTypeInter())
                 && (technician.getRole() == Role.TECHNICIEN || technician.getRole() == Role.LOGISTICIEN)
-                && request.getHealthId() != null) {
+                && request.getHealthId() != null && request.getHealthId() > 0) {  // ✅ CORRECTIF : 0 = aucun site
             List<Integer> allowedHealthIds =
                     technicianSiteRepository.findHealthIdsByPersonId(technician.getId());
             if (!allowedHealthIds.isEmpty() && !allowedHealthIds.contains(request.getHealthId())) {
@@ -233,7 +243,8 @@ public class InterventionServiceImpl implements InterventionService {
                     .orElse(null);
         } else if (request.getStructureEtatiqueNom() != null && !request.getStructureEtatiqueNom().isBlank()) {
             structureEtatique = structureEtatiqueService.findOrCreate(
-                    request.getStructureEtatiqueNom(), request.getRegionId(), request.getDistrictId(), null);
+                    request.getStructureEtatiqueNom(),
+                    positiveOrNull(request.getRegionId()), positiveOrNull(request.getDistrictId()), null);
         }
 
         Intervention intervention = Intervention.builder()
@@ -263,15 +274,17 @@ public class InterventionServiceImpl implements InterventionService {
             saveItemStatesByIds(request);
         }
 
-        if (hasManualPerson) {
+        // ✅ CORRECTIF : pas de fiche personne automatique en mode appel (aucune région/district
+        // à lui rattacher) — son nom et son poste restent enregistrés dans le commentaire.
+        if (hasManualPerson && !isCallOnly) {
             try {
                 String[] nameParts = splitName(request.getManualPersonName());
                 bookletService.quickCreate(
                         nameParts[0], nameParts[1],
                         request.getManualPersonContact(),
                         request.getManualPersonPost(),
-                        request.getRegionId() != null ? Long.valueOf(request.getRegionId()) : null,
-                        request.getDistrictId() != null ? Long.valueOf(request.getDistrictId()) : null
+                        positiveOrNull(request.getRegionId()) != null ? Long.valueOf(request.getRegionId()) : null,
+                        positiveOrNull(request.getDistrictId()) != null ? Long.valueOf(request.getDistrictId()) : null
                 );
             } catch (Exception e) {
                 System.err.println("[WARN] Création booklet automatique échouée : " + e.getMessage());
@@ -292,7 +305,7 @@ public class InterventionServiceImpl implements InterventionService {
         if ("EN_LIGNE".equals(request.getTypeInter())
                 && currentUserForCheck != null
                 && (currentUserForCheck.getRole() == Role.TECHNICIEN || currentUserForCheck.getRole() == Role.LOGISTICIEN)
-                && request.getHealthId() != null) {
+                && request.getHealthId() != null && request.getHealthId() > 0) {  // ✅ CORRECTIF : 0 = aucun site
             List<Integer> allowedHealthIds =
                     technicianSiteRepository.findHealthIdsByPersonId(currentUserForCheck.getId());
             if (!allowedHealthIds.isEmpty() && !allowedHealthIds.contains(request.getHealthId())) {
@@ -398,7 +411,8 @@ public class InterventionServiceImpl implements InterventionService {
                     .ifPresent(intervention::setStructureEtatique);
         } else if (request.getStructureEtatiqueNom() != null && !request.getStructureEtatiqueNom().isBlank()) {
             intervention.setStructureEtatique(structureEtatiqueService.findOrCreate(
-                    request.getStructureEtatiqueNom(), request.getRegionId(), request.getDistrictId(), null));
+                    request.getStructureEtatiqueNom(),
+                    positiveOrNull(request.getRegionId()), positiveOrNull(request.getDistrictId()), null));
         }
         intervention.setEnAttenteMaintenance(
                 request.getEnAttenteMaintenance() != null ? request.getEnAttenteMaintenance() : false);
@@ -411,15 +425,17 @@ public class InterventionServiceImpl implements InterventionService {
             saveItemStatesByIds(request);
         }
 
-        if (hasManualPerson) {
+        // ✅ CORRECTIF : pas de fiche personne automatique en mode appel (aucune région/district
+        // à lui rattacher) — son nom et son poste restent enregistrés dans le commentaire.
+        if (hasManualPerson && !isCallOnly) {
             try {
                 String[] nameParts = splitName(request.getManualPersonName());
                 bookletService.quickCreate(
                         nameParts[0], nameParts[1],
                         request.getManualPersonContact(),
                         request.getManualPersonPost(),
-                        request.getRegionId() != null ? Long.valueOf(request.getRegionId()) : null,
-                        request.getDistrictId() != null ? Long.valueOf(request.getDistrictId()) : null
+                        positiveOrNull(request.getRegionId()) != null ? Long.valueOf(request.getRegionId()) : null,
+                        positiveOrNull(request.getDistrictId()) != null ? Long.valueOf(request.getDistrictId()) : null
                 );
             } catch (Exception e) {
                 System.err.println("[WARN] Création booklet automatique (update) échouée : " + e.getMessage());
@@ -657,7 +673,7 @@ public class InterventionServiceImpl implements InterventionService {
         Deployment deployment = null;
         if (request.getDeploymentId() != null && request.getDeploymentId() > 0)
             deployment = deploymentRepository.findById(request.getDeploymentId()).orElse(null);
-        if (deployment == null && request.getHealthId() != null) {
+        if (deployment == null && request.getHealthId() != null && request.getHealthId() > 0) {
             List<Deployment> deps = deploymentRepository.findByHealthId(request.getHealthId());
             if (!deps.isEmpty()) deployment = deps.get(0);
         }
@@ -826,7 +842,9 @@ public class InterventionServiceImpl implements InterventionService {
                 .healthName(intervention.getHealth() != null ? intervention.getHealth().getHealthName() : manualStructureName)
                 .typeName(intervention.getTypes() != null
                         ? intervention.getTypes().getTypeName() : manualEquipmentType)
-                .evlName(intervention.getEvaluation().getEvlName())
+                // ✅ CORRECTIF : en mode appel, il n'y a pas d'évaluation (null) — sans ce test,
+                // l'enregistrement réussissait en base puis plantait ici (NullPointerException)
+                .evlName(intervention.getEvaluation() != null ? intervention.getEvaluation().getEvlName() : null)
                 .regionId(intervention.getRegion()     != null ? intervention.getRegion().getId()     : null)
                 .districtId(intervention.getDistrict() != null ? intervention.getDistrict().getId()   : null)
                 .healthId(intervention.getHealth()     != null ? intervention.getHealth().getId()     : null)
