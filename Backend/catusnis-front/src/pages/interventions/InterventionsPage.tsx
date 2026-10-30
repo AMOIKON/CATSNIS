@@ -16,6 +16,22 @@ import GpsTag                  from '../../components/common/GpsTag';
 
 type Tab = 'liste' | 'dashboard';
 
+// ✅ CORRECTIF — Mode appel / orientation : l'intervention n'a ni région, ni district, ni site.
+// La structure qui a appelé est renvoyée par le backend dans structureEtatiqueName ; on la lit
+// via ce type étendu, pour ne pas dépendre de la définition de InterventionResponse.
+type InterventionAvecStructure = InterventionResponse & { structureEtatiqueName?: string | null };
+
+const nomStructureAppelante = (inter: InterventionResponse): string | null =>
+    (inter as InterventionAvecStructure).structureEtatiqueName?.trim() || null;
+
+/** Lieu en une ligne : site / région, sinon la structure appelante, sinon « Appel (sans site) ». */
+const libelleLieu = (inter: InterventionResponse): string => {
+    const lieux = Array.from(new Set(
+        [inter.healthName, inter.regionName].filter((v): v is string => !!v && v.trim() !== '')
+    ));
+    return lieux.join(' — ') || nomStructureAppelante(inter) || 'Appel (sans site)';
+};
+
 // ── Badges ────────────────────────────────────────────────────────────────────
 const TypeBadge: React.FC<{ type: string }> = ({ type }) => (
     <span className={`badge d-inline-flex align-items-center gap-1 ${
@@ -33,6 +49,9 @@ const ACTION_CONFIG: Record<string, { color: string; icon: string; label: string
     MAINTENANCE_PREVENTIVE: { color: '#8b5cf6', icon: 'bi-shield-check', label: 'Maintenance préventive' },
     REPARATION:             { color: '#ef4444', icon: 'bi-tools',        label: 'Réparation'             },
     REMPLACEMENT:           { color: '#3b82f6', icon: 'bi-arrow-repeat', label: 'Remplacement'           },
+    // ✅ CORRECTIF — actions des interventions « appel / orientation » et « assistance hors base »
+    ASSISTANCE_TECHNIQUE:   { color: '#4f46e5', icon: 'bi-headset',      label: 'Assistance technique'   },
+    ORIENTATION_TECHNIQUE:  { color: '#0ea5e9', icon: 'bi-compass',      label: 'Orientation technique'  },
 };
 
 const ActionBadge: React.FC<{ action: string }> = ({ action }) => {
@@ -235,6 +254,8 @@ const InterventionsPage: React.FC = () => {
                 MAINTENANCE_PREVENTIVE: 'Maintenance préventive',
                 REPARATION:             'Réparation',
                 REMPLACEMENT:           'Remplacement',
+                ASSISTANCE_TECHNIQUE:   'Assistance technique',
+                ORIENTATION_TECHNIQUE:  'Orientation technique',
             };
 
             const rows = all.map((inter, i) => `
@@ -244,7 +265,7 @@ const InterventionsPage: React.FC = () => {
                     <td style="font-size:10px;">${new Date(inter.dateInter).toLocaleDateString('fr-FR')}</td>
                     <td style="font-size:10px;color:${inter.typeInter === 'EN_LIGNE' ? '#0d6efd' : '#198754'};font-weight:600;">${inter.typeInter === 'EN_LIGNE' ? 'En ligne' : 'Sur site'}</td>
                     <td style="font-size:10px;">${actionLabels[inter.actionInter] || inter.actionInter}</td>
-                    <td><span style="background:#fce4e4;color:#921919;padding:1px 6px;border-radius:20px;font-size:10px;">${inter.healthName || '—'}</span></td>
+                    <td><span style="background:#fce4e4;color:#921919;padding:1px 6px;border-radius:20px;font-size:10px;">${inter.healthName || nomStructureAppelante(inter) || '—'}</span></td>
                     <td><span style="background:#d1e7dd;color:#0a3622;padding:1px 6px;border-radius:20px;font-size:10px;">${inter.regionName || '—'}</span></td>
                     <td style="font-size:10px;">${inter.technicianName || '—'}</td>
                     <td style="text-align:center;"><span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:20px;font-size:10px;">${inter.durationMinutes} min</span></td>
@@ -274,7 +295,7 @@ const InterventionsPage: React.FC = () => {
         <thead>
             <tr>
                 <th>#</th><th>Code</th><th>Date</th><th>Type</th><th>Action</th>
-                <th>Site</th><th>Région</th><th>Technicien</th>
+                <th>Site / Structure</th><th>Région</th><th>Technicien</th>
                 <th style="text-align:center">Durée</th><th>Statut</th><th>GPS</th>
             </tr>
         </thead>
@@ -365,10 +386,13 @@ const InterventionsPage: React.FC = () => {
                             <table style={{ width: '100%', marginBottom: '8px', borderCollapse: 'collapse', fontSize: '11px' }}>
                                 <tbody>
                                     <tr><td style={{ padding: '5px 8px', width: '50%', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Code :</strong> {printTarget.codeInter}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Date :</strong> {new Date(printTarget.dateInter).toLocaleDateString('fr-FR')}</td></tr>
-                                    <tr><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Type :</strong> {printTarget.typeInter === 'EN_LIGNE' ? '📞 En ligne' : '🏥 Sur site'}</td><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Action :</strong> {printTarget.actionInter}</td></tr>
-                                    <tr><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Site :</strong> {printTarget.healthName}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>District :</strong> {printTarget.districtName}</td></tr>
-                                    <tr><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Région :</strong> {printTarget.regionName}</td><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Durée :</strong> {printTarget.durationMinutes} min</td></tr>
-                                    <tr><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Personne assistée :</strong> {printTarget.personName?.trim() || '—'}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Évaluation :</strong> {printTarget.evlName}</td></tr>
+                                    <tr><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Type :</strong> {printTarget.typeInter === 'EN_LIGNE' ? '📞 En ligne' : '🏥 Sur site'}</td><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Action :</strong> {ACTION_CONFIG[printTarget.actionInter]?.label || printTarget.actionInter}</td></tr>
+                                    <tr><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Site :</strong> {printTarget.healthName || '—'}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>District :</strong> {printTarget.districtName || '—'}</td></tr>
+                                    <tr><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Région :</strong> {printTarget.regionName || '—'}</td><td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Durée :</strong> {printTarget.durationMinutes} min</td></tr>
+                                    <tr><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Personne assistée :</strong> {printTarget.personName?.trim() || '—'}</td><td style={{ padding: '5px 8px', background: '#f8f9fa', border: '1px solid #e9ecef' }}><strong>Évaluation :</strong> {printTarget.evlName || '—'}</td></tr>
+                                    {nomStructureAppelante(printTarget) && (
+                                        <tr><td colSpan={2} style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Structure appelante :</strong> {nomStructureAppelante(printTarget)}</td></tr>
+                                    )}
                                     {!printTarget.deploymentId && printTarget.manualEquipmentName && (
                                         <tr>
                                             <td style={{ padding: '5px 8px', border: '1px solid #e9ecef' }}><strong>Équipement (hors base) :</strong> {printTarget.manualEquipmentName}</td>
@@ -637,9 +661,15 @@ const InterventionsPage: React.FC = () => {
                                                     <td><TypeBadge type={inter.typeInter} /></td>
                                                     <td><ActionBadge action={inter.actionInter} /></td>
                                                     <td>
-                                                        <span className="badge bg-danger bg-opacity-10 text-danger d-block mb-1">{inter.healthName}</span>
-                                                        <span className="badge bg-info bg-opacity-10 text-info d-block mb-1">{inter.districtName}</span>
-                                                        <span className="badge bg-success bg-opacity-10 text-success d-block">{inter.regionName}</span>
+                                                        {inter.healthName?.trim() && <span className="badge bg-danger bg-opacity-10 text-danger d-block mb-1">{inter.healthName}</span>}
+                                                        {inter.districtName?.trim() && <span className="badge bg-info bg-opacity-10 text-info d-block mb-1">{inter.districtName}</span>}
+                                                        {inter.regionName?.trim() && <span className="badge bg-success bg-opacity-10 text-success d-block">{inter.regionName}</span>}
+                                                        {/* ✅ CORRECTIF — mode appel / orientation : ni site, ni district, ni région */}
+                                                        {!inter.healthName?.trim() && !inter.districtName?.trim() && !inter.regionName?.trim() && (
+                                                            nomStructureAppelante(inter)
+                                                                ? <span className="badge d-block" style={{ background: 'rgba(99,102,241,0.1)', color: '#4f46e5' }}><i className="bi bi-telephone-inbound me-1" />{nomStructureAppelante(inter)}</span>
+                                                                : <span className="text-muted small">Appel — sans site</span>
+                                                        )}
                                                     </td>
                                                     <td style={{ minWidth: '160px' }}>
                                                         {inter.deploymentItems?.length > 0 ? (
@@ -668,7 +698,7 @@ const InterventionsPage: React.FC = () => {
                                                                     hors base
                                                                 </span>
                                                             </div>
-                                                        ) : <span className="text-muted small">—</span>}
+                                                        ) : <span className="text-muted small">{!inter.healthName?.trim() && !inter.regionName?.trim() ? 'Aucun (appel)' : '—'}</span>}
                                                     </td>
                                                     <td><LogoBadge image={inter.appsImage} icon={inter.appsIcon} color={inter.appsColor} name={inter.appName} /></td>
                                                     <td><LogoBadge image={inter.partnerImage} icon={inter.partnerLogo} color={inter.partnerColor} name={inter.partnerName || '—'} /></td>
@@ -738,7 +768,7 @@ const InterventionsPage: React.FC = () => {
                                         </div>
                                         <div className="flex-grow-1">
                                             <span className="fw-semibold small d-block">{inter.codeInter}</span>
-                                            <small className="text-muted">{inter.healthName} — {inter.regionName}</small>
+                                            <small className="text-muted">{libelleLieu(inter)}</small>
                                         </div>
                                         <div className="text-end">
                                             <span className="badge bg-primary bg-opacity-10 text-primary d-block">{inter.durationMinutes} min</span>

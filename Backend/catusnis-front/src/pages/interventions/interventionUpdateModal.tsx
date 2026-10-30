@@ -21,6 +21,7 @@ import AppsService from '../../services/appsService';
 import { AppsResponse } from '../../types';
 import { getImageSrc } from '../../utils/imageUtils';
 import notify from '../../services/notify';
+import StructureEtatiqueService, { StructureEtatiqueResponse } from '../../services/Structureetatiqueservice';
 
 // ── Badge statut ──────────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -86,6 +87,12 @@ const InterventionUpdateModal: React.FC<Props> = ({
     const [manualStructureName, setManualStructureName] = useState('');
     const [manualEquipmentName, setManualEquipmentName] = useState('');
     const [manualEquipmentType, setManualEquipmentType] = useState('');
+    // ✅ CORRECTIF — Mode appel / orientation (intervention sans site, sans équipement, sans évaluation)
+    const [isCallOnly,            setIsCallOnly]            = useState(false);
+    const [structuresEtatiques,   setStructuresEtatiques]   = useState<StructureEtatiqueResponse[]>([]);
+    const [structureEtatiqueId,   setStructureEtatiqueId]   = useState<number>(0);
+    const [structureEtatiqueNom,  setStructureEtatiqueNom]  = useState('');
+    const [structureEtatiqueMode, setStructureEtatiqueMode] = useState<'select' | 'create'>('select');
 
     const selectedItems = Object.entries(itemStates)
         .filter(([_, s]) => s.selected)
@@ -147,6 +154,9 @@ const InterventionUpdateModal: React.FC<Props> = ({
         setManualPersonContact(''); setManualPersonPost(''); setManualPersonEmail('');
         setManualEquipment(false); setManualEquipmentName(''); setManualEquipmentType('');
         setManualStructure(false); setManualStructureName('');
+        setIsCallOnly(false);
+        setStructureEtatiqueId(0); setStructureEtatiqueNom(''); setStructureEtatiqueMode('select');
+        StructureEtatiqueService.getAllList().then(setStructuresEtatiques).catch(() => setStructuresEtatiques([]));
 
         AppsService.getAllList().then(setApps).catch(console.error);
         PartnerService.getAllList().then(setPartners).catch(console.error);
@@ -220,13 +230,27 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 setManualStructure(true);
                 setManualStructureName((intervention as any).manualStructureName.trim());
             }
+
+            // ✅ CORRECTIF — Mode appel / orientation : ni site, ni équipement, ni structure hors base
+            const interAny = intervention as any;
+            const estAppel =
+                !intervention.regionId && !intervention.districtId && !intervention.healthId
+                && !intervention.deploymentId
+                && !interAny.manualEquipmentName?.trim() && !interAny.manualStructureName?.trim()
+                && (intervention.actionInter === 'ASSISTANCE_TECHNIQUE' || intervention.actionInter === 'ORIENTATION_TECHNIQUE');
+            if (estAppel) {
+                setIsCallOnly(true);
+                if (interAny.structureEtatiqueId) setStructureEtatiqueId(Number(interAny.structureEtatiqueId));
+            }
         }).catch(() => setError('Erreur lors du chargement des données'));
     }, [show, intervention, loadSiteItems]);
 
     const handleTypeChange = async (typeInter: string) => {
         setForm(prev => ({
             ...prev, typeInter,
-            actionInter: typeInter === 'EN_LIGNE' ? 'MAINTENANCE' : 'MAINTENANCE_CURATIVE',
+            actionInter: isCallOnly
+                ? (prev.actionInter === 'ORIENTATION_TECHNIQUE' ? 'ORIENTATION_TECHNIQUE' : 'ASSISTANCE_TECHNIQUE')
+                : (typeInter === 'EN_LIGNE' ? 'MAINTENANCE' : 'MAINTENANCE_CURATIVE'),
         }));
         setSiteItems([]); setItemStates({}); setAvailableAcqs({});
         if (form.healthId && !manualEquipment) await loadSiteItems(form.healthId, typeInter);
@@ -322,23 +346,23 @@ const InterventionUpdateModal: React.FC<Props> = ({
         setError(null);
         if (!intervention) return;
 
-        if (!form.dateInter || !form.evaluationId ||
+        if (!form.dateInter || (!isCallOnly && !form.evaluationId) ||
             !form.durationMinutes || !form.commentInter?.trim()) {
             setError('Veuillez remplir tous les champs obligatoires.'); return;
         }
-        if (!manualStructure && (!form.regionId || !form.districtId || !form.healthId)) {
+        if (!isCallOnly && !manualStructure && (!form.regionId || !form.districtId || !form.healthId)) {
             setError('Veuillez sélectionner une région/district/site, ou basculer en saisie manuelle de la structure.'); return;
         }
         if (manualStructure && !manualStructureName.trim()) {
             setError('Veuillez indiquer le nom de la structure.'); return;
         }
-        if (!manualEquipment && selectedItems.length === 0) {
+        if (!isCallOnly && !manualEquipment && selectedItems.length === 0) {
             setError('Veuillez sélectionner au moins un équipement, ou basculer en mode assistance technique.'); return;
         }
         if (manualEquipment && !manualEquipmentName.trim()) {
             setError('Veuillez indiquer la désignation de l\'équipement hors base.'); return;
         }
-        if (!form.bookletId && !manualPersonName.trim()) {
+        if (!isCallOnly && !form.bookletId && !manualPersonName.trim()) {
             setError('Veuillez sélectionner ou saisir la personne assistée.'); return;
         }setIsLoading(true);
         try {
@@ -357,25 +381,25 @@ const InterventionUpdateModal: React.FC<Props> = ({
 
             await InterventionService.update(intervention.id, {
                 ...form,
-                regionId:             manualStructure ? 0 : Number(form.regionId),
-                districtId:           manualStructure ? 0 : Number(form.districtId),
-                healthId:             manualStructure ? 0 : Number(form.healthId),
-                deploymentId:         manualEquipment ? 0 : Number(form.deploymentId),
-                evaluationId:         Number(form.evaluationId),
-                typesId:              manualEquipment ? 0 : Number(form.typesId),
+                regionId:             (manualStructure || isCallOnly) ? 0 : Number(form.regionId),
+                districtId:           (manualStructure || isCallOnly) ? 0 : Number(form.districtId),
+                healthId:             (manualStructure || isCallOnly) ? 0 : Number(form.healthId),
+                deploymentId:         (manualEquipment || isCallOnly) ? 0 : Number(form.deploymentId),
+                evaluationId:         isCallOnly ? undefined : Number(form.evaluationId),
+                typesId:              (manualEquipment || isCallOnly) ? 0 : Number(form.typesId),
                 appsId:               Number(form.appsId),
                 durationMinutes:      Number(form.durationMinutes),
                 partnerId:            form.partnerId ? Number(form.partnerId) : undefined,
                 personId:             undefined,
-                bookletId:            form.bookletId ? Number(form.bookletId) : undefined,
-                selectedItemIds:      manualEquipment ? [] : selectedItems,
+                bookletId:            isCallOnly ? undefined : (form.bookletId ? Number(form.bookletId) : undefined),
+                selectedItemIds:      (manualEquipment || isCallOnly) ? [] : selectedItems,
                 etatsAvant, etatsApres, replacements, maintenanceReussie,
                 enAttenteMaintenance: form.enAttenteMaintenance ?? false,
-                manualPersonName:    manualPerson && manualPersonName.trim()
+                manualPersonName:    (manualPerson || isCallOnly) && manualPersonName.trim()
                     ? manualPersonName.trim()     : undefined,
-                manualPersonContact: manualPerson && manualPersonContact.trim()
+                manualPersonContact: (manualPerson || isCallOnly) && manualPersonContact.trim()
                     ? manualPersonContact.trim()  : undefined,
-                manualPersonPost:    manualPerson && manualPersonPost.trim()
+                manualPersonPost:    (manualPerson || isCallOnly) && manualPersonPost.trim()
                     ? manualPersonPost.trim()     : undefined,
                 manualPersonEmail:   manualPerson && manualPersonEmail.trim()
                     ? manualPersonEmail.trim()    : undefined,
@@ -387,6 +411,11 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 // ✅ Structure hors base (région/district/site non renseignés)
                 manualStructureName: manualStructure && manualStructureName.trim()
                     ? manualStructureName.trim()  : undefined,
+                // ✅ CORRECTIF — Structure étatique appelante (mode appel / orientation)
+                structureEtatiqueId:  isCallOnly && structureEtatiqueMode === 'select' && structureEtatiqueId
+                    ? structureEtatiqueId : undefined,
+                structureEtatiqueNom: isCallOnly && structureEtatiqueMode === 'create' && structureEtatiqueNom.trim()
+                    ? structureEtatiqueNom.trim() : undefined,
             });
 
             onSuccess();
@@ -419,7 +448,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 {intervention && (
                     <div className="alert alert-info border-0 rounded-3 mb-3 small">
                         <i className="bi bi-info-circle me-2" />
-                        Site : <strong>{intervention.healthName}</strong>
+                        Site : <strong>{intervention.healthName || (isCallOnly ? 'Appel (sans site)' : '—')}</strong>
                         {' '}| Type : <strong>{intervention.typeInter}</strong>
                         {' '}| Durée : <strong>{intervention.durationMinutes} min</strong>
                         {intervention.enAttenteMaintenance && (
@@ -446,7 +475,12 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </div>
                         </Col> <Col md={3}>
                             <Form.Label className="fw-semibold small">Action</Form.Label>
-                            {form.typeInter === 'EN_LIGNE' ? (
+                            {isCallOnly ? (
+                                <Form.Select name="actionInter" value={form.actionInter} onChange={handleChange} className="rounded-3" size="sm">
+                                    <option value="ASSISTANCE_TECHNIQUE">🛠️ Assistance technique</option>
+                                    <option value="ORIENTATION_TECHNIQUE">🧭 Orientation technique</option>
+                                </Form.Select>
+                            ) : form.typeInter === 'EN_LIGNE' ? (
                                 <div className="p-2 bg-warning bg-opacity-10 rounded-3 text-warning small fw-semibold">
                                     🔧 Maintenance (automatique)
                                 </div>
@@ -468,6 +502,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                         </Col>
                     </Row>
                 </div>{/* ══ Section 2 — Localisation ══ */}
+                {!isCallOnly && (
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-warning mb-3">
                         <i className="bi bi-geo-alt me-2" />Localisation
@@ -528,13 +563,14 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </Col>
                         </Row>
                     )}
-                </div>{/* ══ Section 2b — Application & Bailleur ══ */}
+                </div>
+                )}{/* ══ Section 2b — Application & Bailleur ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-warning mb-3">
                         <i className="bi bi-app-indicator me-2" />Application & Bailleur
                     </h6>
                     <Row className="g-3">
-                        <Col md={6}>
+                        {!isCallOnly && (<Col md={6}>
                             <Form.Label className="fw-semibold small">Application <span className="text-danger">*</span></Form.Label>
                             <div className="d-flex align-items-center gap-2">
                                 <Form.Select name="appsId" value={form.appsId} onChange={handleChange} className="rounded-3" size="sm">
@@ -559,7 +595,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                                         </div>
                                     ) : null;
                                 })()}
-                            </div></Col>
+                            </div></Col>)}
                         <Col md={6}>
                             <Form.Label className="fw-semibold small">Bailleur / Partenaire</Form.Label>
                             <Form.Select
@@ -754,6 +790,63 @@ const InterventionUpdateModal: React.FC<Props> = ({
                             </>
                         )}
                     </div>
+                )}
+                {/* ✅ CORRECTIF — Mode appel / orientation : structure appelante et personne contactée */}
+                {isCallOnly && (
+                    <div className="card border-0 bg-light rounded-4 p-3 mb-3">
+                        <h6 className="fw-bold text-warning mb-3">
+                            <i className="bi bi-building me-2" />Structure appelante et personne contactée
+                        </h6>
+                        <Row className="g-3">
+                            <Col md={12}>
+                                <Form.Label className="fw-semibold small">Structure étatique</Form.Label>
+                                <div className="d-flex gap-2 mb-2">
+                                    <button type="button"
+                                        className={`btn btn-sm rounded-3 ${structureEtatiqueMode === 'select' ? 'btn-warning text-white' : 'btn-outline-warning'}`}
+                                        onClick={() => { setStructureEtatiqueMode('select'); setStructureEtatiqueNom(''); }}>
+                                        Sélectionner
+                                    </button>
+                                    <button type="button"
+                                        className={`btn btn-sm rounded-3 ${structureEtatiqueMode === 'create' ? 'btn-warning text-white' : 'btn-outline-warning'}`}
+                                        onClick={() => { setStructureEtatiqueMode('create'); setStructureEtatiqueId(0); }}>
+                                        <i className="bi bi-plus-circle me-1" />Nouvelle
+                                    </button>
+                                </div>
+                                {structureEtatiqueMode === 'select' ? (
+                                    <Form.Select value={structureEtatiqueId} onChange={e => setStructureEtatiqueId(Number(e.target.value))} className="rounded-3" size="sm">
+                                        <option value={0}>-- Aucune structure --</option>
+                                        {structuresEtatiques.map(s => (
+                                            <option key={s.id} value={s.id}>{s.nom}{s.regionName ? ` (${s.regionName})` : ''}</option>
+                                        ))}
+                                    </Form.Select>
+                                ) : (
+                                    <Form.Control type="text"
+                                        placeholder="Ex: Préfecture de Yamoussoukro"
+                                        value={structureEtatiqueNom}
+                                        onChange={e => setStructureEtatiqueNom(e.target.value)}
+                                        className="rounded-3" size="sm" />
+                                )}
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Nom de la personne contactée</Form.Label>
+                                <Form.Control type="text" placeholder="Ex: KOUASSI Jean"
+                                    value={manualPersonName} onChange={e => setManualPersonName(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Fonction / Poste</Form.Label>
+                                <Form.Control type="text" placeholder="Ex: Directeur des activités pharmaceutiques"
+                                    value={manualPersonPost} onChange={e => setManualPersonPost(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label className="fw-semibold small">Contact / Téléphone</Form.Label>
+                                <Form.Control type="text" placeholder="Ex: 07 00 00 00 00"
+                                    value={manualPersonContact} onChange={e => setManualPersonContact(e.target.value)}
+                                    className="rounded-3" size="sm" />
+                            </Col>
+                        </Row>
+                    </div>
                 )}{/* ══ Section 5 — Personne assistée ══ */}
                 {(form.healthId > 0 || manualStructure || intervention?.healthId) && (
                     <div className="card border-0 bg-light rounded-4 p-3 mb-3">
@@ -854,17 +947,17 @@ const InterventionUpdateModal: React.FC<Props> = ({
                 )}{/* ══ Section 6 — Évaluation & Commentaire ══ */}
                 <div className="card border-0 bg-light rounded-4 p-3 mb-3">
                     <h6 className="fw-bold text-warning mb-3">
-                        <i className="bi bi-chat-left-text me-2" />Évaluation & Commentaire
+                        <i className="bi bi-chat-left-text me-2" />{isCallOnly ? 'Commentaire' : 'Évaluation & Commentaire'}
                     </h6>
                     <Row className="g-3">
-                        <Col md={4}>
+                        {!isCallOnly && (<Col md={4}>
                             <Form.Label className="fw-semibold small">Évaluation <span className="text-danger">*</span></Form.Label>
                             <Form.Select name="evaluationId" value={form.evaluationId} onChange={handleChange} className="rounded-3" size="sm">
                                 <option value={0}>-- Sélectionner --</option>
                                 {evaluations.map(e => <option key={e.id} value={e.id}>{e.evlName}</option>)}
                             </Form.Select>
-                        </Col>
-                        <Col md={8}>
+                        </Col>)}
+                        <Col md={isCallOnly ? 12 : 8}>
                             <Form.Label className="fw-semibold small">Commentaire <span className="text-danger">*</span></Form.Label>
                             <Form.Control as="textarea" rows={2} name="commentInter" value={form.commentInter}
                                 onChange={handleChange} placeholder="Décrivez l'intervention..."
@@ -880,7 +973,7 @@ const InterventionUpdateModal: React.FC<Props> = ({
                     {isLoading
                         ? <><Spinner size="sm" className="me-2" />Modification...</>
                         : <><i className="bi bi-pencil me-2" />Modifier
-                            {manualEquipment ? ' (assistance technique)' : selectedItems.length > 0 ? ` (${selectedItems.length} équipement(s))` : ''}
+                            {isCallOnly ? ' (appel / orientation)' : manualEquipment ? ' (assistance technique)' : selectedItems.length > 0 ? ` (${selectedItems.length} équipement(s))` : ''}
                           </>
                     }
                 </Button>

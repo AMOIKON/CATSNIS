@@ -288,7 +288,14 @@ public class InterventionPdfService {
                         count + (count > 1 ? "e intervention sur ce site" : "re intervention sur ce site"));
             } catch (Exception ignored) {}
         } else {
-            addInfoRow(infoTable, "Structure", extractTag(comment, STRUCTURE_TAG));
+            // ✅ CORRECTIF : en mode appel / orientation, la structure qui a appelé est la
+            // « structure étatique » sélectionnée ou saisie — la fiche l'ignorait et affichait « — ».
+            String structureLabel = extractTag(comment, STRUCTURE_TAG);
+            if ((structureLabel == null || structureLabel.isBlank())
+                    && intervention.getStructureEtatique() != null) {
+                structureLabel = intervention.getStructureEtatique().getNom();
+            }
+            addInfoRow(infoTable, "Structure", structureLabel);
         }
 
         addInfoRow(infoTable, "Réalisée par",
